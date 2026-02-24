@@ -42,5 +42,16 @@ export function useLists(userId: string | undefined) {
     setLists(prev => prev.filter(l => l.id !== id));
   }, [supabase]);
 
-  return { lists, loading, addList, updateList, deleteList };
+  const reorderLists = useCallback(async (reordered: List[]) => {
+    setLists(reordered);
+    const updates = reordered.map((l, i) => ({
+      id: l.id,
+      user_id: l.user_id,
+      name: l.name,
+      sort_order: i,
+    }));
+    await supabase.from("lists").upsert(updates);
+  }, [supabase]);
+
+  return { lists, loading, addList, updateList, deleteList, reorderLists };
 }

@@ -13,8 +13,157 @@ import { useTags } from "@/hooks/useTags";
 import { useLists } from "@/hooks/useLists";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useTheme } from "@/components/ThemeProvider";
-import { Plus, List, Inbox, Trash2, Edit2, Check, X, Calendar } from "lucide-react";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { Plus, List, Inbox, Trash2, Edit2, Check, X, Calendar, GripVertical } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
+import type { List as ListType } from "@/lib/types";
+
+function SortableListItem({
+  list,
+  isActive,
+  isEditing,
+  editListName,
+  setEditListName,
+  onSelect,
+  onStartEdit,
+  onSaveEdit,
+  onCancelEdit,
+  onDelete,
+}: {
+  list: ListType;
+  isActive: boolean;
+  isEditing: boolean;
+  editListName: string;
+  setEditListName: (v: string) => void;
+  onSelect: () => void;
+  onStartEdit: () => void;
+  onSaveEdit: () => void;
+  onCancelEdit: () => void;
+  onDelete: () => void;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: list.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`group flex items-center gap-0.5 rounded-xl transition-default ${
+        isDragging ? "opacity-50 z-10" : ""
+      } ${
+        isActive
+          ? "bg-black dark:bg-white"
+          : "hover:bg-black/5 dark:hover:bg-white/10"
+      }`}
+    >
+      {isEditing ? (
+        <div className="flex-1 flex items-center gap-1 px-2 py-1">
+          <input
+            autoFocus
+            type="text"
+            value={editListName}
+            onChange={(e) => setEditListName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") onSaveEdit();
+              if (e.key === "Escape") onCancelEdit();
+            }}
+            className="flex-1 text-sm bg-transparent text-black dark:text-white focus:outline-none min-w-0"
+          />
+          <button
+            onClick={onSaveEdit}
+            className="text-gray-400 hover:text-black dark:hover:text-white transition-default"
+          >
+            <Check size={12} />
+          </button>
+          <button
+            onClick={onCancelEdit}
+            className="text-gray-400 hover:text-black dark:hover:text-white transition-default"
+          >
+            <X size={12} />
+          </button>
+        </div>
+      ) : (
+        <>
+          {/* Drag handle */}
+          <div
+            {...attributes}
+            {...listeners}
+            className={`flex-shrink-0 pl-1 cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-default touch-none ${
+              isActive
+                ? "text-white/40 dark:text-black/40"
+                : "text-gray-300 dark:text-gray-600"
+            }`}
+            aria-label="Drag to reorder list"
+          >
+            <GripVertical size={12} />
+          </div>
+          <button
+            onClick={onSelect}
+            className={`flex-1 flex items-center gap-2.5 px-2 py-2 text-sm text-left transition-default ${
+              isActive
+                ? "text-white dark:text-black font-medium"
+                : "text-gray-500 dark:text-gray-400"
+            }`}
+          >
+            <List size={14} />
+            <span className="truncate">{list.name}</span>
+          </button>
+          <div className="flex items-center gap-0.5 pr-1.5 opacity-0 group-hover:opacity-100 transition-default">
+            <button
+              onClick={onStartEdit}
+              className={`p-1 rounded transition-default ${
+                isActive
+                  ? "text-white/60 dark:text-black/60 hover:text-white dark:hover:text-black"
+                  : "text-gray-400 hover:text-black dark:hover:text-white"
+              }`}
+              aria-label="Edit list"
+            >
+              <Edit2 size={11} />
+            </button>
+            <button
+              onClick={onDelete}
+              className={`p-1 rounded transition-default ${
+                isActive
+                  ? "text-white/60 dark:text-black/60 hover:text-white dark:hover:text-black"
+                  : "text-gray-400 hover:text-black dark:hover:text-white"
+              }`}
+              aria-label="Delete list"
+            >
+              <Trash2 size={11} />
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
 
 export default function DashboardPage() {
   const [user, setUser] = useState<User | null>(null);
@@ -42,7 +191,7 @@ export default function DashboardPage() {
   }, [supabase, router]);
 
   const { tags, addTag, deleteTag } = useTags(user?.id);
-  const { lists, addList, updateList, deleteList } = useLists(user?.id);
+  const { lists, addList, updateList, deleteList, reorderLists } = useLists(user?.id);
   const {
     todos,
     loading: todosLoading,
@@ -73,6 +222,21 @@ export default function DashboardPage() {
     },
     onToggleTheme: toggleTheme,
   });
+
+  // Sensors for list drag & drop
+  const listSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  function handleListDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = lists.findIndex((l) => l.id === active.id);
+    const newIndex = lists.findIndex((l) => l.id === over.id);
+    const reordered = arrayMove(lists, oldIndex, newIndex);
+    reorderLists(reordered);
+  }
 
   async function handleAddList(e: React.FormEvent) {
     e.preventDefault();
@@ -129,91 +293,40 @@ export default function DashboardPage() {
                 <p className="text-xs font-medium text-gray-400 px-3 mb-1 uppercase tracking-wide">
                   Lists
                 </p>
-                <div className="space-y-0.5">
-                  {lists.map((list) => (
-                    <div
-                      key={list.id}
-                      className={`group flex items-center gap-1 rounded-xl transition-default ${
-                        activeListId === list.id
-                          ? "bg-black dark:bg-white"
-                          : "hover:bg-black/5 dark:hover:bg-white/10"
-                      }`}
-                    >
-                      {editingListId === list.id ? (
-                        <div className="flex-1 flex items-center gap-1 px-2 py-1">
-                          <input
-                            autoFocus
-                            type="text"
-                            value={editListName}
-                            onChange={(e) => setEditListName(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") handleUpdateList(list.id);
-                              if (e.key === "Escape") setEditingListId(null);
-                            }}
-                            className="flex-1 text-sm bg-transparent text-black dark:text-white focus:outline-none min-w-0"
-                          />
-                          <button
-                            onClick={() => handleUpdateList(list.id)}
-                            className="text-gray-400 hover:text-black dark:hover:text-white transition-default"
-                          >
-                            <Check size={12} />
-                          </button>
-                          <button
-                            onClick={() => setEditingListId(null)}
-                            className="text-gray-400 hover:text-black dark:hover:text-white transition-default"
-                          >
-                            <X size={12} />
-                          </button>
-                        </div>
-                      ) : (
-                        <>
-                          <button
-                            onClick={() => setActiveListId(list.id)}
-                            className={`flex-1 flex items-center gap-2.5 px-3 py-2 text-sm text-left transition-default ${
-                              activeListId === list.id
-                                ? "text-white dark:text-black font-medium"
-                                : "text-gray-500 dark:text-gray-400"
-                            }`}
-                          >
-                            <List size={14} />
-                            <span className="truncate">{list.name}</span>
-                          </button>
-                          <div className="flex items-center gap-0.5 pr-1.5 opacity-0 group-hover:opacity-100 transition-default">
-                            <button
-                              onClick={() => {
-                                setEditingListId(list.id);
-                                setEditListName(list.name);
-                              }}
-                              className={`p-1 rounded transition-default ${
-                                activeListId === list.id
-                                  ? "text-white/60 dark:text-black/60 hover:text-white dark:hover:text-black"
-                                  : "text-gray-400 hover:text-black dark:hover:text-white"
-                              }`}
-                              aria-label="Edit list"
-                            >
-                              <Edit2 size={11} />
-                            </button>
-                            <button
-                              onClick={() => {
-                                deleteList(list.id);
-                                if (activeListId === list.id)
-                                  setActiveListId(null);
-                              }}
-                              className={`p-1 rounded transition-default ${
-                                activeListId === list.id
-                                  ? "text-white/60 dark:text-black/60 hover:text-white dark:hover:text-black"
-                                  : "text-gray-400 hover:text-black dark:hover:text-white"
-                              }`}
-                              aria-label="Delete list"
-                            >
-                              <Trash2 size={11} />
-                            </button>
-                          </div>
-                        </>
-                      )}
+                <DndContext
+                  sensors={listSensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleListDragEnd}
+                >
+                  <SortableContext
+                    items={lists.map((l) => l.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    <div className="space-y-0.5">
+                      {lists.map((list) => (
+                        <SortableListItem
+                          key={list.id}
+                          list={list}
+                          isActive={activeListId === list.id}
+                          isEditing={editingListId === list.id}
+                          editListName={editListName}
+                          setEditListName={setEditListName}
+                          onSelect={() => setActiveListId(list.id)}
+                          onStartEdit={() => {
+                            setEditingListId(list.id);
+                            setEditListName(list.name);
+                          }}
+                          onSaveEdit={() => handleUpdateList(list.id)}
+                          onCancelEdit={() => setEditingListId(null)}
+                          onDelete={() => {
+                            deleteList(list.id);
+                            if (activeListId === list.id) setActiveListId(null);
+                          }}
+                        />
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  </SortableContext>
+                </DndContext>
               </div>
             )}
 

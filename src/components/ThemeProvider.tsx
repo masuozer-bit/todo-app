@@ -8,6 +8,7 @@ import {
   useCallback,
   type ReactNode,
 } from "react";
+
 import { createClient } from "@/lib/supabase/client";
 
 type Theme = "light" | "dark";
@@ -28,7 +29,6 @@ export function useTheme() {
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<Theme>("light");
-  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     // Read from localStorage first for instant load
@@ -60,7 +60,6 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       }
     });
 
-    setMounted(true);
   }, []);
 
   const toggleTheme = useCallback(() => {
@@ -81,11 +80,6 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       }
     });
   }, [theme]);
-
-  // Prevent flash of wrong theme
-  if (!mounted) {
-    return null;
-  }
 
   return (
     <ThemeContext.Provider value={{ theme, toggleTheme }}>

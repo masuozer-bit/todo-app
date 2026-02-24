@@ -106,7 +106,10 @@ export function useTodos(
       const maxOrder =
         todos.length > 0 ? Math.max(...todos.map((t) => t.sort_order)) : 0;
 
-      const { data, error } = await supabase
+      // Try with new columns first, fall back to basic insert if columns don't exist yet
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let todoData: any = null;
+      const { data: d1, error: e1 } = await supabase
         .from("todos")
         .insert({
           user_id: userId,
@@ -120,16 +123,34 @@ export function useTodos(
         .select()
         .single();
 
-      if (error || !data) return;
+      if (e1) {
+        // Fallback: columns may not exist yet
+        const { data: d2, error: e2 } = await supabase
+          .from("todos")
+          .insert({
+            user_id: userId,
+            title,
+            sort_order: maxOrder + 1,
+          })
+          .select()
+          .single();
+        if (e2 || !d2) return;
+        todoData = d2;
+      } else {
+        todoData = d1;
+      }
+
+      if (!todoData) return;
 
       if (tagIds.length > 0) {
         await supabase
           .from("todo_tags")
-          .insert(tagIds.map((tagId) => ({ todo_id: data.id, tag_id: tagId })));
+          .insert(tagIds.map((tagId) => ({ todo_id: todoData.id, tag_id: tagId })));
       }
 
       const newTodo: Todo = {
-        ...data,
+        ...todoData,
+        priority: todoData.priority ?? "none",
         tags: tagIds
           .map((id) => allTags.find((t) => t.id === id))
           .filter(Boolean) as Tag[],
@@ -173,11 +194,25 @@ export function useTodos(
         .update(updates)
         .eq("id", id);
 
-      if (!error) {
-        setTodos((prev) =>
-          prev.map((t) => (t.id === id ? { ...t, ...updates } : t))
-        );
+      if (error) {
+        // Fallback: only update title if new columns don't exist yet
+        if (updates.title) {
+          const { error: e2 } = await supabase
+            .from("todos")
+            .update({ title: updates.title })
+            .eq("id", id);
+          if (!e2) {
+            setTodos((prev) =>
+              prev.map((t) => (t.id === id ? { ...t, title: updates.title! } : t))
+            );
+          }
+        }
+        return;
       }
+
+      setTodos((prev) =>
+        prev.map((t) => (t.id === id ? { ...t, ...updates } : t))
+      );
     },
     [supabase]
   );
@@ -233,7 +268,6 @@ export function useTodos(
         user_id: todo.user_id,
         title: todo.title,
         completed: todo.completed,
-        priority: todo.priority,
       }));
       await supabase.from("todos").upsert(updates);
     },

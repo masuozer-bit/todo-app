@@ -97,6 +97,7 @@ export default function TodoItem({
   const [showSubtaskInput, setShowSubtaskInput] = useState(false);
   const editRef = useRef<HTMLInputElement>(null);
   const subtaskRef = useRef<HTMLInputElement>(null);
+  const cancelledRef = useRef(false);
   const todoTagIds = (todo.tags ?? []).map((t) => t.id);
   const subtasks = todo.subtasks ?? [];
   const completedSubtasks = subtasks.filter((s) => s.completed).length;
@@ -117,6 +118,10 @@ export default function TodoItem({
   }, [showSubtaskInput]);
 
   function handleSave() {
+    if (cancelledRef.current) {
+      cancelledRef.current = false;
+      return;
+    }
     const trimmed = editValue.trim();
     if (trimmed && trimmed !== todo.title) {
       onUpdate(todo.id, { title: trimmed });
@@ -206,9 +211,11 @@ export default function TodoItem({
                 <Check size={16} />
               </button>
               <button
+                onMouseDown={() => { cancelledRef.current = true; }}
                 onClick={() => {
                   setEditValue(todo.title);
                   setEditing(false);
+                  cancelledRef.current = false;
                 }}
                 className="text-gray-400 hover:text-black dark:hover:text-white transition-default"
                 aria-label="Cancel edit"

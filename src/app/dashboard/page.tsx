@@ -257,6 +257,11 @@ export default function DashboardPage() {
                 New list
               </button>
             )}
+
+            {/* Tag Manager — tucked into sidebar */}
+            <div className="mt-6 pt-4 border-t border-black/5 dark:border-white/5 px-1">
+              <TagManager tags={tags} onAdd={addTag} onDelete={deleteTag} />
+            </div>
           </div>
         </aside>
 
@@ -321,11 +326,6 @@ export default function DashboardPage() {
               lists={lists}
               activeListId={activeListId}
             />
-          </div>
-
-          {/* Tag Manager */}
-          <div className="mb-6">
-            <TagManager tags={tags} onAdd={addTag} onDelete={deleteTag} />
           </div>
 
           {/* Todo List */}

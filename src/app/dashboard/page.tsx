@@ -270,7 +270,7 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-white dark:bg-black transition-colors">
       <Header email={user?.email} />
 
-      <div className={`mx-auto px-4 pb-16 flex gap-6 ${showCalendar ? "max-w-6xl" : "max-w-5xl"}`}>
+      <div className={`mx-auto px-4 pb-8 flex gap-6 ${showCalendar ? "max-w-6xl" : "max-w-5xl"}`}>
         {/* Sidebar — lists */}
         <aside className="hidden md:block w-52 flex-shrink-0 pt-4">
           <div className="sticky top-4">
@@ -441,6 +441,35 @@ export default function DashboardPage() {
             />
           </div>
 
+          {/* Mobile: list selector (below input, above tasks) */}
+          {lists.length > 0 && (
+            <div className="md:hidden mb-4 flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+              <button
+                onClick={() => setActiveListId(null)}
+                className={`flex-shrink-0 text-sm px-4 py-2 rounded-full font-medium transition-default ${
+                  !activeListId
+                    ? "bg-black dark:bg-white text-white dark:text-black"
+                    : "text-gray-500 dark:text-gray-400 border border-black/15 dark:border-white/15"
+                }`}
+              >
+                All
+              </button>
+              {lists.map((list) => (
+                <button
+                  key={list.id}
+                  onClick={() => setActiveListId(list.id)}
+                  className={`flex-shrink-0 text-sm px-4 py-2 rounded-full font-medium transition-default ${
+                    activeListId === list.id
+                      ? "bg-black dark:bg-white text-white dark:text-black"
+                      : "text-gray-500 dark:text-gray-400 border border-black/15 dark:border-white/15"
+                  }`}
+                >
+                  {list.name}
+                </button>
+              ))}
+            </div>
+          )}
+
           {/* Todo List */}
           <TodoList
             todos={todos}
@@ -474,34 +503,6 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* Mobile: list selector at bottom */}
-      {lists.length > 0 && (
-        <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white/90 dark:bg-black/90 backdrop-blur-xl border-t border-black/5 dark:border-white/5 px-4 py-3 flex gap-2.5 overflow-x-auto">
-          <button
-            onClick={() => setActiveListId(null)}
-            className={`flex-shrink-0 text-sm px-5 py-2.5 rounded-full font-medium transition-default ${
-              !activeListId
-                ? "bg-black dark:bg-white text-white dark:text-black"
-                : "text-gray-500 dark:text-gray-400 border border-black/15 dark:border-white/15"
-            }`}
-          >
-            All
-          </button>
-          {lists.map((list) => (
-            <button
-              key={list.id}
-              onClick={() => setActiveListId(list.id)}
-              className={`flex-shrink-0 text-sm px-5 py-2.5 rounded-full font-medium transition-default ${
-                activeListId === list.id
-                  ? "bg-black dark:bg-white text-white dark:text-black"
-                  : "text-gray-500 dark:text-gray-400 border border-black/15 dark:border-white/15"
-              }`}
-            >
-              {list.name}
-            </button>
-          ))}
-        </div>
-      )}
     </div>
   );
 }

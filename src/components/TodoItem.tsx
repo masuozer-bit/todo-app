@@ -3,7 +3,6 @@
 import { useState, useRef, useEffect } from "react";
 import {
   Trash2,
-  GripVertical,
   Check,
   X,
   ChevronDown,
@@ -177,16 +176,7 @@ export default function TodoItem({
       } ${todo.completed ? "opacity-60" : ""}`}
     >
       {/* Main row */}
-      <div className="flex items-start gap-3 p-3 md:p-4">
-        {/* Drag handle */}
-        <div
-          {...dragHandleProps}
-          className="flex-shrink-0 mt-0.5 cursor-grab active:cursor-grabbing text-gray-400 opacity-0 group-hover:opacity-100 transition-default touch-none"
-          aria-label="Drag to reorder"
-        >
-          <GripVertical size={16} />
-        </div>
-
+      <div className="flex items-start gap-3 p-3 md:p-4" {...dragHandleProps}>
         {/* Checkbox */}
         <input
           type="checkbox"

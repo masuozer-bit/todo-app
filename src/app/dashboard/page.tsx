@@ -30,7 +30,7 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Plus, List, Inbox, Trash2, Edit2, Check, X, Calendar, GripVertical } from "lucide-react";
+import { Plus, List, Inbox, Trash2, Edit2, Check, X, Calendar } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
 import type { List as ListType } from "@/lib/types";
 
@@ -111,22 +111,11 @@ function SortableListItem({
         </div>
       ) : (
         <>
-          {/* Drag handle */}
-          <div
-            {...attributes}
-            {...listeners}
-            className={`flex-shrink-0 pl-1 cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-default touch-none ${
-              isActive
-                ? "text-white/40 dark:text-black/40"
-                : "text-gray-300 dark:text-gray-600"
-            }`}
-            aria-label="Drag to reorder list"
-          >
-            <GripVertical size={12} />
-          </div>
           <button
             onClick={onSelect}
-            className={`flex-1 flex items-center gap-2.5 px-2 py-2 text-sm text-left transition-default ${
+            {...attributes}
+            {...listeners}
+            className={`flex-1 flex items-center gap-2.5 px-3 py-2 text-sm text-left transition-default touch-none ${
               isActive
                 ? "text-white dark:text-black font-medium"
                 : "text-gray-500 dark:text-gray-400"

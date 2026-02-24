@@ -7,12 +7,13 @@ import Header from "@/components/Header";
 import TodoInput from "@/components/TodoInput";
 import TodoList from "@/components/TodoList";
 import TagManager from "@/components/TagManager";
+import CalendarPanel from "@/components/CalendarPanel";
 import { useTodos } from "@/hooks/useTodos";
 import { useTags } from "@/hooks/useTags";
 import { useLists } from "@/hooks/useLists";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useTheme } from "@/components/ThemeProvider";
-import { Plus, List, Inbox, Trash2, Edit2, Check, X } from "lucide-react";
+import { Plus, List, Inbox, Trash2, Edit2, Check, X, Calendar } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
 
 export default function DashboardPage() {
@@ -23,6 +24,8 @@ export default function DashboardPage() {
   const [showNewList, setShowNewList] = useState(false);
   const [editingListId, setEditingListId] = useState<string | null>(null);
   const [editListName, setEditListName] = useState("");
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [calendarDate, setCalendarDate] = useState<string | null>(null);
   const router = useRouter();
   const supabase = createClient();
   const { toggleTheme } = useTheme();
@@ -103,7 +106,7 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-white dark:bg-black transition-colors">
       <Header email={user?.email} />
 
-      <div className="max-w-5xl mx-auto px-4 pb-16 flex gap-6">
+      <div className={`mx-auto px-4 pb-16 flex gap-6 ${showCalendar ? "max-w-6xl" : "max-w-5xl"}`}>
         {/* Sidebar — lists */}
         <aside className="hidden md:block w-52 flex-shrink-0 pt-4">
           <div className="sticky top-4">
@@ -259,18 +262,56 @@ export default function DashboardPage() {
 
         {/* Main content */}
         <main className="flex-1 min-w-0 pt-4">
-          {/* Stats */}
-          <div className="flex items-baseline gap-4 mb-6">
-            <h2 className="text-2xl md:text-3xl font-bold text-black dark:text-white">
-              {activeList ? activeList.name : "All Tasks"}
-            </h2>
-            <div className="flex items-center gap-3 text-sm text-gray-400">
-              <span>{activeTodoCount} active</span>
-              {completedTodoCount > 0 && (
-                <span>{completedTodoCount} done</span>
-              )}
+          {/* Stats + calendar toggle */}
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-baseline gap-4">
+              <h2 className="text-2xl md:text-3xl font-bold text-black dark:text-white">
+                {activeList ? activeList.name : "All Tasks"}
+              </h2>
+              <div className="flex items-center gap-3 text-sm text-gray-400">
+                <span>{activeTodoCount} active</span>
+                {completedTodoCount > 0 && (
+                  <span>{completedTodoCount} done</span>
+                )}
+              </div>
             </div>
+            <button
+              onClick={() => {
+                setShowCalendar(!showCalendar);
+                if (showCalendar) setCalendarDate(null);
+              }}
+              className={`hidden md:flex w-10 h-10 rounded-xl glass-card-subtle items-center justify-center transition-default ${
+                showCalendar
+                  ? "bg-black dark:bg-white text-white dark:text-black"
+                  : "text-gray-400 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10"
+              }`}
+              aria-label={showCalendar ? "Hide calendar" : "Show calendar"}
+            >
+              <Calendar size={18} />
+            </button>
           </div>
+
+          {/* Calendar date filter indicator */}
+          {calendarDate && (
+            <div className="mb-4 flex items-center gap-2 text-sm text-gray-400">
+              <Calendar size={14} />
+              <span>
+                Showing tasks due{" "}
+                <span className="text-black dark:text-white font-medium">
+                  {new Date(calendarDate + "T00:00:00").toLocaleDateString(
+                    "en",
+                    { month: "long", day: "numeric" }
+                  )}
+                </span>
+              </span>
+              <button
+                onClick={() => setCalendarDate(null)}
+                className="text-gray-400 hover:text-black dark:hover:text-white transition-default"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          )}
 
           {/* Todo Input */}
           <div className="mb-4">
@@ -300,8 +341,22 @@ export default function DashboardPage() {
             onToggleSubtask={toggleSubtask}
             onDeleteSubtask={deleteSubtask}
             loading={todosLoading}
+            filterDate={calendarDate}
           />
         </main>
+
+        {/* Calendar panel — desktop only */}
+        {showCalendar && (
+          <aside className="hidden md:block w-80 flex-shrink-0 pt-4">
+            <div className="sticky top-4">
+              <CalendarPanel
+                todos={todos}
+                selectedDate={calendarDate}
+                onSelectDate={setCalendarDate}
+              />
+            </div>
+          </aside>
+        )}
       </div>
 
       {/* Mobile: list selector at bottom */}

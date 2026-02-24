@@ -44,6 +44,7 @@ interface TodoListProps {
   onToggleSubtask: (todoId: string, subtaskId: string, completed: boolean) => void;
   onDeleteSubtask: (todoId: string, subtaskId: string) => void;
   loading: boolean;
+  filterDate?: string | null;
 }
 
 export default function TodoList({
@@ -58,6 +59,7 @@ export default function TodoList({
   onToggleSubtask,
   onDeleteSubtask,
   loading,
+  filterDate,
 }: TodoListProps) {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -86,6 +88,11 @@ export default function TodoList({
   // Filtered + sorted todos
   const filtered = useMemo(() => {
     let result = todos;
+
+    // Calendar date filter
+    if (filterDate) {
+      result = result.filter((t) => t.due_date === filterDate);
+    }
 
     // Search
     if (search.trim()) {
@@ -126,7 +133,7 @@ export default function TodoList({
     }
 
     return result;
-  }, [todos, search, filterStatus, filterTagId, sortBy]);
+  }, [todos, search, filterStatus, filterTagId, filterDate, sortBy]);
 
   const activeTodos = filtered.filter((t) => !t.completed);
   const completedTodos = filtered.filter((t) => t.completed);

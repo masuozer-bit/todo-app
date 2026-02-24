@@ -84,7 +84,7 @@ export function useTodos(
 
     setTodos(todosWithData);
     setLoading(false);
-  }, [userId, allTags, activeListId, supabase]);
+  }, [userId, allTags, activeListId]);
 
   useEffect(() => {
     fetchTodos();
@@ -159,7 +159,7 @@ export function useTodos(
 
       setTodos((prev) => [...prev, newTodo]);
     },
-    [userId, todos, allTags, activeListId, supabase]
+    [userId, todos, allTags, activeListId]
   );
 
   const toggleTodo = useCallback(
@@ -175,7 +175,7 @@ export function useTodos(
         );
       }
     },
-    [supabase]
+    []
   );
 
   const updateTodo = useCallback(
@@ -214,7 +214,7 @@ export function useTodos(
         prev.map((t) => (t.id === id ? { ...t, ...updates } : t))
       );
     },
-    [supabase]
+    []
   );
 
   const deleteTodo = useCallback(
@@ -225,7 +225,7 @@ export function useTodos(
         setTodos((prev) => prev.filter((t) => t.id !== id));
       }
     },
-    [supabase]
+    []
   );
 
   const toggleTodoTag = useCallback(
@@ -256,7 +256,7 @@ export function useTodos(
         })
       );
     },
-    [allTags, supabase]
+    [allTags]
   );
 
   const reorderTodos = useCallback(
@@ -271,7 +271,7 @@ export function useTodos(
       }));
       await supabase.from("todos").upsert(updates);
     },
-    [supabase]
+    []
   );
 
   // Subtask operations
@@ -305,7 +305,7 @@ export function useTodos(
         )
       );
     },
-    [userId, todos, supabase]
+    [userId, todos]
   );
 
   const toggleSubtask = useCallback(
@@ -330,7 +330,7 @@ export function useTodos(
         );
       }
     },
-    [supabase]
+    []
   );
 
   const deleteSubtask = useCallback(
@@ -355,7 +355,7 @@ export function useTodos(
         );
       }
     },
-    [supabase]
+    []
   );
 
   const clearCompleted = useCallback(async () => {
@@ -370,7 +370,7 @@ export function useTodos(
     if (!error) {
       setTodos((prev) => prev.filter((t) => !t.completed));
     }
-  }, [todos, supabase]);
+  }, [todos]);
 
   const exportTodos = useCallback(
     (format: "json" | "csv") => {

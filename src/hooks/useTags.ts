@@ -22,7 +22,7 @@ export function useTags(userId: string | undefined) {
       setTags(data);
     }
     setLoading(false);
-  }, [userId, supabase]);
+  }, [userId]);
 
   useEffect(() => {
     fetchTags();
@@ -42,7 +42,7 @@ export function useTags(userId: string | undefined) {
         setTags((prev) => [...prev, data]);
       }
     },
-    [userId, supabase]
+    [userId]
   );
 
   const deleteTag = useCallback(
@@ -55,7 +55,7 @@ export function useTags(userId: string | undefined) {
         setTags((prev) => prev.filter((t) => t.id !== id));
       }
     },
-    [userId, supabase]
+    [userId]
   );
 
   return { tags, loading, addTag, deleteTag };

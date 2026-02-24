@@ -169,15 +169,21 @@ export default function DashboardPage() {
   const { toggleTheme } = useTheme();
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) {
+    supabase.auth
+      .getUser()
+      .then(({ data: { user } }) => {
+        if (!user) {
+          router.push("/login");
+          return;
+        }
+        setUser(user);
+        setAuthLoading(false);
+      })
+      .catch(() => {
         router.push("/login");
-        return;
-      }
-      setUser(user);
-      setAuthLoading(false);
-    });
-  }, [supabase, router]);
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const { tags, addTag, deleteTag } = useTags(user?.id);
   const { lists, addList, updateList, deleteList, reorderLists } = useLists(user?.id);

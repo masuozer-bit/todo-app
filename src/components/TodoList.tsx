@@ -17,7 +17,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { Search, X, Filter } from "lucide-react";
-import type { Todo, Tag, Priority } from "@/lib/types";
+import type { Todo, Tag, Priority, List } from "@/lib/types";
 import SortableItem from "./SortableItem";
 import TodoItem from "./TodoItem";
 import ConfirmDialog from "./ConfirmDialog";
@@ -45,6 +45,8 @@ interface TodoListProps {
   onDeleteSubtask: (todoId: string, subtaskId: string) => void;
   loading: boolean;
   filterDate?: string | null;
+  lists?: List[];
+  activeListId?: string | null;
 }
 
 export default function TodoList({
@@ -60,6 +62,8 @@ export default function TodoList({
   onDeleteSubtask,
   loading,
   filterDate,
+  lists = [],
+  activeListId,
 }: TodoListProps) {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -311,7 +315,7 @@ export default function TodoList({
                           : "border-black/10 dark:border-white/10 text-gray-400 hover:border-black/20 dark:hover:border-white/20"
                       }`}
                     >
-                      #{tag.name}
+                      {tag.name}
                     </button>
                   ))}
                 </div>
@@ -384,6 +388,8 @@ export default function TodoList({
                       onAddSubtask={onAddSubtask}
                       onToggleSubtask={onToggleSubtask}
                       onDeleteSubtask={onDeleteSubtask}
+                      lists={lists}
+                      activeListId={activeListId}
                     />
                   ))}
                 </div>
@@ -410,6 +416,8 @@ export default function TodoList({
                     onAddSubtask={onAddSubtask}
                     onToggleSubtask={onToggleSubtask}
                     onDeleteSubtask={onDeleteSubtask}
+                    lists={lists}
+                    activeListId={activeListId}
                   />
                 ))}
               </div>

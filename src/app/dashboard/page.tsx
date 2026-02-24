@@ -342,6 +342,8 @@ export default function DashboardPage() {
             onDeleteSubtask={deleteSubtask}
             loading={todosLoading}
             filterDate={calendarDate}
+            lists={lists}
+            activeListId={activeListId}
           />
         </main>
 
@@ -361,13 +363,13 @@ export default function DashboardPage() {
 
       {/* Mobile: list selector at bottom */}
       {lists.length > 0 && (
-        <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white/90 dark:bg-black/90 backdrop-blur-xl border-t border-black/5 dark:border-white/5 px-4 py-2 flex gap-2 overflow-x-auto">
+        <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white/90 dark:bg-black/90 backdrop-blur-xl border-t border-black/5 dark:border-white/5 px-4 py-3 flex gap-2.5 overflow-x-auto">
           <button
             onClick={() => setActiveListId(null)}
-            className={`flex-shrink-0 text-xs px-3 py-1.5 rounded-full transition-default ${
+            className={`flex-shrink-0 text-sm px-5 py-2.5 rounded-full font-medium transition-default ${
               !activeListId
                 ? "bg-black dark:bg-white text-white dark:text-black"
-                : "text-gray-400 border border-black/10 dark:border-white/10"
+                : "text-gray-500 dark:text-gray-400 border border-black/15 dark:border-white/15"
             }`}
           >
             All
@@ -376,10 +378,10 @@ export default function DashboardPage() {
             <button
               key={list.id}
               onClick={() => setActiveListId(list.id)}
-              className={`flex-shrink-0 text-xs px-3 py-1.5 rounded-full transition-default ${
+              className={`flex-shrink-0 text-sm px-5 py-2.5 rounded-full font-medium transition-default ${
                 activeListId === list.id
                   ? "bg-black dark:bg-white text-white dark:text-black"
-                  : "text-gray-400 border border-black/10 dark:border-white/10"
+                  : "text-gray-500 dark:text-gray-400 border border-black/15 dark:border-white/15"
               }`}
             >
               {list.name}

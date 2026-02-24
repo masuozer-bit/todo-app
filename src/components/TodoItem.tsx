@@ -10,8 +10,9 @@ import {
   ChevronUp,
   Calendar,
   FileText,
+  List as ListIcon,
 } from "lucide-react";
-import type { Todo, Tag, Priority } from "@/lib/types";
+import type { Todo, Tag, Priority, List } from "@/lib/types";
 import TagPill from "./TagPill";
 
 interface TodoItemProps {
@@ -34,6 +35,8 @@ interface TodoItemProps {
   onDeleteSubtask: (todoId: string, subtaskId: string) => void;
   dragHandleProps?: Record<string, unknown>;
   isDragging?: boolean;
+  lists?: List[];
+  activeListId?: string | null;
 }
 
 const PRIORITY_CONFIG: Record<
@@ -87,6 +90,8 @@ export default function TodoItem({
   onDeleteSubtask,
   dragHandleProps,
   isDragging = false,
+  lists = [],
+  activeListId,
 }: TodoItemProps) {
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState(todo.title);
@@ -103,6 +108,11 @@ export default function TodoItem({
   const completedSubtasks = subtasks.filter((s) => s.completed).length;
   const priorityConf = PRIORITY_CONFIG[todo.priority ?? "none"];
   const dueInfo = todo.due_date ? formatDueDate(todo.due_date) : null;
+  // Show list name only when viewing "All Tasks" (no active list filter)
+  const listName =
+    !activeListId && todo.list_id
+      ? lists.find((l) => l.id === todo.list_id)?.name ?? null
+      : null;
 
   useEffect(() => {
     if (editing) {
@@ -275,6 +285,12 @@ export default function TodoItem({
               <span className="text-xs text-gray-400 flex items-center gap-0.5">
                 <FileText size={11} />
                 Note
+              </span>
+            )}
+            {listName && (
+              <span className="text-xs text-gray-300 dark:text-gray-600 flex items-center gap-1">
+                <ListIcon size={11} />
+                {listName}
               </span>
             )}
           </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Plus, X, Hash } from "lucide-react";
+import { Plus, X, Tag as TagIcon } from "lucide-react";
 import type { Tag } from "@/lib/types";
 
 interface TagManagerProps {
@@ -35,7 +35,7 @@ export default function TagManager({ tags, onAdd, onDelete }: TagManagerProps) {
         className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-black dark:hover:text-white transition-default"
         aria-expanded={expanded}
       >
-        <Hash size={12} />
+        <TagIcon size={12} />
         {expanded ? "Hide tags" : `Tags${tags.length > 0 ? ` (${tags.length})` : ""}`}
       </button>
 
@@ -46,7 +46,7 @@ export default function TagManager({ tags, onAdd, onDelete }: TagManagerProps) {
               key={tag.id}
               className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-lg border border-black/8 dark:border-white/8 text-gray-500 dark:text-gray-400"
             >
-              #{tag.name}
+              {tag.name}
               <button
                 onClick={() => onDelete(tag.id)}
                 className="text-gray-300 dark:text-gray-600 hover:text-black dark:hover:text-white transition-default"

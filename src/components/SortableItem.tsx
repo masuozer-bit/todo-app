@@ -2,7 +2,7 @@
 
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import type { Todo, Tag, Priority } from "@/lib/types";
+import type { Todo, Tag, Priority, List } from "@/lib/types";
 import TodoItem from "./TodoItem";
 
 interface SortableItemProps {
@@ -15,6 +15,8 @@ interface SortableItemProps {
   onAddSubtask: (todoId: string, title: string) => void;
   onToggleSubtask: (todoId: string, subtaskId: string, completed: boolean) => void;
   onDeleteSubtask: (todoId: string, subtaskId: string) => void;
+  lists?: List[];
+  activeListId?: string | null;
 }
 
 export default function SortableItem({
@@ -27,6 +29,8 @@ export default function SortableItem({
   onAddSubtask,
   onToggleSubtask,
   onDeleteSubtask,
+  lists,
+  activeListId,
 }: SortableItemProps) {
   const {
     attributes,
@@ -56,6 +60,8 @@ export default function SortableItem({
         onDeleteSubtask={onDeleteSubtask}
         dragHandleProps={{ ...attributes, ...listeners }}
         isDragging={isDragging}
+        lists={lists}
+        activeListId={activeListId}
       />
     </div>
   );

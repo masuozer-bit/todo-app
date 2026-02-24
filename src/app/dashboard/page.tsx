@@ -268,9 +268,7 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-white dark:bg-black transition-colors">
-      <Header email={user?.email} />
-
-      <div className={`mx-auto px-4 pb-8 flex gap-6 ${showCalendar ? "max-w-6xl" : "max-w-5xl"}`}>
+      <div className={`mx-auto px-4 pt-6 pb-8 flex gap-6 ${showCalendar ? "max-w-6xl" : "max-w-5xl"}`}>
         {/* Sidebar — lists */}
         <aside className="hidden md:block w-52 flex-shrink-0 pt-4">
           <div className="sticky top-4">
@@ -503,6 +501,7 @@ export default function DashboardPage() {
         )}
       </div>
 
+      <Header email={user?.email} />
     </div>
   );
 }

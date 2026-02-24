@@ -1,9 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { LogOut, Settings } from "lucide-react";
-import ThemeToggle from "./ThemeToggle";
+import { LogOut, Settings, MoreHorizontal, Sun, Moon } from "lucide-react";
+import { useTheme } from "./ThemeProvider";
 import Link from "next/link";
 
 interface HeaderProps {
@@ -11,8 +12,10 @@ interface HeaderProps {
 }
 
 export default function Header({ email }: HeaderProps) {
+  const [open, setOpen] = useState(false);
   const router = useRouter();
   const supabase = createClient();
+  const { theme, toggleTheme } = useTheme();
 
   async function handleLogout() {
     await supabase.auth.signOut();
@@ -21,15 +24,23 @@ export default function Header({ email }: HeaderProps) {
   }
 
   return (
-    <header className="w-full py-4 px-4 md:px-8">
-      <div className="max-w-3xl mx-auto flex items-center justify-end">
-        <div className="flex items-center gap-1.5">
-          <ThemeToggle />
+    <div className="fixed bottom-4 right-4 z-50 flex flex-col items-end gap-2">
+      {/* Expanded controls */}
+      {open && (
+        <div className="flex flex-col items-center gap-1 bg-white/90 dark:bg-black/90 backdrop-blur-xl border border-black/10 dark:border-white/10 rounded-2xl p-1.5 shadow-lg">
+          <button
+            onClick={toggleTheme}
+            className="p-2.5 rounded-xl text-gray-400 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-default"
+            aria-label={`Switch to ${theme === "light" ? "dark" : "light"} mode`}
+          >
+            {theme === "light" ? <Moon size={16} /> : <Sun size={16} />}
+          </button>
 
           {email && (
             <Link
               href="/settings"
-              className="p-2 rounded-lg text-gray-300 dark:text-gray-600 hover:text-black dark:hover:text-white transition-default"
+              onClick={() => setOpen(false)}
+              className="p-2.5 rounded-xl text-gray-400 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-default"
               aria-label="Settings"
             >
               <Settings size={16} />
@@ -39,14 +50,27 @@ export default function Header({ email }: HeaderProps) {
           {email && (
             <button
               onClick={handleLogout}
-              className="p-2 rounded-lg text-gray-300 dark:text-gray-600 hover:text-black dark:hover:text-white transition-default active:scale-95"
+              className="p-2.5 rounded-xl text-gray-400 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-default"
               aria-label="Sign out"
             >
               <LogOut size={16} />
             </button>
           )}
         </div>
-      </div>
-    </header>
+      )}
+
+      {/* Toggle button */}
+      <button
+        onClick={() => setOpen(!open)}
+        className={`w-9 h-9 rounded-full flex items-center justify-center transition-default ${
+          open
+            ? "bg-black dark:bg-white text-white dark:text-black"
+            : "bg-black/5 dark:bg-white/10 text-gray-400 hover:text-black dark:hover:text-white"
+        }`}
+        aria-label={open ? "Close menu" : "Open menu"}
+      >
+        <MoreHorizontal size={16} />
+      </button>
+    </div>
   );
 }

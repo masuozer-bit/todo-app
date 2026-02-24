@@ -23,7 +23,7 @@ import TodoItem from "./TodoItem";
 import ConfirmDialog from "./ConfirmDialog";
 
 type FilterStatus = "all" | "active" | "completed";
-type SortBy = "default" | "priority" | "due_date";
+type SortBy = "default" | "priority" | "timeline";
 
 const PRIORITY_ORDER: Record<Priority, number> = {
   high: 0,
@@ -31,6 +31,60 @@ const PRIORITY_ORDER: Record<Priority, number> = {
   low: 2,
   none: 3,
 };
+
+type TimelineGroup = {
+  key: string;
+  label: string;
+  todos: Todo[];
+};
+
+function getTimelineGroup(dateStr: string | null | undefined): string {
+  if (!dateStr) return "someday";
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const due = new Date(dateStr + "T00:00:00");
+  const diffDays = Math.round(
+    (due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+  );
+  if (diffDays < 0) return "overdue";
+  if (diffDays === 0) return "today";
+  if (diffDays === 1) return "tomorrow";
+  if (diffDays <= 7) return "this_week";
+  if (diffDays <= 30) return "upcoming";
+  return "later";
+}
+
+const TIMELINE_CONFIG: { key: string; label: string }[] = [
+  { key: "overdue", label: "Overdue" },
+  { key: "today", label: "Today" },
+  { key: "tomorrow", label: "Tomorrow" },
+  { key: "this_week", label: "This Week" },
+  { key: "upcoming", label: "Upcoming" },
+  { key: "later", label: "Later" },
+  { key: "someday", label: "Someday" },
+];
+
+function groupByTimeline(todos: Todo[]): TimelineGroup[] {
+  const groups: Record<string, Todo[]> = {};
+  for (const todo of todos) {
+    const key = getTimelineGroup(todo.due_date);
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(todo);
+  }
+  // Sort within each group by due_date
+  for (const key of Object.keys(groups)) {
+    if (key !== "someday") {
+      groups[key].sort((a, b) => {
+        if (!a.due_date) return 1;
+        if (!b.due_date) return -1;
+        return a.due_date.localeCompare(b.due_date);
+      });
+    }
+  }
+  return TIMELINE_CONFIG
+    .filter((c) => groups[c.key]?.length > 0)
+    .map((c) => ({ key: c.key, label: c.label, todos: groups[c.key] }));
+}
 
 interface TodoListProps {
   todos: Todo[];
@@ -120,16 +174,22 @@ export default function TodoList({
       );
     }
 
-    // Sort
+    // Sort (timeline grouping is handled separately in render)
     if (sortBy === "priority") {
       result = [...result].sort(
         (a, b) =>
           PRIORITY_ORDER[a.priority ?? "none"] -
           PRIORITY_ORDER[b.priority ?? "none"]
       );
-    } else if (sortBy === "due_date") {
+    } else if (sortBy === "timeline") {
+      // Sort by urgency order for flat filtering, grouped rendering handled below
       result = [...result].sort((a, b) => {
-        if (!a.due_date && !b.due_date) return 0;
+        const orderMap: Record<string, number> = {
+          overdue: 0, today: 1, tomorrow: 2, this_week: 3, upcoming: 4, later: 5, someday: 6,
+        };
+        const ga = orderMap[getTimelineGroup(a.due_date)] ?? 6;
+        const gb = orderMap[getTimelineGroup(b.due_date)] ?? 6;
+        if (ga !== gb) return ga - gb;
         if (!a.due_date) return 1;
         if (!b.due_date) return -1;
         return a.due_date.localeCompare(b.due_date);
@@ -264,9 +324,9 @@ export default function TodoList({
               <div className="flex gap-2">
                 {(
                   [
-                    ["default", "Default"],
+                    ["default", "Manual"],
                     ["priority", "Priority"],
-                    ["due_date", "Due date"],
+                    ["timeline", "Timeline"],
                   ] as [SortBy, string][]
                 ).map(([val, label]) => (
                   <button
@@ -362,7 +422,76 @@ export default function TodoList({
             Clear filters
           </button>
         </div>
+      ) : sortBy === "timeline" ? (
+        /* Timeline grouped view */
+        <div className="space-y-5">
+          {groupByTimeline(activeTodos).map((group) => (
+            <div key={group.key}>
+              <p className={`text-xs font-medium uppercase tracking-wider mb-2 px-1 ${
+                group.key === "overdue"
+                  ? "text-red-500 dark:text-red-400"
+                  : group.key === "today"
+                  ? "text-black dark:text-white"
+                  : "text-gray-400"
+              }`}>
+                {group.label}
+                <span className="ml-1.5 text-gray-300 dark:text-gray-600 font-normal">
+                  {group.todos.length}
+                </span>
+              </p>
+              <div className="space-y-2">
+                {group.todos.map((todo) => (
+                  <TodoItem
+                    key={todo.id}
+                    todo={todo}
+                    allTags={allTags}
+                    onToggle={onToggle}
+                    onUpdate={onUpdate}
+                    onDelete={handleDeleteRequest}
+                    onTagToggle={onTagToggle}
+                    onAddSubtask={onAddSubtask}
+                    onToggleSubtask={onToggleSubtask}
+                    onDeleteSubtask={onDeleteSubtask}
+                    lists={lists}
+                    activeListId={activeListId}
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
+
+          {/* Completed todos */}
+          {completedTodos.length > 0 && (
+            <div className="pt-2">
+              <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2 px-1">
+                Done
+                <span className="ml-1.5 text-gray-300 dark:text-gray-600 font-normal">
+                  {completedTodos.length}
+                </span>
+              </p>
+              <div className="space-y-2">
+                {completedTodos.map((todo) => (
+                  <TodoItem
+                    key={todo.id}
+                    todo={todo}
+                    allTags={allTags}
+                    onToggle={onToggle}
+                    onUpdate={onUpdate}
+                    onDelete={handleDeleteRequest}
+                    onTagToggle={onTagToggle}
+                    onAddSubtask={onAddSubtask}
+                    onToggleSubtask={onToggleSubtask}
+                    onDeleteSubtask={onDeleteSubtask}
+                    lists={lists}
+                    activeListId={activeListId}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
       ) : (
+        /* Default / Priority flat view */
         <div className="space-y-2">
           {/* Active todos (sortable only when no active filter/search) */}
           {activeTodos.length > 0 && (

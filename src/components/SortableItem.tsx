@@ -2,16 +2,19 @@
 
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import type { Todo, Tag } from "@/lib/types";
+import type { Todo, Tag, Priority } from "@/lib/types";
 import TodoItem from "./TodoItem";
 
 interface SortableItemProps {
   todo: Todo;
   allTags: Tag[];
   onToggle: (id: string, completed: boolean) => void;
-  onUpdate: (id: string, title: string) => void;
+  onUpdate: (id: string, updates: { title?: string; due_date?: string | null; priority?: Priority; notes?: string | null }) => void;
   onDelete: (id: string) => void;
   onTagToggle: (todoId: string, tagId: string, add: boolean) => void;
+  onAddSubtask: (todoId: string, title: string) => void;
+  onToggleSubtask: (todoId: string, subtaskId: string, completed: boolean) => void;
+  onDeleteSubtask: (todoId: string, subtaskId: string) => void;
 }
 
 export default function SortableItem({
@@ -21,6 +24,9 @@ export default function SortableItem({
   onUpdate,
   onDelete,
   onTagToggle,
+  onAddSubtask,
+  onToggleSubtask,
+  onDeleteSubtask,
 }: SortableItemProps) {
   const {
     attributes,
@@ -45,6 +51,9 @@ export default function SortableItem({
         onUpdate={onUpdate}
         onDelete={onDelete}
         onTagToggle={onTagToggle}
+        onAddSubtask={onAddSubtask}
+        onToggleSubtask={onToggleSubtask}
+        onDeleteSubtask={onDeleteSubtask}
         dragHandleProps={{ ...attributes, ...listeners }}
         isDragging={isDragging}
       />

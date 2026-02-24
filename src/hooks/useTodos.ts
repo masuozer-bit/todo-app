@@ -2,9 +2,13 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
-import type { Todo, Tag } from "@/lib/types";
+import type { Todo, Tag, Subtask, Priority } from "@/lib/types";
 
-export function useTodos(userId: string | undefined, allTags: Tag[]) {
+export function useTodos(
+  userId: string | undefined,
+  allTags: Tag[],
+  activeListId?: string | null
+) {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [loading, setLoading] = useState(true);
   const supabase = createClient();
@@ -12,23 +16,29 @@ export function useTodos(userId: string | undefined, allTags: Tag[]) {
   const fetchTodos = useCallback(async () => {
     if (!userId) return;
 
-    // Fetch todos
-    const { data: todosData, error: todosError } = await supabase
+    let query = supabase
       .from("todos")
       .select("*")
       .eq("user_id", userId)
       .order("sort_order", { ascending: true });
+
+    if (activeListId) {
+      query = query.eq("list_id", activeListId);
+    }
+
+    const { data: todosData, error: todosError } = await query;
 
     if (todosError || !todosData) {
       setLoading(false);
       return;
     }
 
-    // Fetch todo_tags
     const todoIds = todosData.map((t) => t.id);
     let todoTagsMap: Record<string, string[]> = {};
+    let subtasksMap: Record<string, Subtask[]> = {};
 
     if (todoIds.length > 0) {
+      // Fetch tags
       const { data: todoTagsData } = await supabase
         .from("todo_tags")
         .select("todo_id, tag_id")
@@ -44,31 +54,57 @@ export function useTodos(userId: string | undefined, allTags: Tag[]) {
           {} as Record<string, string[]>
         );
       }
+
+      // Fetch subtasks
+      const { data: subtasksData } = await supabase
+        .from("subtasks")
+        .select("*")
+        .in("todo_id", todoIds)
+        .order("sort_order", { ascending: true });
+
+      if (subtasksData) {
+        subtasksMap = subtasksData.reduce(
+          (acc, st) => {
+            if (!acc[st.todo_id]) acc[st.todo_id] = [];
+            acc[st.todo_id].push(st);
+            return acc;
+          },
+          {} as Record<string, Subtask[]>
+        );
+      }
     }
 
-    // Merge tags into todos
-    const todosWithTags: Todo[] = todosData.map((todo) => ({
+    const todosWithData: Todo[] = todosData.map((todo) => ({
       ...todo,
       tags: (todoTagsMap[todo.id] ?? [])
         .map((tagId) => allTags.find((t) => t.id === tagId))
         .filter(Boolean) as Tag[],
+      subtasks: subtasksMap[todo.id] ?? [],
     }));
 
-    setTodos(todosWithTags);
+    setTodos(todosWithData);
     setLoading(false);
-  }, [userId, allTags, supabase]);
+  }, [userId, allTags, activeListId, supabase]);
 
   useEffect(() => {
     fetchTodos();
   }, [fetchTodos]);
 
   const addTodo = useCallback(
-    async (title: string, tagIds: string[]) => {
+    async (
+      title: string,
+      tagIds: string[],
+      options?: {
+        due_date?: string | null;
+        priority?: Priority;
+        notes?: string | null;
+        list_id?: string | null;
+      }
+    ) => {
       if (!userId) return;
 
-      const maxOrder = todos.length > 0
-        ? Math.max(...todos.map((t) => t.sort_order))
-        : 0;
+      const maxOrder =
+        todos.length > 0 ? Math.max(...todos.map((t) => t.sort_order)) : 0;
 
       const { data, error } = await supabase
         .from("todos")
@@ -76,13 +112,16 @@ export function useTodos(userId: string | undefined, allTags: Tag[]) {
           user_id: userId,
           title,
           sort_order: maxOrder + 1,
+          due_date: options?.due_date ?? null,
+          priority: options?.priority ?? "none",
+          notes: options?.notes ?? null,
+          list_id: options?.list_id ?? activeListId ?? null,
         })
         .select()
         .single();
 
       if (error || !data) return;
 
-      // Add tags
       if (tagIds.length > 0) {
         await supabase
           .from("todo_tags")
@@ -94,11 +133,12 @@ export function useTodos(userId: string | undefined, allTags: Tag[]) {
         tags: tagIds
           .map((id) => allTags.find((t) => t.id === id))
           .filter(Boolean) as Tag[],
+        subtasks: [],
       };
 
       setTodos((prev) => [...prev, newTodo]);
     },
-    [userId, todos, allTags, supabase]
+    [userId, todos, allTags, activeListId, supabase]
   );
 
   const toggleTodo = useCallback(
@@ -118,15 +158,24 @@ export function useTodos(userId: string | undefined, allTags: Tag[]) {
   );
 
   const updateTodo = useCallback(
-    async (id: string, title: string) => {
+    async (
+      id: string,
+      updates: {
+        title?: string;
+        due_date?: string | null;
+        priority?: Priority;
+        notes?: string | null;
+        list_id?: string | null;
+      }
+    ) => {
       const { error } = await supabase
         .from("todos")
-        .update({ title })
+        .update(updates)
         .eq("id", id);
 
       if (!error) {
         setTodos((prev) =>
-          prev.map((t) => (t.id === id ? { ...t, title } : t))
+          prev.map((t) => (t.id === id ? { ...t, ...updates } : t))
         );
       }
     },
@@ -178,20 +227,165 @@ export function useTodos(userId: string | undefined, allTags: Tag[]) {
   const reorderTodos = useCallback(
     async (reordered: Todo[]) => {
       setTodos(reordered);
-
-      // Batch update sort_order
       const updates = reordered.map((todo, index) => ({
         id: todo.id,
         sort_order: index,
         user_id: todo.user_id,
         title: todo.title,
         completed: todo.completed,
+        priority: todo.priority,
       }));
-
       await supabase.from("todos").upsert(updates);
     },
     [supabase]
   );
+
+  // Subtask operations
+  const addSubtask = useCallback(
+    async (todoId: string, title: string) => {
+      if (!userId) return;
+      const todo = todos.find((t) => t.id === todoId);
+      const maxOrder =
+        (todo?.subtasks ?? []).length > 0
+          ? Math.max(...(todo?.subtasks ?? []).map((s) => s.sort_order))
+          : 0;
+
+      const { data, error } = await supabase
+        .from("subtasks")
+        .insert({
+          todo_id: todoId,
+          user_id: userId,
+          title,
+          sort_order: maxOrder + 1,
+        })
+        .select()
+        .single();
+
+      if (error || !data) return;
+
+      setTodos((prev) =>
+        prev.map((t) =>
+          t.id === todoId
+            ? { ...t, subtasks: [...(t.subtasks ?? []), data] }
+            : t
+        )
+      );
+    },
+    [userId, todos, supabase]
+  );
+
+  const toggleSubtask = useCallback(
+    async (todoId: string, subtaskId: string, completed: boolean) => {
+      const { error } = await supabase
+        .from("subtasks")
+        .update({ completed })
+        .eq("id", subtaskId);
+
+      if (!error) {
+        setTodos((prev) =>
+          prev.map((t) =>
+            t.id === todoId
+              ? {
+                  ...t,
+                  subtasks: (t.subtasks ?? []).map((s) =>
+                    s.id === subtaskId ? { ...s, completed } : s
+                  ),
+                }
+              : t
+          )
+        );
+      }
+    },
+    [supabase]
+  );
+
+  const deleteSubtask = useCallback(
+    async (todoId: string, subtaskId: string) => {
+      const { error } = await supabase
+        .from("subtasks")
+        .delete()
+        .eq("id", subtaskId);
+
+      if (!error) {
+        setTodos((prev) =>
+          prev.map((t) =>
+            t.id === todoId
+              ? {
+                  ...t,
+                  subtasks: (t.subtasks ?? []).filter(
+                    (s) => s.id !== subtaskId
+                  ),
+                }
+              : t
+          )
+        );
+      }
+    },
+    [supabase]
+  );
+
+  const clearCompleted = useCallback(async () => {
+    const completedIds = todos.filter((t) => t.completed).map((t) => t.id);
+    if (completedIds.length === 0) return;
+
+    const { error } = await supabase
+      .from("todos")
+      .delete()
+      .in("id", completedIds);
+
+    if (!error) {
+      setTodos((prev) => prev.filter((t) => !t.completed));
+    }
+  }, [todos, supabase]);
+
+  const exportTodos = useCallback(
+    (format: "json" | "csv") => {
+      if (format === "json") {
+        const data = JSON.stringify(
+          todos.map((t) => ({
+            title: t.title,
+            completed: t.completed,
+            priority: t.priority,
+            due_date: t.due_date,
+            notes: t.notes,
+            tags: (t.tags ?? []).map((tag) => tag.name),
+            subtasks: (t.subtasks ?? []).map((s) => ({
+              title: s.title,
+              completed: s.completed,
+            })),
+          })),
+          null,
+          2
+        );
+        downloadFile(data, "todos.json", "application/json");
+      } else {
+        const rows = [
+          ["Title", "Completed", "Priority", "Due Date", "Notes", "Tags"],
+          ...todos.map((t) => [
+            `"${t.title.replace(/"/g, '""')}"`,
+            t.completed ? "Yes" : "No",
+            t.priority,
+            t.due_date ?? "",
+            `"${(t.notes ?? "").replace(/"/g, '""')}"`,
+            (t.tags ?? []).map((tag) => tag.name).join("; "),
+          ]),
+        ];
+        const csv = rows.map((r) => r.join(",")).join("\n");
+        downloadFile(csv, "todos.csv", "text/csv");
+      }
+    },
+    [todos]
+  );
+
+  function downloadFile(content: string, filename: string, type: string) {
+    const blob = new Blob([content], { type });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
 
   return {
     todos,
@@ -202,5 +396,10 @@ export function useTodos(userId: string | undefined, allTags: Tag[]) {
     deleteTodo,
     toggleTodoTag,
     reorderTodos,
+    addSubtask,
+    toggleSubtask,
+    deleteSubtask,
+    clearCompleted,
+    exportTodos,
   };
 }

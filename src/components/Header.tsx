@@ -22,40 +22,27 @@ export default function Header({ email }: HeaderProps) {
 
   return (
     <header className="w-full py-4 px-4 md:px-8">
-      <div className="max-w-3xl mx-auto flex items-center justify-between">
-        <Link
-          href="/dashboard"
-          className="text-xl font-bold text-black dark:text-white tracking-tight hover:opacity-80 transition-default"
-        >
-          todos
-        </Link>
-
-        <div className="flex items-center gap-2">
-          {email && (
-            <span className="hidden sm:block text-sm text-gray-400 truncate max-w-[180px]">
-              {email}
-            </span>
-          )}
-
+      <div className="max-w-3xl mx-auto flex items-center justify-end">
+        <div className="flex items-center gap-1.5">
           <ThemeToggle />
 
           {email && (
             <Link
               href="/settings"
-              className="w-10 h-10 rounded-xl glass-card-subtle flex items-center justify-center hover:bg-black/10 dark:hover:bg-white/15 transition-default"
+              className="p-2 rounded-lg text-gray-300 dark:text-gray-600 hover:text-black dark:hover:text-white transition-default"
               aria-label="Settings"
             >
-              <Settings size={18} className="text-black dark:text-white" />
+              <Settings size={16} />
             </Link>
           )}
 
           {email && (
             <button
               onClick={handleLogout}
-              className="w-10 h-10 rounded-xl glass-card-subtle flex items-center justify-center hover:bg-black/10 dark:hover:bg-white/15 transition-default active:scale-95"
+              className="p-2 rounded-lg text-gray-300 dark:text-gray-600 hover:text-black dark:hover:text-white transition-default active:scale-95"
               aria-label="Sign out"
             >
-              <LogOut size={18} className="text-black dark:text-white" />
+              <LogOut size={16} />
             </button>
           )}
         </div>

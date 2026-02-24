@@ -1,9 +1,8 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Plus, Tags } from "lucide-react";
+import { Plus, X, Hash } from "lucide-react";
 import type { Tag } from "@/lib/types";
-import TagPill from "./TagPill";
 
 interface TagManagerProps {
   tags: Tag[];
@@ -30,57 +29,47 @@ export default function TagManager({ tags, onAdd, onDelete }: TagManagerProps) {
   }
 
   return (
-    <div className="glass-card p-4">
+    <div>
       <button
         onClick={() => setExpanded(!expanded)}
-        className="flex items-center gap-2 text-sm font-medium text-black dark:text-white hover:opacity-70 transition-default w-full"
+        className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-black dark:hover:text-white transition-default"
         aria-expanded={expanded}
       >
-        <Tags size={16} />
-        Manage Tags
-        <span className="text-gray-400 text-xs ml-auto">
-          {tags.length} {tags.length === 1 ? "tag" : "tags"}
-        </span>
+        <Hash size={12} />
+        {expanded ? "Hide tags" : `Tags${tags.length > 0 ? ` (${tags.length})` : ""}`}
       </button>
 
       {expanded && (
-        <div className="mt-4 space-y-3">
-          <form onSubmit={handleAdd} className="flex items-center gap-2">
+        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          {tags.map((tag) => (
+            <span
+              key={tag.id}
+              className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-lg border border-black/8 dark:border-white/8 text-gray-500 dark:text-gray-400"
+            >
+              #{tag.name}
+              <button
+                onClick={() => onDelete(tag.id)}
+                className="text-gray-300 dark:text-gray-600 hover:text-black dark:hover:text-white transition-default"
+                aria-label={`Remove tag ${tag.name}`}
+              >
+                <X size={10} />
+              </button>
+            </span>
+          ))}
+
+          {/* Inline add */}
+          <form onSubmit={handleAdd} className="inline-flex items-center">
             <input
               ref={inputRef}
               type="text"
               value={newTag}
               onChange={(e) => setNewTag(e.target.value)}
-              placeholder="New tag name..."
+              placeholder="+ add"
               maxLength={30}
-              className="flex-1 px-3 py-2 rounded-xl bg-gray-50 dark:bg-gray-900 border border-black/10 dark:border-white/10 text-sm text-black dark:text-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-black/20 dark:focus:ring-white/20 transition-default"
+              className="w-16 text-xs bg-transparent text-gray-400 placeholder:text-gray-300 dark:placeholder:text-gray-600 focus:outline-none focus:w-24 transition-all duration-200"
               aria-label="New tag name"
             />
-            <button
-              type="submit"
-              disabled={!newTag.trim()}
-              className="w-8 h-8 rounded-xl bg-black dark:bg-white text-white dark:text-black flex items-center justify-center hover:opacity-90 active:scale-95 transition-default disabled:opacity-30 disabled:cursor-not-allowed flex-shrink-0"
-              aria-label="Add tag"
-            >
-              <Plus size={14} />
-            </button>
           </form>
-
-          {tags.length > 0 ? (
-            <div className="flex flex-wrap gap-2">
-              {tags.map((tag) => (
-                <TagPill
-                  key={tag.id}
-                  name={tag.name}
-                  onRemove={() => onDelete(tag.id)}
-                />
-              ))}
-            </div>
-          ) : (
-            <p className="text-xs text-gray-400 text-center py-2">
-              No tags yet. Create one above.
-            </p>
-          )}
         </div>
       )}
     </div>

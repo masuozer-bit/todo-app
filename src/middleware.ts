@@ -1,12 +1,12 @@
 import { type NextRequest, NextResponse } from "next/server";
 
 export async function middleware(request: NextRequest) {
-  // Simple cookie-based auth check for edge runtime
   const { pathname } = request.nextUrl;
 
   const isAuthPage = pathname === "/login" || pathname === "/signup";
-  const isProtected = pathname.startsWith("/dashboard");
-  const isAuthCallback = pathname.startsWith("/auth");
+  const isProtected =
+    pathname.startsWith("/dashboard") || pathname.startsWith("/settings");
+  const isRoot = pathname === "/";
 
   // Check for supabase session cookie
   const hasSession = request.cookies
@@ -16,6 +16,13 @@ export async function middleware(request: NextRequest) {
         c.name.includes("sb-") &&
         (c.name.includes("-auth-token") || c.name.includes("access-token"))
     );
+
+  // Root: redirect immediately based on session
+  if (isRoot) {
+    return NextResponse.redirect(
+      new URL(hasSession ? "/dashboard" : "/login", request.url)
+    );
+  }
 
   // Redirect unauthenticated users away from protected pages
   if (isProtected && !hasSession) {

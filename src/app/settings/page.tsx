@@ -26,24 +26,32 @@ export default function SettingsPage() {
   const { todos, clearCompleted, exportTodos } = useTodos(user?.id, tags);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) {
+    supabase.auth
+      .getUser()
+      .then(async ({ data: { user } }) => {
+        if (!user) {
+          await supabase.auth.signOut();
+          router.push("/login");
+          return;
+        }
+        setUser(user);
+        // Load profile
+        supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", user.id)
+          .single()
+          .then(({ data }) => {
+            if (data?.display_name) setDisplayName(data.display_name);
+          });
+        setAuthLoading(false);
+      })
+      .catch(async () => {
+        await supabase.auth.signOut();
         router.push("/login");
-        return;
-      }
-      setUser(user);
-      // Load profile
-      supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", user.id)
-        .single()
-        .then(({ data }) => {
-          if (data?.display_name) setDisplayName(data.display_name);
-        });
-      setAuthLoading(false);
-    });
-  }, [supabase, router]);
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function handleSaveProfile(e: React.FormEvent) {
     e.preventDefault();

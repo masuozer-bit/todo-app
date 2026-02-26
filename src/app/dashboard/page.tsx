@@ -8,9 +8,12 @@ import TodoInput from "@/components/TodoInput";
 import TodoList from "@/components/TodoList";
 import TagManager from "@/components/TagManager";
 import CalendarPanel from "@/components/CalendarPanel";
+import HabitInput from "@/components/HabitInput";
+import HabitList from "@/components/HabitList";
 import { useTodos } from "@/hooks/useTodos";
 import { useTags } from "@/hooks/useTags";
 import { useLists } from "@/hooks/useLists";
+import { useHabits } from "@/hooks/useHabits";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useTheme } from "@/components/ThemeProvider";
 import {
@@ -30,7 +33,7 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Plus, List, Inbox, Trash2, Edit2, Check, X, Calendar } from "lucide-react";
+import { Plus, List, Inbox, Trash2, Edit2, Check, X, Calendar, Repeat } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
 import type { List as ListType } from "@/lib/types";
 
@@ -164,6 +167,7 @@ export default function DashboardPage() {
   const [editListName, setEditListName] = useState("");
   const [showCalendar, setShowCalendar] = useState(false);
   const [calendarDate, setCalendarDate] = useState<string | null>(null);
+  const [habitsView, setHabitsView] = useState(false);
   const router = useRouter();
   const supabase = createClient();
   const { toggleTheme } = useTheme();
@@ -171,15 +175,18 @@ export default function DashboardPage() {
   useEffect(() => {
     supabase.auth
       .getUser()
-      .then(({ data: { user } }) => {
+      .then(async ({ data: { user } }) => {
         if (!user) {
+          // Clear stale session cookie to prevent redirect loops
+          await supabase.auth.signOut();
           router.push("/login");
           return;
         }
         setUser(user);
         setAuthLoading(false);
       })
-      .catch(() => {
+      .catch(async () => {
+        await supabase.auth.signOut();
         router.push("/login");
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -187,6 +194,16 @@ export default function DashboardPage() {
 
   const { tags, addTag, deleteTag } = useTags(user?.id);
   const { lists, addList, updateList, deleteList, reorderLists } = useLists(user?.id);
+  const {
+    habits,
+    todaysHabits,
+    loading: habitsLoading,
+    addHabit,
+    updateHabit,
+    deleteHabit,
+    toggleCompletion,
+    reorderHabits,
+  } = useHabits(user?.id);
   const {
     todos,
     loading: todosLoading,
@@ -249,6 +266,23 @@ export default function DashboardPage() {
     setEditListName("");
   }
 
+  function switchToHabits() {
+    setHabitsView(true);
+    setActiveListId(null);
+    setShowCalendar(false);
+    setCalendarDate(null);
+  }
+
+  function switchToAllTasks() {
+    setHabitsView(false);
+    setActiveListId(null);
+  }
+
+  function switchToList(listId: string) {
+    setHabitsView(false);
+    setActiveListId(listId);
+  }
+
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white dark:bg-black">
@@ -269,15 +303,28 @@ export default function DashboardPage() {
           <div className="sticky top-4">
             {/* All Tasks */}
             <button
-              onClick={() => setActiveListId(null)}
+              onClick={switchToAllTasks}
               className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm transition-default mb-1 ${
-                !activeListId
+                !activeListId && !habitsView
                   ? "bg-black dark:bg-white text-white dark:text-black font-medium"
                   : "text-gray-500 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/10"
               }`}
             >
               <Inbox size={15} />
               All Tasks
+            </button>
+
+            {/* Habits */}
+            <button
+              onClick={switchToHabits}
+              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm transition-default mb-1 ${
+                habitsView
+                  ? "bg-black dark:bg-white text-white dark:text-black font-medium"
+                  : "text-gray-500 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/10"
+              }`}
+            >
+              <Repeat size={15} />
+              Habits
             </button>
 
             {/* Lists */}
@@ -304,7 +351,7 @@ export default function DashboardPage() {
                           isEditing={editingListId === list.id}
                           editListName={editListName}
                           setEditListName={setEditListName}
-                          onSelect={() => setActiveListId(list.id)}
+                          onSelect={() => switchToList(list.id)}
                           onStartEdit={() => {
                             setEditingListId(list.id);
                             setEditListName(list.name);
@@ -377,33 +424,48 @@ export default function DashboardPage() {
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-baseline gap-4">
               <h2 className="text-2xl md:text-3xl font-bold text-black dark:text-white">
-                {activeList ? activeList.name : "All Tasks"}
+                {habitsView
+                  ? "Habits"
+                  : activeList
+                    ? activeList.name
+                    : "All Tasks"}
               </h2>
               <div className="flex items-center gap-3 text-sm text-gray-400">
-                <span>{activeTodoCount} active</span>
-                {completedTodoCount > 0 && (
-                  <span>{completedTodoCount} done</span>
+                {habitsView ? (
+                  <span>
+                    {todaysHabits.filter((h) => h.completedToday).length}/
+                    {todaysHabits.length} today
+                  </span>
+                ) : (
+                  <>
+                    <span>{activeTodoCount} active</span>
+                    {completedTodoCount > 0 && (
+                      <span>{completedTodoCount} done</span>
+                    )}
+                  </>
                 )}
               </div>
             </div>
-            <button
-              onClick={() => {
-                setShowCalendar(!showCalendar);
-                if (showCalendar) setCalendarDate(null);
-              }}
-              className={`hidden md:flex w-10 h-10 rounded-xl glass-card-subtle items-center justify-center transition-default ${
-                showCalendar
-                  ? "bg-black dark:bg-white text-white dark:text-black"
-                  : "text-gray-400 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10"
-              }`}
-              aria-label={showCalendar ? "Hide calendar" : "Show calendar"}
-            >
-              <Calendar size={18} />
-            </button>
+            {!habitsView && (
+              <button
+                onClick={() => {
+                  setShowCalendar(!showCalendar);
+                  if (showCalendar) setCalendarDate(null);
+                }}
+                className={`hidden md:flex w-10 h-10 rounded-xl glass-card-subtle items-center justify-center transition-default ${
+                  showCalendar
+                    ? "bg-black dark:bg-white text-white dark:text-black"
+                    : "text-gray-400 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10"
+                }`}
+                aria-label={showCalendar ? "Hide calendar" : "Show calendar"}
+              >
+                <Calendar size={18} />
+              </button>
+            )}
           </div>
 
           {/* Calendar date filter indicator */}
-          {calendarDate && (
+          {!habitsView && calendarDate && (
             <div className="mb-4 flex items-center gap-2 text-sm text-gray-400">
               <Calendar size={14} />
               <span>
@@ -424,66 +486,89 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* Todo Input */}
+          {/* Input */}
           <div className="mb-4">
-            <TodoInput
-              onAdd={addTodo}
-              tags={tags}
-              lists={lists}
-              activeListId={activeListId}
-            />
+            {habitsView ? (
+              <HabitInput onAdd={addHabit} />
+            ) : (
+              <TodoInput
+                onAdd={addTodo}
+                tags={tags}
+                lists={lists}
+                activeListId={activeListId}
+              />
+            )}
           </div>
 
           {/* Mobile: list selector (below input, above tasks) */}
-          {lists.length > 0 && (
-            <div className="md:hidden mb-4 flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+          <div className="md:hidden mb-4 flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+            <button
+              onClick={switchToAllTasks}
+              className={`flex-shrink-0 text-sm px-4 py-2 rounded-full font-medium transition-default ${
+                !activeListId && !habitsView
+                  ? "bg-black dark:bg-white text-white dark:text-black"
+                  : "text-gray-500 dark:text-gray-400 border border-black/15 dark:border-white/15"
+              }`}
+            >
+              All
+            </button>
+            <button
+              onClick={switchToHabits}
+              className={`flex-shrink-0 text-sm px-4 py-2 rounded-full font-medium transition-default ${
+                habitsView
+                  ? "bg-black dark:bg-white text-white dark:text-black"
+                  : "text-gray-500 dark:text-gray-400 border border-black/15 dark:border-white/15"
+              }`}
+            >
+              Habits
+            </button>
+            {lists.map((list) => (
               <button
-                onClick={() => setActiveListId(null)}
+                key={list.id}
+                onClick={() => switchToList(list.id)}
                 className={`flex-shrink-0 text-sm px-4 py-2 rounded-full font-medium transition-default ${
-                  !activeListId
+                  activeListId === list.id
                     ? "bg-black dark:bg-white text-white dark:text-black"
                     : "text-gray-500 dark:text-gray-400 border border-black/15 dark:border-white/15"
                 }`}
               >
-                All
+                {list.name}
               </button>
-              {lists.map((list) => (
-                <button
-                  key={list.id}
-                  onClick={() => setActiveListId(list.id)}
-                  className={`flex-shrink-0 text-sm px-4 py-2 rounded-full font-medium transition-default ${
-                    activeListId === list.id
-                      ? "bg-black dark:bg-white text-white dark:text-black"
-                      : "text-gray-500 dark:text-gray-400 border border-black/15 dark:border-white/15"
-                  }`}
-                >
-                  {list.name}
-                </button>
-              ))}
-            </div>
-          )}
+            ))}
+          </div>
 
-          {/* Todo List */}
-          <TodoList
-            todos={todos}
-            allTags={tags}
-            onToggle={toggleTodo}
-            onUpdate={updateTodo}
-            onDelete={deleteTodo}
-            onTagToggle={toggleTodoTag}
-            onReorder={reorderTodos}
-            onAddSubtask={addSubtask}
-            onToggleSubtask={toggleSubtask}
-            onDeleteSubtask={deleteSubtask}
-            loading={todosLoading}
-            filterDate={calendarDate}
-            lists={lists}
-            activeListId={activeListId}
-          />
+          {/* Content */}
+          {habitsView ? (
+            <HabitList
+              habits={todaysHabits}
+              onToggle={toggleCompletion}
+              onUpdate={updateHabit}
+              onDelete={deleteHabit}
+              onReorder={reorderHabits}
+              loading={habitsLoading}
+            />
+          ) : (
+            <TodoList
+              todos={todos}
+              allTags={tags}
+              onToggle={toggleTodo}
+              onUpdate={updateTodo}
+              onDelete={deleteTodo}
+              onTagToggle={toggleTodoTag}
+              onReorder={reorderTodos}
+              onAddSubtask={addSubtask}
+              onToggleSubtask={toggleSubtask}
+              onDeleteSubtask={deleteSubtask}
+              loading={todosLoading}
+              filterDate={calendarDate}
+              lists={lists}
+              activeListId={activeListId}
+            />
+          )}
         </main>
 
-        {/* Calendar panel — desktop only */}
-        {showCalendar && (
+        {/* Calendar panel — desktop only, hidden in habits view */}
+        {!habitsView && showCalendar && (
           <aside className="hidden md:block w-80 flex-shrink-0 pt-4">
             <div className="sticky top-4">
               <CalendarPanel

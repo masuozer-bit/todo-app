@@ -53,3 +53,29 @@ export interface Profile {
   created_at: string;
   updated_at: string;
 }
+
+export type ScheduleType = "daily" | "weekly";
+
+export interface Habit {
+  id: string;
+  user_id: string;
+  title: string;
+  schedule_type: ScheduleType;
+  schedule_days: number[]; // 0=Sun, 1=Mon, ..., 6=Sat
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface HabitCompletion {
+  id: string;
+  habit_id: string;
+  user_id: string;
+  completed_date: string; // YYYY-MM-DD
+  created_at: string;
+}
+
+export interface HabitWithStatus extends Habit {
+  completedToday: boolean;
+  streak: number;
+}

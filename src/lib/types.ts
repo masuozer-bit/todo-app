@@ -80,3 +80,21 @@ export interface HabitWithStatus extends Habit {
   completedToday: boolean;
   streak: number;
 }
+
+export interface GoogleTokens {
+  user_id: string;
+  access_token: string;
+  refresh_token: string | null;
+  expires_at: string;
+  scopes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CalendarSyncRecord {
+  id: string;
+  todo_id: string;
+  user_id: string;
+  google_event_id: string;
+  synced_at: string;
+}

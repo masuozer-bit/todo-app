@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { Todo, Tag, Subtask, Priority } from "@/lib/types";
+import { syncTodoToCalendar } from "@/lib/calendar-sync-client";
 
 export function useTodos(
   userId: string | undefined,
@@ -12,6 +13,8 @@ export function useTodos(
   const [todos, setTodos] = useState<Todo[]>([]);
   const [loading, setLoading] = useState(true);
   const supabase = createClient();
+  const todosRef = useRef(todos);
+  todosRef.current = todos;
 
   const fetchTodos = useCallback(async () => {
     if (!userId) return;
@@ -158,6 +161,17 @@ export function useTodos(
       };
 
       setTodos((prev) => [...prev, newTodo]);
+
+      // Calendar sync (fire-and-forget)
+      if (options?.due_date) {
+        syncTodoToCalendar("create", todoData.id, {
+          title,
+          due_date: options.due_date,
+          priority: options.priority,
+          notes: options.notes,
+          completed: false,
+        });
+      }
     },
     [userId, todos, allTags, activeListId]
   );
@@ -173,6 +187,18 @@ export function useTodos(
         setTodos((prev) =>
           prev.map((t) => (t.id === id ? { ...t, completed } : t))
         );
+
+        // Calendar sync (fire-and-forget)
+        const todo = todosRef.current.find((t) => t.id === id);
+        if (todo?.due_date) {
+          syncTodoToCalendar("complete", id, {
+            title: todo.title,
+            due_date: todo.due_date,
+            priority: todo.priority,
+            notes: todo.notes,
+            completed,
+          });
+        }
       }
     },
     []
@@ -213,16 +239,39 @@ export function useTodos(
       setTodos((prev) =>
         prev.map((t) => (t.id === id ? { ...t, ...updates } : t))
       );
+
+      // Calendar sync (fire-and-forget)
+      const existingTodo = todosRef.current.find((t) => t.id === id);
+      if (existingTodo) {
+        const merged = { ...existingTodo, ...updates };
+        if (merged.due_date || existingTodo.due_date) {
+          syncTodoToCalendar("update", id, {
+            title: merged.title,
+            due_date: merged.due_date,
+            priority: merged.priority,
+            notes: merged.notes,
+            completed: merged.completed,
+          });
+        }
+      }
     },
     []
   );
 
   const deleteTodo = useCallback(
     async (id: string) => {
+      // Capture todo data before deletion for calendar sync
+      const todo = todosRef.current.find((t) => t.id === id);
+
       const { error } = await supabase.from("todos").delete().eq("id", id);
 
       if (!error) {
         setTodos((prev) => prev.filter((t) => t.id !== id));
+
+        // Calendar sync (fire-and-forget)
+        if (todo?.due_date) {
+          syncTodoToCalendar("delete", id);
+        }
       }
     },
     []
@@ -359,7 +408,8 @@ export function useTodos(
   );
 
   const clearCompleted = useCallback(async () => {
-    const completedIds = todos.filter((t) => t.completed).map((t) => t.id);
+    const completedTodos = todos.filter((t) => t.completed);
+    const completedIds = completedTodos.map((t) => t.id);
     if (completedIds.length === 0) return;
 
     const { error } = await supabase
@@ -369,6 +419,13 @@ export function useTodos(
 
     if (!error) {
       setTodos((prev) => prev.filter((t) => !t.completed));
+
+      // Calendar sync — delete each completed todo with a due_date
+      for (const todo of completedTodos) {
+        if (todo.due_date) {
+          syncTodoToCalendar("delete", todo.id);
+        }
+      }
     }
   }, [todos]);
 

@@ -7,7 +7,11 @@ import Header from "@/components/Header";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { useTodos } from "@/hooks/useTodos";
 import { useTags } from "@/hooks/useTags";
-import { Download, Trash2, User, AlertTriangle } from "lucide-react";
+import { Download, Trash2, User, AlertTriangle, Calendar } from "lucide-react";
+import {
+  getCalendarStatus,
+  disconnectCalendar,
+} from "@/lib/calendar-sync-client";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 
 export default function SettingsPage() {
@@ -19,6 +23,8 @@ export default function SettingsPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [calendarConnected, setCalendarConnected] = useState(false);
+  const [calendarLoading, setCalendarLoading] = useState(true);
   const router = useRouter();
   const supabase = createClient();
 
@@ -53,6 +59,33 @@ export default function SettingsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    getCalendarStatus().then((status) => {
+      setCalendarConnected(status.connected && status.hasCalendarScope);
+      setCalendarLoading(false);
+    });
+  }, []);
+
+  async function handleConnectCalendar() {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback?next=/settings`,
+        scopes: "https://www.googleapis.com/auth/calendar.events",
+        queryParams: {
+          access_type: "offline",
+          prompt: "consent",
+        },
+      },
+    });
+    if (error) setSaveMsg(error.message);
+  }
+
+  async function handleDisconnectCalendar() {
+    const success = await disconnectCalendar();
+    if (success) setCalendarConnected(false);
+  }
+
   async function handleSaveProfile(e: React.FormEvent) {
     e.preventDefault();
     if (!user) return;
@@ -69,6 +102,9 @@ export default function SettingsPage() {
   async function handleDeleteAccount() {
     if (!user) return;
     setDeleting(true);
+    // Delete calendar sync data
+    await supabase.from("calendar_sync").delete().eq("user_id", user.id);
+    await supabase.from("google_tokens").delete().eq("user_id", user.id);
     // Delete all user data (cascades via RLS / foreign keys)
     await supabase.from("todos").delete().eq("user_id", user.id);
     await supabase.from("tags").delete().eq("user_id", user.id);
@@ -222,6 +258,47 @@ export default function SettingsPage() {
                   Clear
                 </button>
               </div>
+            </div>
+          </section>
+
+          {/* Google Calendar */}
+          <section className="glass-card p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Calendar size={16} className="text-gray-400" />
+              <h3 className="font-semibold text-black dark:text-white">
+                Google Calendar
+              </h3>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-black dark:text-white">
+                  Sync tasks with due dates
+                </p>
+                <p className="text-xs text-gray-400">
+                  {calendarLoading
+                    ? "Checking connection..."
+                    : calendarConnected
+                      ? "Connected — tasks with due dates sync automatically"
+                      : "Connect to sync tasks as all-day calendar events"}
+                </p>
+              </div>
+              {!calendarLoading &&
+                (calendarConnected ? (
+                  <button
+                    onClick={handleDisconnectCalendar}
+                    className="px-3 py-1.5 rounded-lg border border-red-500/30 text-sm text-red-500 hover:bg-red-500/10 transition-default"
+                  >
+                    Disconnect
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleConnectCalendar}
+                    className="px-3 py-1.5 rounded-lg border border-black/10 dark:border-white/10 text-sm text-black dark:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-default"
+                  >
+                    Connect
+                  </button>
+                ))}
             </div>
           </section>
 

@@ -1,14 +1,15 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Plus, ChevronDown, ChevronUp } from "lucide-react";
+import { Plus, ChevronDown, ChevronUp, Minus } from "lucide-react";
 import type { ScheduleType } from "@/lib/types";
 
 interface HabitInputProps {
   onAdd: (
     title: string,
     scheduleType: ScheduleType,
-    scheduleDays: number[]
+    scheduleDays: number[],
+    scheduleInterval: number
   ) => void;
 }
 
@@ -17,25 +18,34 @@ const DAY_LABELS = ["S", "M", "T", "W", "T", "F", "S"];
 export default function HabitInput({ onAdd }: HabitInputProps) {
   const [title, setTitle] = useState("");
   const [showOptions, setShowOptions] = useState(false);
-  const [scheduleType, setScheduleType] = useState<ScheduleType>("daily");
+  const [scheduleType, setScheduleType] = useState<ScheduleType>("interval");
   const [scheduleDays, setScheduleDays] = useState<number[]>([1, 2, 3, 4, 5]);
+  const [scheduleInterval, setScheduleInterval] = useState(1);
   const inputRef = useRef<HTMLInputElement>(null);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const trimmed = title.trim();
     if (!trimmed) return;
-    onAdd(trimmed, scheduleType, scheduleType === "weekly" ? scheduleDays : []);
+    onAdd(
+      trimmed,
+      scheduleType,
+      scheduleType === "weekly" ? scheduleDays : [],
+      scheduleType === "interval" ? scheduleInterval : 1
+    );
     setTitle("");
-    setScheduleType("daily");
+    setScheduleType("interval");
     setScheduleDays([1, 2, 3, 4, 5]);
+    setScheduleInterval(1);
     setShowOptions(false);
     inputRef.current?.focus();
   }
 
   function toggleDay(day: number) {
     setScheduleDays((prev) =>
-      prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day].sort()
+      prev.includes(day)
+        ? prev.filter((d) => d !== day)
+        : [...prev, day].sort()
     );
   }
 
@@ -83,22 +93,64 @@ export default function HabitInput({ onAdd }: HabitInputProps) {
                 Rhythm
               </p>
               <div className="flex gap-2">
-                {(["daily", "weekly"] as ScheduleType[]).map((type) => (
-                  <button
-                    key={type}
-                    type="button"
-                    onClick={() => setScheduleType(type)}
-                    className={`text-xs px-2.5 py-1.5 rounded-lg border capitalize transition-default ${
-                      scheduleType === type
-                        ? "border-black/30 dark:border-white/30 bg-black/5 dark:bg-white/10 font-medium text-black dark:text-white"
-                        : "border-black/10 dark:border-white/10 text-gray-400 hover:border-black/20 dark:hover:border-white/20"
-                    }`}
-                  >
-                    {type === "daily" ? "Every day" : "Specific days"}
-                  </button>
-                ))}
+                <button
+                  type="button"
+                  onClick={() => setScheduleType("interval")}
+                  className={`text-xs px-2.5 py-1.5 rounded-lg border transition-default ${
+                    scheduleType === "interval"
+                      ? "border-black/30 dark:border-white/30 bg-black/5 dark:bg-white/10 font-medium text-black dark:text-white"
+                      : "border-black/10 dark:border-white/10 text-gray-400 hover:border-black/20 dark:hover:border-white/20"
+                  }`}
+                >
+                  Every X days
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setScheduleType("weekly")}
+                  className={`text-xs px-2.5 py-1.5 rounded-lg border transition-default ${
+                    scheduleType === "weekly"
+                      ? "border-black/30 dark:border-white/30 bg-black/5 dark:bg-white/10 font-medium text-black dark:text-white"
+                      : "border-black/10 dark:border-white/10 text-gray-400 hover:border-black/20 dark:hover:border-white/20"
+                  }`}
+                >
+                  Specific days
+                </button>
               </div>
             </div>
+
+            {scheduleType === "interval" && (
+              <div>
+                <p className="text-xs text-gray-400 font-medium mb-1.5">
+                  Repeat every
+                </p>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setScheduleInterval((p) => Math.max(1, p - 1))
+                    }
+                    className="w-8 h-8 rounded-lg border border-black/10 dark:border-white/10 flex items-center justify-center text-gray-400 hover:text-black dark:hover:text-white hover:border-black/20 dark:hover:border-white/20 transition-default"
+                  >
+                    <Minus size={14} />
+                  </button>
+                  <span className="w-8 text-center text-sm font-medium text-black dark:text-white tabular-nums">
+                    {scheduleInterval}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setScheduleInterval((p) => Math.min(30, p + 1))
+                    }
+                    className="w-8 h-8 rounded-lg border border-black/10 dark:border-white/10 flex items-center justify-center text-gray-400 hover:text-black dark:hover:text-white hover:border-black/20 dark:hover:border-white/20 transition-default"
+                  >
+                    <Plus size={14} />
+                  </button>
+                  <span className="text-xs text-gray-400">
+                    {scheduleInterval === 1 ? "day" : "days"}
+                  </span>
+                </div>
+              </div>
+            )}
 
             {scheduleType === "weekly" && (
               <div>

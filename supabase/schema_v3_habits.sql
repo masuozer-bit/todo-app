@@ -9,8 +9,9 @@ create table if not exists public.habits (
   id uuid default uuid_generate_v4() primary key,
   user_id uuid references auth.users on delete cascade not null,
   title text not null,
-  schedule_type text not null default 'daily' check (schedule_type in ('daily', 'weekly')),
+  schedule_type text not null default 'interval' check (schedule_type in ('interval', 'weekly')),
   schedule_days integer[] default '{}',
+  schedule_interval integer not null default 1,
   sort_order integer default 0,
   created_at timestamptz default now(),
   updated_at timestamptz default now()

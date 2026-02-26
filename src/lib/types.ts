@@ -54,14 +54,15 @@ export interface Profile {
   updated_at: string;
 }
 
-export type ScheduleType = "daily" | "weekly";
+export type ScheduleType = "interval" | "weekly";
 
 export interface Habit {
   id: string;
   user_id: string;
   title: string;
   schedule_type: ScheduleType;
-  schedule_days: number[]; // 0=Sun, 1=Mon, ..., 6=Sat
+  schedule_days: number[]; // 0=Sun, 1=Mon, ..., 6=Sat (for weekly)
+  schedule_interval: number; // every X days (for interval, 1=daily, 2=every other day, etc.)
   sort_order: number;
   created_at: string;
   updated_at: string;

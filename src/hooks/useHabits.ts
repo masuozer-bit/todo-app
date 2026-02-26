@@ -25,8 +25,19 @@ function toDateStr(d: Date): string {
 }
 
 function isScheduledForDate(habit: Habit, date: Date): boolean {
-  if (habit.schedule_type === "daily") return true;
-  return habit.schedule_days.includes(date.getDay());
+  if (habit.schedule_type === "weekly") {
+    return habit.schedule_days.includes(date.getDay());
+  }
+  // interval: every X days from created_at
+  const interval = habit.schedule_interval || 1;
+  if (interval === 1) return true; // every day
+  const start = new Date(habit.created_at);
+  start.setHours(0, 0, 0, 0);
+  const check = new Date(date);
+  check.setHours(0, 0, 0, 0);
+  const diffMs = check.getTime() - start.getTime();
+  const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+  return diffDays >= 0 && diffDays % interval === 0;
 }
 
 function calculateStreak(
@@ -115,7 +126,8 @@ export function useHabits(userId: string | undefined) {
     async (
       title: string,
       scheduleType: ScheduleType,
-      scheduleDays: number[]
+      scheduleDays: number[],
+      scheduleInterval: number
     ) => {
       if (!userId) return;
       const maxOrder =
@@ -127,6 +139,7 @@ export function useHabits(userId: string | undefined) {
           title,
           schedule_type: scheduleType,
           schedule_days: scheduleDays,
+          schedule_interval: scheduleInterval,
           sort_order: maxOrder + 1,
         })
         .select()
@@ -144,6 +157,7 @@ export function useHabits(userId: string | undefined) {
         title?: string;
         schedule_type?: ScheduleType;
         schedule_days?: number[];
+        schedule_interval?: number;
       }
     ) => {
       const { error } = await supabase
@@ -216,6 +230,7 @@ export function useHabits(userId: string | undefined) {
         title: h.title,
         schedule_type: h.schedule_type,
         schedule_days: h.schedule_days,
+        schedule_interval: h.schedule_interval || 1,
         sort_order: i,
       }));
       await supabase.from("habits").upsert(updates);

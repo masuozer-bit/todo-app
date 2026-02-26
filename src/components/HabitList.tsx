@@ -36,6 +36,7 @@ function SortableHabitItem({
       title?: string;
       schedule_type?: ScheduleType;
       schedule_days?: number[];
+      schedule_interval?: number;
     }
   ) => void;
   onDelete: (id: string) => void;
@@ -77,6 +78,7 @@ interface HabitListProps {
       title?: string;
       schedule_type?: ScheduleType;
       schedule_days?: number[];
+      schedule_interval?: number;
     }
   ) => void;
   onDelete: (id: string) => void;

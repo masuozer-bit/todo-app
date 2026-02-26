@@ -13,6 +13,7 @@ interface HabitItemProps {
       title?: string;
       schedule_type?: ScheduleType;
       schedule_days?: number[];
+      schedule_interval?: number;
     }
   ) => void;
   onDelete: (id: string) => void;
@@ -23,8 +24,12 @@ interface HabitItemProps {
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 function formatSchedule(habit: HabitWithStatus): string {
-  if (habit.schedule_type === "daily") return "Daily";
-  return habit.schedule_days.map((d) => DAY_LABELS[d]).join(", ");
+  if (habit.schedule_type === "weekly") {
+    return habit.schedule_days.map((d) => DAY_LABELS[d]).join(", ");
+  }
+  const interval = habit.schedule_interval || 1;
+  if (interval === 1) return "Daily";
+  return `Every ${interval} days`;
 }
 
 export default function HabitItem({

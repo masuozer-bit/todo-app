@@ -24,7 +24,7 @@ export async function GET(request: Request) {
             access_token: providerToken,
             refresh_token: providerRefreshToken,
             expires_at: expiresAt,
-            scopes: "https://www.googleapis.com/auth/calendar.events",
+            scopes: "https://www.googleapis.com/auth/calendar",
           },
           { onConflict: "user_id" }
         );

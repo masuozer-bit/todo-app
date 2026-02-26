@@ -11,6 +11,7 @@ import { Download, Trash2, User, AlertTriangle, Calendar } from "lucide-react";
 import {
   getCalendarStatus,
   disconnectCalendar,
+  bulkSyncCalendar,
 } from "@/lib/calendar-sync-client";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 
@@ -25,6 +26,8 @@ export default function SettingsPage() {
   const [deleting, setDeleting] = useState(false);
   const [calendarConnected, setCalendarConnected] = useState(false);
   const [calendarLoading, setCalendarLoading] = useState(true);
+  const [bulkSyncing, setBulkSyncing] = useState(false);
+  const [bulkSyncMsg, setBulkSyncMsg] = useState("");
   const router = useRouter();
   const supabase = createClient();
 
@@ -71,7 +74,7 @@ export default function SettingsPage() {
       provider: "google",
       options: {
         redirectTo: `${window.location.origin}/auth/callback?next=/settings`,
-        scopes: "https://www.googleapis.com/auth/calendar.events",
+        scopes: "https://www.googleapis.com/auth/calendar",
         queryParams: {
           access_type: "offline",
           prompt: "consent",
@@ -104,6 +107,7 @@ export default function SettingsPage() {
     setDeleting(true);
     // Delete calendar sync data
     await supabase.from("calendar_sync").delete().eq("user_id", user.id);
+    await supabase.from("habit_calendar_sync").delete().eq("user_id", user.id);
     await supabase.from("google_tokens").delete().eq("user_id", user.id);
     // Delete all user data (cascades via RLS / foreign keys)
     await supabase.from("todos").delete().eq("user_id", user.id);
@@ -270,35 +274,91 @@ export default function SettingsPage() {
               </h3>
             </div>
 
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-black dark:text-white">
-                  Sync tasks with due dates
-                </p>
-                <p className="text-xs text-gray-400">
-                  {calendarLoading
-                    ? "Checking connection..."
-                    : calendarConnected
-                      ? "Connected — tasks with due dates sync automatically"
-                      : "Connect to sync tasks as all-day calendar events"}
-                </p>
+            <div className="space-y-4">
+              {/* Connection status */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-black dark:text-white">
+                    Calendar sync
+                  </p>
+                  <p className="text-xs text-gray-400">
+                    {calendarLoading
+                      ? "Checking connection..."
+                      : calendarConnected
+                        ? "Connected — syncs to a separate \"Todos\" calendar"
+                        : "Connect to sync tasks, habits & view your schedule"}
+                  </p>
+                </div>
+                {!calendarLoading &&
+                  (calendarConnected ? (
+                    <button
+                      onClick={handleDisconnectCalendar}
+                      className="px-3 py-1.5 rounded-lg border border-red-500/30 text-sm text-red-500 hover:bg-red-500/10 transition-default"
+                    >
+                      Disconnect
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleConnectCalendar}
+                      className="px-3 py-1.5 rounded-lg border border-black/10 dark:border-white/10 text-sm text-black dark:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-default"
+                    >
+                      Connect
+                    </button>
+                  ))}
               </div>
-              {!calendarLoading &&
-                (calendarConnected ? (
-                  <button
-                    onClick={handleDisconnectCalendar}
-                    className="px-3 py-1.5 rounded-lg border border-red-500/30 text-sm text-red-500 hover:bg-red-500/10 transition-default"
-                  >
-                    Disconnect
-                  </button>
-                ) : (
-                  <button
-                    onClick={handleConnectCalendar}
-                    className="px-3 py-1.5 rounded-lg border border-black/10 dark:border-white/10 text-sm text-black dark:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-default"
-                  >
-                    Connect
-                  </button>
-                ))}
+
+              {/* Features description */}
+              {calendarConnected && (
+                <>
+                  <div className="border-t border-black/5 dark:border-white/5 pt-4">
+                    <p className="text-xs text-gray-400 font-medium mb-2">
+                      Sync features
+                    </p>
+                    <ul className="text-xs text-gray-500 dark:text-gray-400 space-y-1">
+                      <li>Tasks with due dates sync as calendar events</li>
+                      <li>Time-based events with start/end times</li>
+                      <li>Habits sync as recurring calendar events</li>
+                      <li>Subtasks shown in event descriptions</li>
+                      <li>Color coded by priority, list, or tags</li>
+                      <li>Reminders before events</li>
+                      <li>Completed tasks marked with checkmark</li>
+                      <li>Google Calendar events shown in calendar panel</li>
+                    </ul>
+                  </div>
+
+                  {/* Bulk sync */}
+                  <div className="border-t border-black/5 dark:border-white/5 pt-4 flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-black dark:text-white">
+                        Sync all tasks & habits
+                      </p>
+                      <p className="text-xs text-gray-400">
+                        {bulkSyncMsg || "Sync all existing tasks and habits to Google Calendar"}
+                      </p>
+                    </div>
+                    <button
+                      onClick={async () => {
+                        setBulkSyncing(true);
+                        setBulkSyncMsg("Syncing...");
+                        const result = await bulkSyncCalendar();
+                        if (result.success) {
+                          setBulkSyncMsg(
+                            `Synced ${result.synced_todos ?? 0} tasks and ${result.synced_habits ?? 0} habits`
+                          );
+                        } else {
+                          setBulkSyncMsg(result.error || "Sync failed");
+                        }
+                        setBulkSyncing(false);
+                        setTimeout(() => setBulkSyncMsg(""), 5000);
+                      }}
+                      disabled={bulkSyncing}
+                      className="px-3 py-1.5 rounded-lg border border-black/10 dark:border-white/10 text-sm text-black dark:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-default disabled:opacity-50"
+                    >
+                      {bulkSyncing ? "Syncing..." : "Sync all"}
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </section>
 

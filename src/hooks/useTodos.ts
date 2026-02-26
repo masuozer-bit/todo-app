@@ -99,6 +99,8 @@ export function useTodos(
       tagIds: string[],
       options?: {
         due_date?: string | null;
+        start_time?: string | null;
+        end_time?: string | null;
         priority?: Priority;
         notes?: string | null;
         list_id?: string | null;
@@ -119,6 +121,8 @@ export function useTodos(
           title,
           sort_order: maxOrder + 1,
           due_date: options?.due_date ?? null,
+          start_time: options?.start_time ?? null,
+          end_time: options?.end_time ?? null,
           priority: options?.priority ?? "none",
           notes: options?.notes ?? null,
           list_id: options?.list_id ?? activeListId ?? null,
@@ -164,12 +168,19 @@ export function useTodos(
 
       // Calendar sync (fire-and-forget)
       if (options?.due_date) {
+        const tagNames = tagIds
+          .map((id) => allTags.find((t) => t.id === id)?.name)
+          .filter(Boolean) as string[];
         syncTodoToCalendar("create", todoData.id, {
           title,
           due_date: options.due_date,
+          start_time: options.start_time,
+          end_time: options.end_time,
           priority: options.priority,
           notes: options.notes,
           completed: false,
+          subtasks: [],
+          tag_names: tagNames,
         });
       }
     },
@@ -194,9 +205,16 @@ export function useTodos(
           syncTodoToCalendar("complete", id, {
             title: todo.title,
             due_date: todo.due_date,
+            start_time: todo.start_time,
+            end_time: todo.end_time,
             priority: todo.priority,
             notes: todo.notes,
             completed,
+            subtasks: (todo.subtasks ?? []).map((s) => ({
+              title: s.title,
+              completed: s.completed,
+            })),
+            tag_names: (todo.tags ?? []).map((t) => t.name),
           });
         }
       }
@@ -210,6 +228,8 @@ export function useTodos(
       updates: {
         title?: string;
         due_date?: string | null;
+        start_time?: string | null;
+        end_time?: string | null;
         priority?: Priority;
         notes?: string | null;
         list_id?: string | null;
@@ -248,9 +268,16 @@ export function useTodos(
           syncTodoToCalendar("update", id, {
             title: merged.title,
             due_date: merged.due_date,
+            start_time: merged.start_time,
+            end_time: merged.end_time,
             priority: merged.priority,
             notes: merged.notes,
             completed: merged.completed,
+            subtasks: (merged.subtasks ?? []).map((s) => ({
+              title: s.title,
+              completed: s.completed,
+            })),
+            tag_names: (merged.tags ?? []).map((t) => t.name),
           });
         }
       }

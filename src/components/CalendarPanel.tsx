@@ -1,8 +1,21 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import { useState, useMemo, useEffect, useCallback } from "react";
+import { ChevronLeft, ChevronRight, X, ExternalLink, Clock } from "lucide-react";
 import type { Todo } from "@/lib/types";
+import { fetchCalendarEvents } from "@/lib/calendar-sync-client";
+
+interface CalendarEvent {
+  id: string;
+  summary: string;
+  description?: string;
+  date: string;
+  startTime?: string;
+  endTime?: string;
+  isAllDay: boolean;
+  htmlLink?: string;
+  source: "google" | "synced";
+}
 
 interface CalendarPanelProps {
   todos: Todo[];
@@ -34,8 +47,31 @@ export default function CalendarPanel({
 
   const [viewYear, setViewYear] = useState(today.getFullYear());
   const [viewMonth, setViewMonth] = useState(today.getMonth());
+  const [googleEvents, setGoogleEvents] = useState<CalendarEvent[]>([]);
+  const [eventsLoading, setEventsLoading] = useState(false);
 
-  // Build a set of dates that have todos
+  // Fetch Google Calendar events for visible month
+  const fetchEvents = useCallback(async () => {
+    setEventsLoading(true);
+    const firstDay = new Date(viewYear, viewMonth, 1);
+    const lastDay = new Date(viewYear, viewMonth + 1, 0);
+    // Include padding days
+    firstDay.setDate(firstDay.getDate() - 7);
+    lastDay.setDate(lastDay.getDate() + 7);
+
+    const result = await fetchCalendarEvents(
+      toDateStr(firstDay),
+      toDateStr(lastDay)
+    );
+    setGoogleEvents(result.events);
+    setEventsLoading(false);
+  }, [viewYear, viewMonth]);
+
+  useEffect(() => {
+    fetchEvents();
+  }, [fetchEvents]);
+
+  // Build maps for dates
   const dueDateMap = useMemo(() => {
     const map: Record<string, { count: number; hasOverdue: boolean }> = {};
     for (const todo of todos) {
@@ -48,10 +84,20 @@ export default function CalendarPanel({
     return map;
   }, [todos, todayStr]);
 
+  // Google events grouped by date (only non-synced ones)
+  const googleEventsByDate = useMemo(() => {
+    const map: Record<string, CalendarEvent[]> = {};
+    for (const event of googleEvents) {
+      if (event.source === "synced") continue; // Skip our own synced events
+      if (!map[event.date]) map[event.date] = [];
+      map[event.date].push(event);
+    }
+    return map;
+  }, [googleEvents]);
+
   // Calendar grid for current month
   const calendarDays = useMemo(() => {
     const firstDay = new Date(viewYear, viewMonth, 1);
-    // Monday = 0, Sunday = 6
     let startDow = firstDay.getDay() - 1;
     if (startDow < 0) startDow = 6;
 
@@ -60,19 +106,16 @@ export default function CalendarPanel({
 
     const cells: { date: Date; dateStr: string; inMonth: boolean }[] = [];
 
-    // Previous month trailing days
     for (let i = startDow - 1; i >= 0; i--) {
       const d = new Date(viewYear, viewMonth - 1, daysInPrevMonth - i);
       cells.push({ date: d, dateStr: toDateStr(d), inMonth: false });
     }
 
-    // Current month
     for (let i = 1; i <= daysInMonth; i++) {
       const d = new Date(viewYear, viewMonth, i);
       cells.push({ date: d, dateStr: toDateStr(d), inMonth: true });
     }
 
-    // Next month leading days (fill to 42 cells = 6 rows)
     const remaining = 42 - cells.length;
     for (let i = 1; i <= remaining; i++) {
       const d = new Date(viewYear, viewMonth + 1, i);
@@ -113,8 +156,11 @@ export default function CalendarPanel({
     }
   }
 
-  // Count tasks for selected date
-  const selectedInfo = selectedDate ? dueDateMap[selectedDate] : null;
+  // Info for selected date
+  const selectedTodoInfo = selectedDate ? dueDateMap[selectedDate] : null;
+  const selectedGoogleEvents = selectedDate
+    ? googleEventsByDate[selectedDate] ?? []
+    : [];
 
   return (
     <div className="glass-card p-4">
@@ -161,7 +207,8 @@ export default function CalendarPanel({
         {calendarDays.map(({ dateStr, inMonth }, i) => {
           const isToday = dateStr === todayStr;
           const isSelected = dateStr === selectedDate;
-          const info = dueDateMap[dateStr];
+          const todoInfo = dueDateMap[dateStr];
+          const hasGoogleEvents = !!googleEventsByDate[dateStr];
           const dayNum = parseInt(dateStr.split("-")[2], 10);
 
           return (
@@ -180,27 +227,45 @@ export default function CalendarPanel({
               aria-label={dateStr}
             >
               <span>{dayNum}</span>
-              {/* Dot indicator for tasks */}
-              {info && (
-                <span
-                  className={`absolute bottom-1 w-1 h-1 rounded-full ${
-                    info.hasOverdue
-                      ? "bg-red-500"
-                      : isToday && !isSelected
-                        ? "bg-white dark:bg-black"
-                        : "bg-black dark:bg-white"
-                  }`}
-                />
-              )}
+              {/* Dot indicators */}
+              <div className="absolute bottom-1 flex gap-0.5">
+                {todoInfo && (
+                  <span
+                    className={`w-1 h-1 rounded-full ${
+                      todoInfo.hasOverdue
+                        ? "bg-red-500"
+                        : isToday && !isSelected
+                          ? "bg-white dark:bg-black"
+                          : "bg-black dark:bg-white"
+                    }`}
+                  />
+                )}
+                {hasGoogleEvents && (
+                  <span
+                    className={`w-1 h-1 rounded-full ${
+                      isToday && !isSelected
+                        ? "bg-blue-300"
+                        : "bg-blue-500"
+                    }`}
+                  />
+                )}
+              </div>
             </button>
           );
         })}
       </div>
 
+      {/* Loading indicator */}
+      {eventsLoading && (
+        <div className="mt-2 flex items-center justify-center">
+          <div className="w-3 h-3 border border-gray-400/30 border-t-gray-400 rounded-full animate-spin" />
+        </div>
+      )}
+
       {/* Selected date info */}
       {selectedDate && (
         <div className="mt-4 pt-3 border-t border-black/5 dark:border-white/5">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between mb-2">
             <div>
               <p className="text-xs font-medium text-black dark:text-white">
                 {new Date(selectedDate + "T00:00:00").toLocaleDateString("en", {
@@ -210,9 +275,11 @@ export default function CalendarPanel({
                 })}
               </p>
               <p className="text-xs text-gray-400 mt-0.5">
-                {selectedInfo
-                  ? `${selectedInfo.count} task${selectedInfo.count !== 1 ? "s" : ""} due`
+                {selectedTodoInfo
+                  ? `${selectedTodoInfo.count} task${selectedTodoInfo.count !== 1 ? "s" : ""} due`
                   : "No tasks due"}
+                {selectedGoogleEvents.length > 0 &&
+                  ` · ${selectedGoogleEvents.length} event${selectedGoogleEvents.length !== 1 ? "s" : ""}`}
               </p>
             </div>
             <button
@@ -223,6 +290,46 @@ export default function CalendarPanel({
               <X size={14} />
             </button>
           </div>
+
+          {/* Google Calendar events for selected date */}
+          {selectedGoogleEvents.length > 0 && (
+            <div className="space-y-1.5 mt-2">
+              {selectedGoogleEvents.map((event) => (
+                <div
+                  key={event.id}
+                  className="flex items-start gap-2 py-1.5 px-2 rounded-lg bg-blue-50 dark:bg-blue-950/30"
+                >
+                  <div className="w-1 h-full min-h-[16px] bg-blue-500 rounded-full flex-shrink-0 mt-0.5" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium text-black dark:text-white truncate">
+                      {event.summary}
+                    </p>
+                    {event.startTime && (
+                      <p className="text-[10px] text-gray-400 flex items-center gap-0.5 mt-0.5">
+                        <Clock size={9} />
+                        {event.startTime}
+                        {event.endTime && `–${event.endTime}`}
+                      </p>
+                    )}
+                    {!event.startTime && (
+                      <p className="text-[10px] text-gray-400 mt-0.5">All day</p>
+                    )}
+                  </div>
+                  {event.htmlLink && (
+                    <a
+                      href={event.htmlLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-gray-400 hover:text-blue-500 transition-default flex-shrink-0 mt-0.5"
+                      aria-label="Open in Google Calendar"
+                    >
+                      <ExternalLink size={10} />
+                    </a>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>

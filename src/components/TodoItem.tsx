@@ -23,6 +23,8 @@ interface TodoItemProps {
     updates: {
       title?: string;
       due_date?: string | null;
+      start_time?: string | null;
+      end_time?: string | null;
       priority?: Priority;
       notes?: string | null;
     }
@@ -264,6 +266,11 @@ export default function TodoItem({
               >
                 <Calendar size={11} />
                 {dueInfo.text}
+                {todo.start_time && (
+                  <span className="text-gray-400 ml-0.5">
+                    {todo.start_time}{todo.end_time ? `–${todo.end_time}` : ""}
+                  </span>
+                )}
               </span>
             )}
             {subtasks.length > 0 && (
@@ -356,24 +363,51 @@ export default function TodoItem({
             </div>
           )}
 
-          {/* Due date */}
+          {/* Due date & time */}
           {!todo.completed && (
             <div>
               <p className="text-xs text-gray-400 mb-2 font-medium uppercase tracking-wide">
-                Due date
+                Due date & time
               </p>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <input
                   type="date"
                   value={todo.due_date ?? ""}
                   onChange={(e) =>
-                    onUpdate(todo.id, { due_date: e.target.value || null })
+                    onUpdate(todo.id, {
+                      due_date: e.target.value || null,
+                      ...(e.target.value ? {} : { start_time: null, end_time: null }),
+                    })
                   }
                   className="text-xs bg-transparent border border-black/10 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-black dark:text-white focus:outline-none focus:border-black/30 dark:focus:border-white/30 transition-default"
                 />
                 {todo.due_date && (
+                  <>
+                    <input
+                      type="time"
+                      value={todo.start_time ?? ""}
+                      onChange={(e) =>
+                        onUpdate(todo.id, { start_time: e.target.value || null })
+                      }
+                      placeholder="Start"
+                      className="text-xs bg-transparent border border-black/10 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-black dark:text-white focus:outline-none focus:border-black/30 dark:focus:border-white/30 transition-default"
+                    />
+                    {todo.start_time && (
+                      <input
+                        type="time"
+                        value={todo.end_time ?? ""}
+                        onChange={(e) =>
+                          onUpdate(todo.id, { end_time: e.target.value || null })
+                        }
+                        placeholder="End"
+                        className="text-xs bg-transparent border border-black/10 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-black dark:text-white focus:outline-none focus:border-black/30 dark:focus:border-white/30 transition-default"
+                      />
+                    )}
+                  </>
+                )}
+                {todo.due_date && (
                   <button
-                    onClick={() => onUpdate(todo.id, { due_date: null })}
+                    onClick={() => onUpdate(todo.id, { due_date: null, start_time: null, end_time: null })}
                     className="text-xs text-gray-400 hover:text-black dark:hover:text-white transition-default"
                   >
                     Clear

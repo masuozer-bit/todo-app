@@ -11,8 +11,9 @@ export async function POST() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Delete sync records and tokens
+  // Delete all sync records, habit sync records, and tokens
   await supabase.from("calendar_sync").delete().eq("user_id", user.id);
+  await supabase.from("habit_calendar_sync").delete().eq("user_id", user.id);
   await supabase.from("google_tokens").delete().eq("user_id", user.id);
 
   return NextResponse.json({ success: true });

@@ -17,6 +17,8 @@ export interface Todo {
   completed: boolean;
   sort_order: number;
   due_date?: string | null;
+  start_time?: string | null; // "HH:MM" format
+  end_time?: string | null;   // "HH:MM" format
   priority: Priority;
   notes?: string | null;
   list_id?: string | null;
@@ -97,4 +99,23 @@ export interface CalendarSyncRecord {
   user_id: string;
   google_event_id: string;
   synced_at: string;
+}
+
+export interface HabitCalendarSyncRecord {
+  id: string;
+  habit_id: string;
+  user_id: string;
+  google_event_id: string;
+  synced_at: string;
+}
+
+export interface GoogleCalendarEvent {
+  id: string;
+  summary: string;
+  description?: string;
+  start: { date?: string; dateTime?: string; timeZone?: string };
+  end: { date?: string; dateTime?: string; timeZone?: string };
+  colorId?: string;
+  status?: string;
+  htmlLink?: string;
 }

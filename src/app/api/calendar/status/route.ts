@@ -19,6 +19,9 @@ export async function GET() {
 
   return NextResponse.json({
     connected: !!tokens,
-    hasCalendarScope: tokens?.scopes?.includes("calendar.events") ?? false,
+    hasCalendarScope:
+      tokens?.scopes?.includes("calendar.events") ||
+      tokens?.scopes?.includes("auth/calendar") ||
+      false,
   });
 }

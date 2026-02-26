@@ -8,6 +8,7 @@ import type {
   HabitWithStatus,
   ScheduleType,
 } from "@/lib/types";
+import { syncHabitToCalendar } from "@/lib/calendar-sync-client";
 
 function getTodayStr(): string {
   const d = new Date();
@@ -144,7 +145,17 @@ export function useHabits(userId: string | undefined) {
         })
         .select()
         .single();
-      if (data) setHabits((prev) => [...prev, data]);
+      if (data) {
+        setHabits((prev) => [...prev, data]);
+        // Calendar sync (fire-and-forget)
+        syncHabitToCalendar("create", data.id, {
+          title,
+          schedule_type: scheduleType,
+          schedule_days: scheduleDays,
+          schedule_interval: scheduleInterval,
+          created_at: data.created_at,
+        });
+      }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [userId, habits.length]
@@ -168,10 +179,22 @@ export function useHabits(userId: string | undefined) {
         setHabits((prev) =>
           prev.map((h) => (h.id === id ? { ...h, ...updates } : h))
         );
+        // Calendar sync (fire-and-forget)
+        const habit = habits.find((h) => h.id === id);
+        if (habit) {
+          const merged = { ...habit, ...updates };
+          syncHabitToCalendar("update", id, {
+            title: merged.title,
+            schedule_type: merged.schedule_type,
+            schedule_days: merged.schedule_days,
+            schedule_interval: merged.schedule_interval || 1,
+            created_at: merged.created_at,
+          });
+        }
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    []
+    [habits]
   );
 
   const deleteHabit = useCallback(
@@ -180,6 +203,8 @@ export function useHabits(userId: string | undefined) {
       if (!error) {
         setHabits((prev) => prev.filter((h) => h.id !== id));
         setCompletions((prev) => prev.filter((c) => c.habit_id !== id));
+        // Calendar sync (fire-and-forget)
+        syncHabitToCalendar("delete", id);
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps

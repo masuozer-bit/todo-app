@@ -11,6 +11,8 @@ interface TodoInputProps {
     tagIds: string[],
     options?: {
       due_date?: string | null;
+      start_time?: string | null;
+      end_time?: string | null;
       priority?: Priority;
       notes?: string | null;
       list_id?: string | null;
@@ -38,6 +40,8 @@ export default function TodoInput({
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [showOptions, setShowOptions] = useState(false);
   const [dueDate, setDueDate] = useState("");
+  const [startTime, setStartTime] = useState("");
+  const [endTime, setEndTime] = useState("");
   const [priority, setPriority] = useState<Priority>("none");
   const [notes, setNotes] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -48,6 +52,8 @@ export default function TodoInput({
     if (!trimmed) return;
     onAdd(trimmed, selectedTagIds, {
       due_date: dueDate || null,
+      start_time: startTime || null,
+      end_time: endTime || null,
       priority,
       notes: notes.trim() || null,
       list_id: activeListId ?? null,
@@ -55,6 +61,8 @@ export default function TodoInput({
     setTitle("");
     setSelectedTagIds([]);
     setDueDate("");
+    setStartTime("");
+    setEndTime("");
     setPriority("none");
     setNotes("");
     setShowOptions(false);
@@ -139,6 +147,36 @@ export default function TodoInput({
                   className="text-xs bg-transparent border border-black/10 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-black dark:text-white focus:outline-none focus:border-black/30 dark:focus:border-white/30 transition-default"
                 />
               </div>
+
+              {/* Start time (only shown when due date is set) */}
+              {dueDate && (
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs text-gray-400 font-medium">
+                    Start time
+                  </label>
+                  <input
+                    type="time"
+                    value={startTime}
+                    onChange={(e) => setStartTime(e.target.value)}
+                    className="text-xs bg-transparent border border-black/10 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-black dark:text-white focus:outline-none focus:border-black/30 dark:focus:border-white/30 transition-default"
+                  />
+                </div>
+              )}
+
+              {/* End time (only shown when start time is set) */}
+              {dueDate && startTime && (
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs text-gray-400 font-medium">
+                    End time
+                  </label>
+                  <input
+                    type="time"
+                    value={endTime}
+                    onChange={(e) => setEndTime(e.target.value)}
+                    className="text-xs bg-transparent border border-black/10 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-black dark:text-white focus:outline-none focus:border-black/30 dark:focus:border-white/30 transition-default"
+                  />
+                </div>
+              )}
             </div>
 
             {/* Notes */}

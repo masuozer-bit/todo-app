@@ -97,6 +97,11 @@ export async function POST(request: NextRequest) {
       return calId;
     }
 
+    // ─── Create calendars for ALL lists (even empty ones) ───
+    for (const list of lists || []) {
+      await getCalendarForList(list.id);
+    }
+
     // ─── Sync all todos with due dates ─────────────────────
     const { data: todos } = await supabase
       .from("todos")

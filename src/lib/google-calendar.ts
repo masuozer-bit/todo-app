@@ -126,6 +126,61 @@ export async function getOrCreateTodosCalendar(
   return "primary";
 }
 
+export async function getOrCreateNamedCalendar(
+  accessToken: string,
+  name: string,
+  description: string
+): Promise<string> {
+  try {
+    // Check if calendar already exists
+    const listResponse = await fetch(
+      `${CALENDAR_API_BASE}/users/me/calendarList`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+
+    if (listResponse.ok) {
+      const data = await listResponse.json();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const existing = data.items?.find(
+        (cal: any) => cal.summary === name && cal.accessRole === "owner"
+      );
+      if (existing) return existing.id;
+    }
+
+    // Create new calendar
+    const createResponse = await fetch(`${CALENDAR_API_BASE}/calendars`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ summary: name, description }),
+    });
+
+    if (createResponse.ok) {
+      const cal = await createResponse.json();
+      return cal.id;
+    }
+  } catch {
+    // Fall through to primary
+  }
+
+  return "primary";
+}
+
+export async function getOrCreateHabitsCalendar(
+  accessToken: string
+): Promise<string> {
+  return getOrCreateNamedCalendar(accessToken, "Habits", "Habits tracked in Todo App");
+}
+
+export async function getOrCreateListCalendar(
+  accessToken: string,
+  listName: string
+): Promise<string> {
+  return getOrCreateNamedCalendar(accessToken, listName, `Tasks from "${listName}" list`);
+}
+
 // ─── Event Building ──────────────────────────────────────────
 
 function buildDescription(

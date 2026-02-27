@@ -9,6 +9,7 @@ interface TodoSyncData {
   notes?: string | null;
   completed?: boolean;
   subtasks?: { title: string; completed: boolean }[];
+  list_id?: string | null;
   list_name?: string | null;
   tag_names?: string[];
 }

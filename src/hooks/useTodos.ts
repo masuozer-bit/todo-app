@@ -16,15 +16,14 @@ export function useTodos(
   const supabase = createClient();
   const todosRef = useRef(todos);
   todosRef.current = todos;
+  const listsRef = useRef(allLists);
+  listsRef.current = allLists;
 
-  // Helper to resolve list_id → list_name for calendar sync
-  const getListName = useCallback(
-    (listId?: string | null): string | null => {
-      if (!listId || !allLists) return null;
-      return allLists.find((l) => l.id === listId)?.name ?? null;
-    },
-    [allLists]
-  );
+  // Helper to resolve list_id → list_name (uses ref so it's always fresh)
+  function getListName(listId?: string | null): string | null {
+    if (!listId || !listsRef.current) return null;
+    return listsRef.current.find((l) => l.id === listId)?.name ?? null;
+  }
 
   const fetchTodos = useCallback(async () => {
     if (!userId) return;
@@ -191,11 +190,12 @@ export function useTodos(
           completed: false,
           subtasks: [],
           tag_names: tagNames,
+          list_id: options.list_id ?? activeListId,
           list_name: getListName(options.list_id ?? activeListId),
         });
       }
     },
-    [userId, todos, allTags, activeListId, getListName]
+    [userId, todos, allTags, activeListId]
   );
 
   const toggleTodo = useCallback(
@@ -226,6 +226,7 @@ export function useTodos(
               completed: s.completed,
             })),
             tag_names: (todo.tags ?? []).map((t) => t.name),
+            list_id: todo.list_id,
             list_name: getListName(todo.list_id),
           });
         }
@@ -290,7 +291,8 @@ export function useTodos(
               completed: s.completed,
             })),
             tag_names: (merged.tags ?? []).map((t) => t.name),
-            list_name: getListName(merged.list_id),
+            list_id: merged.list_id ?? existingTodo.list_id,
+            list_name: getListName(merged.list_id ?? existingTodo.list_id),
           });
         }
       }

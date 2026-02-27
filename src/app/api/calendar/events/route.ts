@@ -51,14 +51,6 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Fetch from primary calendar (user's main schedule)
-    const primaryEvents = await listCalendarEvents(
-      accessToken,
-      "primary",
-      timeMin,
-      timeMax
-    );
-
     // Get our synced event IDs to distinguish synced vs external events
     const { data: syncRecords } = await supabase
       .from("calendar_sync")
@@ -75,19 +67,32 @@ export async function GET(request: NextRequest) {
       ...(habitSyncRecords || []).map((r) => r.google_event_id),
     ]);
 
-    // Also fetch from our Todos calendar if it exists
-    const todosCalendarId = tokens.calendar_id;
-    let todosEvents: typeof primaryEvents = [];
-    if (todosCalendarId && todosCalendarId !== "primary") {
-      todosEvents = await listCalendarEvents(
-        accessToken,
-        todosCalendarId,
-        timeMin,
-        timeMax
-      );
+    // Collect all calendar IDs to fetch from
+    const calendarIds = new Set<string>(["primary"]);
+
+    if (tokens.calendar_id) calendarIds.add(tokens.calendar_id);
+    if (tokens.habits_calendar_id) calendarIds.add(tokens.habits_calendar_id);
+
+    // Per-list calendars
+    const { data: lists } = await supabase
+      .from("lists")
+      .select("google_calendar_id")
+      .eq("user_id", user.id)
+      .not("google_calendar_id", "is", null);
+
+    for (const list of lists || []) {
+      if (list.google_calendar_id) calendarIds.add(list.google_calendar_id);
     }
 
-    // Combine and deduplicate, marking source
+    // Fetch events from all calendars in parallel
+    const allEventArrays = await Promise.all(
+      [...calendarIds].map(async (calId) => {
+        const events = await listCalendarEvents(accessToken, calId, timeMin, timeMax);
+        return { calId, events };
+      })
+    );
+
+    // Combine and deduplicate
     const allEventIds = new Set<string>();
     const events: {
       id: string;
@@ -101,52 +106,44 @@ export async function GET(request: NextRequest) {
       source: "google" | "synced";
     }[] = [];
 
-    const processEvent = (
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      event: any,
-      defaultSource: "google" | "synced"
-    ) => {
-      if (allEventIds.has(event.id)) return;
-      if (event.status === "cancelled") return;
-      allEventIds.add(event.id);
+    for (const { calId, events: calEvents } of allEventArrays) {
+      for (const event of calEvents) {
+        if (allEventIds.has(event.id)) continue;
+        if (event.status === "cancelled") continue;
+        allEventIds.add(event.id);
 
-      const isAllDay = !!event.start?.date;
-      let date: string;
-      let startTime: string | undefined;
-      let endTime: string | undefined;
+        const isAllDay = !!event.start?.date;
+        let date: string;
+        let startTime: string | undefined;
+        let endTime: string | undefined;
 
-      if (isAllDay) {
-        date = event.start.date;
-      } else {
-        const dt = new Date(event.start.dateTime);
-        date = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
-        startTime = `${String(dt.getHours()).padStart(2, "0")}:${String(dt.getMinutes()).padStart(2, "0")}`;
-        if (event.end?.dateTime) {
-          const endDt = new Date(event.end.dateTime);
-          endTime = `${String(endDt.getHours()).padStart(2, "0")}:${String(endDt.getMinutes()).padStart(2, "0")}`;
+        if (isAllDay) {
+          date = event.start.date!;
+        } else {
+          const dt = new Date(event.start.dateTime!);
+          date = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
+          startTime = `${String(dt.getHours()).padStart(2, "0")}:${String(dt.getMinutes()).padStart(2, "0")}`;
+          if (event.end?.dateTime) {
+            const endDt = new Date(event.end.dateTime);
+            endTime = `${String(endDt.getHours()).padStart(2, "0")}:${String(endDt.getMinutes()).padStart(2, "0")}`;
+          }
         }
+
+        const isSynced = syncedEventIds.has(event.id);
+        const source: "google" | "synced" = isSynced ? "synced" : (calId === "primary" ? "google" : "synced");
+
+        events.push({
+          id: event.id,
+          summary: event.summary || "(No title)",
+          description: event.description,
+          date,
+          startTime,
+          endTime,
+          isAllDay,
+          htmlLink: event.htmlLink,
+          source,
+        });
       }
-
-      const source = syncedEventIds.has(event.id) ? "synced" : defaultSource;
-
-      events.push({
-        id: event.id,
-        summary: event.summary || "(No title)",
-        description: event.description,
-        date,
-        startTime,
-        endTime,
-        isAllDay,
-        htmlLink: event.htmlLink,
-        source,
-      });
-    };
-
-    for (const event of primaryEvents) {
-      processEvent(event, "google");
-    }
-    for (const event of todosEvents) {
-      processEvent(event, "synced");
     }
 
     // Sort by date then time

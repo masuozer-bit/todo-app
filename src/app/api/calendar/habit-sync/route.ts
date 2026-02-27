@@ -2,10 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import {
   getValidAccessToken,
-  getOrCreateTodosCalendar,
+  getOrCreateHabitsCalendar,
   habitToCalendarEvent,
   createCalendarEvent,
-  updateCalendarEvent,
   deleteCalendarEvent,
 } from "@/lib/google-calendar";
 
@@ -53,12 +52,13 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  let calendarId = tokens.calendar_id;
+  // Get or create "Habits" calendar
+  let calendarId = tokens.habits_calendar_id;
   if (!calendarId) {
-    calendarId = await getOrCreateTodosCalendar(accessToken);
+    calendarId = await getOrCreateHabitsCalendar(accessToken);
     await supabase
       .from("google_tokens")
-      .update({ calendar_id: calendarId })
+      .update({ habits_calendar_id: calendarId })
       .eq("user_id", user.id);
   }
 
@@ -80,6 +80,7 @@ export async function POST(request: NextRequest) {
             habit_id,
             user_id: user.id,
             google_event_id: created.id,
+            google_calendar_id: calendarId,
           });
         }
         break;
@@ -89,14 +90,16 @@ export async function POST(request: NextRequest) {
         if (!habit_data) break;
         const event = habitToCalendarEvent({ ...habit_data, timeZone });
         if (syncRecord) {
+          const oldCalId = syncRecord.google_calendar_id || calendarId;
           // Delete old and create new (recurrence changes require new event)
-          await deleteCalendarEvent(accessToken, syncRecord.google_event_id, calendarId);
+          await deleteCalendarEvent(accessToken, syncRecord.google_event_id, oldCalId);
           const created = await createCalendarEvent(accessToken, event, calendarId);
           if (created) {
             await supabase
               .from("habit_calendar_sync")
               .update({
                 google_event_id: created.id,
+                google_calendar_id: calendarId,
                 synced_at: new Date().toISOString(),
               })
               .eq("habit_id", habit_id);
@@ -108,6 +111,7 @@ export async function POST(request: NextRequest) {
               habit_id,
               user_id: user.id,
               google_event_id: created.id,
+              google_calendar_id: calendarId,
             });
           }
         }
@@ -116,7 +120,8 @@ export async function POST(request: NextRequest) {
 
       case "delete": {
         if (syncRecord) {
-          await deleteCalendarEvent(accessToken, syncRecord.google_event_id, calendarId);
+          const delCalId = syncRecord.google_calendar_id || calendarId;
+          await deleteCalendarEvent(accessToken, syncRecord.google_event_id, delCalId);
           await supabase
             .from("habit_calendar_sync")
             .delete()

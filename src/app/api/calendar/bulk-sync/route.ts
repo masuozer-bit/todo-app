@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import {
   getValidAccessToken,
   getOrCreateTodosCalendar,
+  getOrCreateListCalendar,
+  getOrCreateHabitsCalendar,
   todoToCalendarEvent,
   habitToCalendarEvent,
   createCalendarEvent,
@@ -22,7 +24,6 @@ export async function POST(request: NextRequest) {
   const body = await request.json();
   const { timeZone } = body;
 
-  // Get user's Google tokens
   const { data: tokens } = await supabase
     .from("google_tokens")
     .select("*")
@@ -54,13 +55,13 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Get or create the "Todos" calendar
-  let calendarId = tokens.calendar_id;
-  if (!calendarId) {
-    calendarId = await getOrCreateTodosCalendar(accessToken);
+  // Get or create default "Todos" calendar
+  let defaultCalendarId = tokens.calendar_id;
+  if (!defaultCalendarId) {
+    defaultCalendarId = await getOrCreateTodosCalendar(accessToken);
     await supabase
       .from("google_tokens")
-      .update({ calendar_id: calendarId })
+      .update({ calendar_id: defaultCalendarId })
       .eq("user_id", user.id);
   }
 
@@ -68,6 +69,34 @@ export async function POST(request: NextRequest) {
   let syncedHabits = 0;
 
   try {
+    // ─── Fetch lists and build calendar cache ───────────────
+    const { data: lists } = await supabase
+      .from("lists")
+      .select("id, name, google_calendar_id")
+      .eq("user_id", user.id);
+
+    const listMap = new Map((lists || []).map((l) => [l.id, l]));
+    const calendarCache = new Map<string, string>();
+
+    async function getCalendarForList(listId?: string | null): Promise<string> {
+      if (!listId) return defaultCalendarId;
+      if (calendarCache.has(listId)) return calendarCache.get(listId)!;
+
+      const list = listMap.get(listId);
+      if (!list) return defaultCalendarId;
+
+      if (list.google_calendar_id) {
+        calendarCache.set(listId, list.google_calendar_id);
+        return list.google_calendar_id;
+      }
+
+      const calId = await getOrCreateListCalendar(accessToken!, list.name);
+      await supabase.from("lists").update({ google_calendar_id: calId }).eq("id", listId);
+      list.google_calendar_id = calId;
+      calendarCache.set(listId, calId);
+      return calId;
+    }
+
     // ─── Sync all todos with due dates ─────────────────────
     const { data: todos } = await supabase
       .from("todos")
@@ -76,18 +105,14 @@ export async function POST(request: NextRequest) {
       .not("due_date", "is", null);
 
     if (todos) {
-      // Get existing sync records
       const todoIds = todos.map((t) => t.id);
       const { data: existingSyncs } = await supabase
         .from("calendar_sync")
         .select("*")
         .in("todo_id", todoIds.length > 0 ? todoIds : ["__none__"]);
 
-      const syncMap = new Map(
-        (existingSyncs || []).map((s) => [s.todo_id, s])
-      );
+      const syncMap = new Map((existingSyncs || []).map((s) => [s.todo_id, s]));
 
-      // Fetch subtasks for all todos
       const { data: allSubtasks } = await supabase
         .from("subtasks")
         .select("*")
@@ -100,7 +125,6 @@ export async function POST(request: NextRequest) {
         subtaskMap.get(st.todo_id)!.push({ title: st.title, completed: st.completed });
       }
 
-      // Fetch tags for all todos
       const { data: todoTags } = await supabase
         .from("todo_tags")
         .select("todo_id, tag_id")
@@ -119,15 +143,10 @@ export async function POST(request: NextRequest) {
         if (name) todoTagNamesMap.get(tt.todo_id)!.push(name);
       }
 
-      // Fetch lists for list_name resolution
-      const { data: lists } = await supabase
-        .from("lists")
-        .select("id, name")
-        .eq("user_id", user.id);
-
       const listNameMap = new Map((lists || []).map((l) => [l.id, l.name]));
 
       for (const todo of todos) {
+        const calendarId = await getCalendarForList(todo.list_id);
         const event = todoToCalendarEvent({
           title: todo.title,
           due_date: todo.due_date,
@@ -144,21 +163,19 @@ export async function POST(request: NextRequest) {
 
         const existing = syncMap.get(todo.id);
         if (existing) {
-          // Update existing event
-          await updateCalendarEvent(
-            accessToken,
-            existing.google_event_id,
-            event,
-            calendarId
-          );
+          await updateCalendarEvent(accessToken, existing.google_event_id, event, calendarId);
+          await supabase
+            .from("calendar_sync")
+            .update({ google_calendar_id: calendarId })
+            .eq("todo_id", todo.id);
         } else {
-          // Create new event
           const created = await createCalendarEvent(accessToken, event, calendarId);
           if (created) {
             await supabase.from("calendar_sync").insert({
               todo_id: todo.id,
               user_id: user.id,
               google_event_id: created.id,
+              google_calendar_id: calendarId,
             });
           }
         }
@@ -166,7 +183,16 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // ─── Sync all habits ───────────────────────────────────
+    // ─── Sync all habits (to "Habits" calendar) ─────────────
+    let habitsCalendarId = tokens.habits_calendar_id;
+    if (!habitsCalendarId) {
+      habitsCalendarId = await getOrCreateHabitsCalendar(accessToken);
+      await supabase
+        .from("google_tokens")
+        .update({ habits_calendar_id: habitsCalendarId })
+        .eq("user_id", user.id);
+    }
+
     const { data: habits } = await supabase
       .from("habits")
       .select("*")
@@ -179,9 +205,7 @@ export async function POST(request: NextRequest) {
         .select("*")
         .in("habit_id", habitIds.length > 0 ? habitIds : ["__none__"]);
 
-      const habitSyncMap = new Map(
-        (existingHabitSyncs || []).map((s) => [s.habit_id, s])
-      );
+      const habitSyncMap = new Map((existingHabitSyncs || []).map((s) => [s.habit_id, s]));
 
       for (const habit of habits) {
         const event = habitToCalendarEvent({
@@ -195,19 +219,19 @@ export async function POST(request: NextRequest) {
 
         const existing = habitSyncMap.get(habit.id);
         if (existing) {
-          await updateCalendarEvent(
-            accessToken,
-            existing.google_event_id,
-            event,
-            calendarId
-          );
+          await updateCalendarEvent(accessToken, existing.google_event_id, event, habitsCalendarId);
+          await supabase
+            .from("habit_calendar_sync")
+            .update({ google_calendar_id: habitsCalendarId })
+            .eq("habit_id", habit.id);
         } else {
-          const created = await createCalendarEvent(accessToken, event, calendarId);
+          const created = await createCalendarEvent(accessToken, event, habitsCalendarId);
           if (created) {
             await supabase.from("habit_calendar_sync").insert({
               habit_id: habit.id,
               user_id: user.id,
               google_event_id: created.id,
+              google_calendar_id: habitsCalendarId,
             });
           }
         }

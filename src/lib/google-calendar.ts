@@ -397,6 +397,21 @@ export async function deleteCalendarEvent(
   return response.ok || response.status === 410;
 }
 
+export async function deleteGoogleCalendar(
+  accessToken: string,
+  calendarId: string
+): Promise<boolean> {
+  if (!calendarId || calendarId === "primary") return false;
+  const response = await fetch(
+    `${CALENDAR_API_BASE}/calendars/${encodeURIComponent(calendarId)}`,
+    {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${accessToken}` },
+    }
+  );
+  return response.ok || response.status === 404;
+}
+
 // ─── Fetch Events (for displaying in app) ────────────────────
 
 export async function listCalendarEvents(

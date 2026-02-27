@@ -38,8 +38,24 @@ export function useLists(userId: string | undefined) {
   }, []);
 
   const deleteList = useCallback(async (id: string) => {
+    // Fetch google_calendar_id before deleting
+    const { data: list } = await supabase
+      .from("lists")
+      .select("google_calendar_id")
+      .eq("id", id)
+      .single();
+
     await supabase.from("lists").delete().eq("id", id);
     setLists(prev => prev.filter(l => l.id !== id));
+
+    // Delete the Google Calendar (fire-and-forget)
+    if (list?.google_calendar_id) {
+      fetch("/api/calendar/delete-calendar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ google_calendar_id: list.google_calendar_id }),
+      }).catch(() => {});
+    }
   }, []);
 
   const reorderLists = useCallback(async (reordered: List[]) => {

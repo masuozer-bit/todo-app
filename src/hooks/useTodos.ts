@@ -305,15 +305,17 @@ export function useTodos(
       // Capture todo data before deletion for calendar sync
       const todo = todosRef.current.find((t) => t.id === id);
 
-      // Fetch the google_event_id BEFORE deleting (cascade will remove calendar_sync)
+      // Fetch sync record BEFORE deleting (cascade will remove it)
       let googleEventId: string | null = null;
+      let googleCalendarId: string | null = null;
       if (todo?.due_date) {
         const { data: syncRecord } = await supabase
           .from("calendar_sync")
-          .select("google_event_id")
+          .select("google_event_id, google_calendar_id")
           .eq("todo_id", id)
           .single();
         googleEventId = syncRecord?.google_event_id ?? null;
+        googleCalendarId = syncRecord?.google_calendar_id ?? null;
       }
 
       const { error } = await supabase.from("todos").delete().eq("id", id);
@@ -321,9 +323,9 @@ export function useTodos(
       if (!error) {
         setTodos((prev) => prev.filter((t) => t.id !== id));
 
-        // Calendar sync (fire-and-forget) — pass the event ID directly
+        // Calendar sync (fire-and-forget) — pass event + calendar ID directly
         if (googleEventId) {
-          syncTodoToCalendar("delete", id, undefined, googleEventId);
+          syncTodoToCalendar("delete", id, undefined, googleEventId, googleCalendarId);
         }
       }
     },
@@ -465,17 +467,17 @@ export function useTodos(
     const completedIds = completedTodos.map((t) => t.id);
     if (completedIds.length === 0) return;
 
-    // Fetch google_event_ids BEFORE deleting (cascade will remove calendar_sync)
+    // Fetch sync records BEFORE deleting (cascade will remove them)
     const todosWithDueDates = completedTodos.filter((t) => t.due_date);
-    let eventIdMap: Record<string, string> = {};
+    let syncMap: Record<string, { eventId: string; calendarId: string | null }> = {};
     if (todosWithDueDates.length > 0) {
       const { data: syncRecords } = await supabase
         .from("calendar_sync")
-        .select("todo_id, google_event_id")
+        .select("todo_id, google_event_id, google_calendar_id")
         .in("todo_id", todosWithDueDates.map((t) => t.id));
       if (syncRecords) {
-        eventIdMap = Object.fromEntries(
-          syncRecords.map((r) => [r.todo_id, r.google_event_id])
+        syncMap = Object.fromEntries(
+          syncRecords.map((r) => [r.todo_id, { eventId: r.google_event_id, calendarId: r.google_calendar_id }])
         );
       }
     }
@@ -490,9 +492,9 @@ export function useTodos(
 
       // Calendar sync — delete each completed todo with a due_date
       for (const todo of todosWithDueDates) {
-        const eventId = eventIdMap[todo.id];
-        if (eventId) {
-          syncTodoToCalendar("delete", todo.id, undefined, eventId);
+        const sync = syncMap[todo.id];
+        if (sync) {
+          syncTodoToCalendar("delete", todo.id, undefined, sync.eventId, sync.calendarId);
         }
       }
     }

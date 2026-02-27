@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { action, todo_id, todo_data, google_event_id, timeZone } = body;
+  const { action, todo_id, todo_data, google_event_id, google_calendar_id, timeZone } = body;
 
   // Get user's Google tokens
   const { data: tokens } = await supabase
@@ -184,12 +184,11 @@ export async function POST(request: NextRequest) {
       }
 
       case "delete": {
-        // Use passed google_event_id (sync record may be cascade-deleted already)
+        // Use passed IDs directly (sync record is likely cascade-deleted already)
         const eventIdToDelete = google_event_id || syncRecord?.google_event_id;
         if (eventIdToDelete) {
-          const delCalId = syncRecord?.google_calendar_id || await resolveCalendarId(todo_data?.list_id);
+          const delCalId = google_calendar_id || syncRecord?.google_calendar_id || await resolveCalendarId(todo_data?.list_id);
           await deleteCalendarEvent(accessToken, eventIdToDelete, delCalId);
-          // Clean up sync record if it still exists
           if (syncRecord) {
             await supabase
               .from("calendar_sync")

@@ -216,7 +216,7 @@ export default function DashboardPage() {
     addSubtask,
     toggleSubtask,
     deleteSubtask,
-  } = useTodos(user?.id, tags, activeListId);
+  } = useTodos(user?.id, tags, activeListId, lists);
 
   // Keyboard shortcuts
   useKeyboardShortcuts({

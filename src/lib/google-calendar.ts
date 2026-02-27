@@ -130,9 +130,11 @@ export async function getOrCreateTodosCalendar(
 
 function buildDescription(
   notes: string | null | undefined,
-  subtasks?: { title: string; completed: boolean }[]
+  subtasks?: { title: string; completed: boolean }[],
+  listName?: string | null
 ): string {
   const parts: string[] = [];
+  if (listName) parts.push(`📋 List: ${listName}`);
   if (notes) parts.push(notes);
   if (subtasks && subtasks.length > 0) {
     if (parts.length > 0) parts.push("");
@@ -179,7 +181,7 @@ export function todoToCalendarEvent(todo: {
   tag_names?: string[];
   timeZone?: string;
 }): CalendarEvent {
-  const description = buildDescription(todo.notes, todo.subtasks);
+  const description = buildDescription(todo.notes, todo.subtasks, todo.list_name);
   const colorId = determineColorId(todo.priority, todo.list_name, todo.tag_names);
   const tz = todo.timeZone || "UTC";
 

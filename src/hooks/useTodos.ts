@@ -2,19 +2,29 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
-import type { Todo, Tag, Subtask, Priority } from "@/lib/types";
+import type { Todo, Tag, Subtask, Priority, List } from "@/lib/types";
 import { syncTodoToCalendar } from "@/lib/calendar-sync-client";
 
 export function useTodos(
   userId: string | undefined,
   allTags: Tag[],
-  activeListId?: string | null
+  activeListId?: string | null,
+  allLists?: List[]
 ) {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [loading, setLoading] = useState(true);
   const supabase = createClient();
   const todosRef = useRef(todos);
   todosRef.current = todos;
+
+  // Helper to resolve list_id → list_name for calendar sync
+  const getListName = useCallback(
+    (listId?: string | null): string | null => {
+      if (!listId || !allLists) return null;
+      return allLists.find((l) => l.id === listId)?.name ?? null;
+    },
+    [allLists]
+  );
 
   const fetchTodos = useCallback(async () => {
     if (!userId) return;
@@ -181,10 +191,11 @@ export function useTodos(
           completed: false,
           subtasks: [],
           tag_names: tagNames,
+          list_name: getListName(options.list_id ?? activeListId),
         });
       }
     },
-    [userId, todos, allTags, activeListId]
+    [userId, todos, allTags, activeListId, getListName]
   );
 
   const toggleTodo = useCallback(
@@ -215,6 +226,7 @@ export function useTodos(
               completed: s.completed,
             })),
             tag_names: (todo.tags ?? []).map((t) => t.name),
+            list_name: getListName(todo.list_id),
           });
         }
       }
@@ -278,6 +290,7 @@ export function useTodos(
               completed: s.completed,
             })),
             tag_names: (merged.tags ?? []).map((t) => t.name),
+            list_name: getListName(merged.list_id),
           });
         }
       }

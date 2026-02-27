@@ -27,6 +27,7 @@ interface TodoItemProps {
       end_time?: string | null;
       priority?: Priority;
       notes?: string | null;
+      list_id?: string | null;
     }
   ) => void;
   onDelete: (id: string) => void;
@@ -414,6 +415,29 @@ export default function TodoItem({
                   </button>
                 )}
               </div>
+            </div>
+          )}
+
+          {/* List */}
+          {!todo.completed && lists.length > 0 && (
+            <div>
+              <p className="text-xs text-gray-400 mb-2 font-medium uppercase tracking-wide">
+                List
+              </p>
+              <select
+                value={todo.list_id ?? ""}
+                onChange={(e) =>
+                  onUpdate(todo.id, { list_id: e.target.value || null })
+                }
+                className="text-xs bg-white dark:bg-black border border-black/10 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-black dark:text-white focus:outline-none focus:border-black/30 dark:focus:border-white/30 transition-default cursor-pointer"
+              >
+                <option value="">No list</option>
+                {lists.map((list) => (
+                  <option key={list.id} value={list.id}>
+                    {list.name}
+                  </option>
+                ))}
+              </select>
             </div>
           )}
 

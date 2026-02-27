@@ -16,7 +16,8 @@ interface TodoSyncData {
 export async function syncTodoToCalendar(
   action: SyncAction,
   todoId: string,
-  todoData?: TodoSyncData
+  todoData?: TodoSyncData,
+  googleEventId?: string | null
 ): Promise<void> {
   try {
     const response = await fetch("/api/calendar/sync", {
@@ -26,6 +27,7 @@ export async function syncTodoToCalendar(
         action,
         todo_id: todoId,
         todo_data: todoData,
+        google_event_id: googleEventId,
         timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       }),
     });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Header from "@/components/Header";
@@ -38,7 +38,8 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Plus, List, Inbox, Trash2, Edit2, Check, X, Calendar, Repeat, Bell, Menu } from "lucide-react";
+import { Plus, List, Inbox, Trash2, Edit2, Check, X, Calendar, Repeat, Bell, Menu, Sun, CalendarDays } from "lucide-react";
+import { getToday } from "@/lib/date-helpers";
 import type { User } from "@supabase/supabase-js";
 import type { List as ListType } from "@/lib/types";
 
@@ -176,6 +177,7 @@ export default function DashboardPage() {
   const [toasts, setToasts] = useState<ToastData[]>([]);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [quickFilter, setQuickFilter] = useState<"today" | "thisWeek" | null>(null);
   const router = useRouter();
   const supabase = createClient();
   const { toggleTheme } = useTheme();
@@ -309,16 +311,38 @@ export default function DashboardPage() {
     setActiveListId(null);
     setShowCalendar(false);
     setCalendarDate(null);
+    setQuickFilter(null);
   }
 
   function switchToAllTasks() {
     setHabitsView(false);
     setActiveListId(null);
+    setQuickFilter(null);
   }
 
   function switchToList(listId: string) {
     setHabitsView(false);
     setActiveListId(listId);
+    setQuickFilter(null);
+  }
+
+  function handleCalendarDateSelect(date: string | null) {
+    setCalendarDate(date);
+    if (date) setQuickFilter(null);
+  }
+
+  function switchToToday() {
+    setHabitsView(false);
+    setActiveListId(null);
+    setQuickFilter("today");
+    setCalendarDate(null);
+  }
+
+  function switchToThisWeek() {
+    setHabitsView(false);
+    setActiveListId(null);
+    setQuickFilter("thisWeek");
+    setCalendarDate(null);
   }
 
   if (authLoading) {
@@ -330,8 +354,33 @@ export default function DashboardPage() {
   }
 
   const activeList = lists.find((l) => l.id === activeListId);
-  const activeTodoCount = todos.filter((t) => !t.completed).length;
-  const completedTodoCount = todos.filter((t) => t.completed).length;
+
+  // Quick filter: Today / This Week
+  const visibleTodos = useMemo(() => {
+    if (quickFilter === "today") {
+      const today = getToday();
+      return todos.filter((t) => t.due_date === today);
+    }
+    if (quickFilter === "thisWeek") {
+      const now = new Date();
+      const dayOfWeek = now.getDay();
+      const start = new Date(now);
+      start.setDate(now.getDate() - dayOfWeek);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(start);
+      end.setDate(start.getDate() + 6);
+      end.setHours(23, 59, 59, 999);
+      return todos.filter((t) => {
+        if (!t.due_date) return false;
+        const d = new Date(t.due_date + "T00:00:00");
+        return d >= start && d <= end;
+      });
+    }
+    return todos;
+  }, [todos, quickFilter]);
+
+  const activeTodoCount = visibleTodos.filter((t) => !t.completed).length;
+  const completedTodoCount = visibleTodos.filter((t) => t.completed).length;
 
   return (
     <div className="min-h-screen bg-white dark:bg-black transition-colors">
@@ -343,13 +392,39 @@ export default function DashboardPage() {
             <button
               onClick={switchToAllTasks}
               className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm transition-default mb-1 ${
-                !activeListId && !habitsView
+                !activeListId && !habitsView && !quickFilter
                   ? "bg-black dark:bg-white text-white dark:text-black font-medium"
                   : "text-gray-500 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/10"
               }`}
             >
               <Inbox size={15} />
               All Tasks
+            </button>
+
+            {/* Today */}
+            <button
+              onClick={switchToToday}
+              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm transition-default mb-1 ${
+                quickFilter === "today"
+                  ? "bg-black dark:bg-white text-white dark:text-black font-medium"
+                  : "text-gray-500 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/10"
+              }`}
+            >
+              <Sun size={15} />
+              Today
+            </button>
+
+            {/* This Week */}
+            <button
+              onClick={switchToThisWeek}
+              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm transition-default mb-1 ${
+                quickFilter === "thisWeek"
+                  ? "bg-black dark:bg-white text-white dark:text-black font-medium"
+                  : "text-gray-500 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/10"
+              }`}
+            >
+              <CalendarDays size={15} />
+              This Week
             </button>
 
             {/* Habits */}
@@ -479,9 +554,13 @@ export default function DashboardPage() {
                 <h2 className="text-2xl md:text-3xl font-bold text-black dark:text-white">
                   {habitsView
                     ? "Habits"
-                    : activeList
-                      ? activeList.name
-                      : "All Tasks"}
+                    : quickFilter === "today"
+                      ? "Today"
+                      : quickFilter === "thisWeek"
+                        ? "This Week"
+                        : activeList
+                          ? activeList.name
+                          : "All Tasks"}
                 </h2>
                 <div className="flex items-center gap-3 text-sm text-gray-400">
                   {habitsView ? (
@@ -542,6 +621,28 @@ export default function DashboardPage() {
             </div>
           </div>
 
+          {/* Quick filter indicator */}
+          {!habitsView && quickFilter && (
+            <div className="mb-4 flex items-center gap-2 text-sm text-gray-400">
+              {quickFilter === "today" ? <Sun size={14} /> : <CalendarDays size={14} />}
+              <span>
+                Showing tasks due{" "}
+                <span className="text-black dark:text-white font-medium">
+                  {quickFilter === "today" ? "today" : "this week"}
+                </span>
+                {visibleTodos.length === 0 && (
+                  <span className="ml-1">— no tasks found</span>
+                )}
+              </span>
+              <button
+                onClick={() => setQuickFilter(null)}
+                className="text-gray-400 hover:text-black dark:hover:text-white transition-default"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          )}
+
           {/* Calendar date filter indicator */}
           {!habitsView && calendarDate && (
             <div className="mb-4 flex items-center gap-2 text-sm text-gray-400">
@@ -583,12 +684,32 @@ export default function DashboardPage() {
             <button
               onClick={switchToAllTasks}
               className={`flex-shrink-0 text-sm px-4 py-2 rounded-full font-medium transition-default ${
-                !activeListId && !habitsView
+                !activeListId && !habitsView && !quickFilter
                   ? "bg-black dark:bg-white text-white dark:text-black"
                   : "text-gray-500 dark:text-gray-400 border border-black/15 dark:border-white/15"
               }`}
             >
               All
+            </button>
+            <button
+              onClick={switchToToday}
+              className={`flex-shrink-0 text-sm px-4 py-2 rounded-full font-medium transition-default ${
+                quickFilter === "today"
+                  ? "bg-black dark:bg-white text-white dark:text-black"
+                  : "text-gray-500 dark:text-gray-400 border border-black/15 dark:border-white/15"
+              }`}
+            >
+              Today
+            </button>
+            <button
+              onClick={switchToThisWeek}
+              className={`flex-shrink-0 text-sm px-4 py-2 rounded-full font-medium transition-default ${
+                quickFilter === "thisWeek"
+                  ? "bg-black dark:bg-white text-white dark:text-black"
+                  : "text-gray-500 dark:text-gray-400 border border-black/15 dark:border-white/15"
+              }`}
+            >
+              This Week
             </button>
             <button
               onClick={switchToHabits}
@@ -627,7 +748,7 @@ export default function DashboardPage() {
             />
           ) : (
             <TodoList
-              todos={todos}
+              todos={visibleTodos}
               allTags={tags}
               onToggle={toggleTodo}
               onUpdate={updateTodo}
@@ -652,7 +773,7 @@ export default function DashboardPage() {
               <CalendarPanel
                 todos={todos}
                 selectedDate={calendarDate}
-                onSelectDate={setCalendarDate}
+                onSelectDate={handleCalendarDateSelect}
               />
             </div>
           </aside>
@@ -668,9 +789,12 @@ export default function DashboardPage() {
         lists={lists}
         activeListId={activeListId}
         habitsView={habitsView}
+        quickFilter={quickFilter}
         onSwitchToAll={switchToAllTasks}
         onSwitchToHabits={switchToHabits}
         onSwitchToList={switchToList}
+        onSwitchToToday={switchToToday}
+        onSwitchToThisWeek={switchToThisWeek}
         onAddList={() => setShowNewList(true)}
         tags={tags}
         onAddTag={addTag}

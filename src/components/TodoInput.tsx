@@ -472,40 +472,6 @@ export default function TodoInput({
           </div>
         )}
 
-        {/* List selector (always visible when lists exist, in both modes) */}
-        {lists.length > 0 && (
-          <div className="mt-2.5 flex items-center gap-2">
-            <ListIcon size={12} className="text-gray-400 flex-shrink-0" />
-            <div className="flex gap-1.5 flex-wrap">
-              <button
-                type="button"
-                onClick={() => setListId(null)}
-                className={`text-[11px] px-2 py-0.5 rounded-md border transition-default ${
-                  !listId
-                    ? "border-black/20 dark:border-white/20 bg-black/5 dark:bg-white/10 text-black dark:text-white font-medium"
-                    : "border-black/8 dark:border-white/8 text-gray-400 hover:border-black/15 dark:hover:border-white/15"
-                }`}
-              >
-                No list
-              </button>
-              {lists.map((list) => (
-                <button
-                  key={list.id}
-                  type="button"
-                  onClick={() => setListId(list.id)}
-                  className={`text-[11px] px-2 py-0.5 rounded-md border transition-default ${
-                    listId === list.id
-                      ? "border-black/20 dark:border-white/20 bg-black/5 dark:bg-white/10 text-black dark:text-white font-medium"
-                      : "border-black/8 dark:border-white/8 text-gray-400 hover:border-black/15 dark:hover:border-white/15"
-                  }`}
-                >
-                  {list.name}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
         {/* Expanded options */}
         {showOptions && (
           <div className="mt-3 pt-3 border-t border-black/5 dark:border-white/5 space-y-3">
@@ -662,6 +628,27 @@ export default function TodoInput({
                     />
                   ))}
                 </div>
+              </div>
+            )}
+
+            {/* List */}
+            {lists.length > 0 && (
+              <div className="flex flex-col gap-1">
+                <label className="text-xs text-gray-400 font-medium">
+                  List
+                </label>
+                <select
+                  value={listId ?? ""}
+                  onChange={(e) => setListId(e.target.value || null)}
+                  className="text-xs bg-white dark:bg-black border border-black/10 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-black dark:text-white focus:outline-none focus:border-black/30 dark:focus:border-white/30 transition-default cursor-pointer w-fit"
+                >
+                  <option value="">No list</option>
+                  {lists.map((list) => (
+                    <option key={list.id} value={list.id}>
+                      {list.name}
+                    </option>
+                  ))}
+                </select>
               </div>
             )}
           </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { X, Inbox, Repeat, List, Plus } from "lucide-react";
+import { X, Inbox, Repeat, List, Plus, Sun, CalendarDays } from "lucide-react";
 import type { List as ListType, Todo } from "@/lib/types";
 import TagManager from "./TagManager";
 import ProductivityStats from "./ProductivityStats";
@@ -13,9 +13,12 @@ interface MobileSidebarProps {
   lists: ListType[];
   activeListId: string | null;
   habitsView: boolean;
+  quickFilter?: "today" | "thisWeek" | null;
   onSwitchToAll: () => void;
   onSwitchToHabits: () => void;
   onSwitchToList: (listId: string) => void;
+  onSwitchToToday?: () => void;
+  onSwitchToThisWeek?: () => void;
   onAddList: () => void;
   tags: Tag[];
   onAddTag: (name: string) => Promise<void>;
@@ -29,9 +32,12 @@ export default function MobileSidebar({
   lists,
   activeListId,
   habitsView,
+  quickFilter,
   onSwitchToAll,
   onSwitchToHabits,
   onSwitchToList,
+  onSwitchToToday,
+  onSwitchToThisWeek,
   onAddList,
   tags,
   onAddTag,
@@ -105,7 +111,7 @@ export default function MobileSidebar({
             <button
               onClick={() => handleNav(onSwitchToAll)}
               className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition-default ${
-                !activeListId && !habitsView
+                !activeListId && !habitsView && !quickFilter
                   ? "bg-black dark:bg-white text-white dark:text-black font-medium"
                   : "text-gray-500 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/10"
               }`}
@@ -113,6 +119,36 @@ export default function MobileSidebar({
               <Inbox size={16} />
               All Tasks
             </button>
+
+            {/* Today */}
+            {onSwitchToToday && (
+              <button
+                onClick={() => handleNav(onSwitchToToday)}
+                className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition-default ${
+                  quickFilter === "today"
+                    ? "bg-black dark:bg-white text-white dark:text-black font-medium"
+                    : "text-gray-500 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/10"
+                }`}
+              >
+                <Sun size={16} />
+                Today
+              </button>
+            )}
+
+            {/* This Week */}
+            {onSwitchToThisWeek && (
+              <button
+                onClick={() => handleNav(onSwitchToThisWeek)}
+                className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition-default ${
+                  quickFilter === "thisWeek"
+                    ? "bg-black dark:bg-white text-white dark:text-black font-medium"
+                    : "text-gray-500 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/10"
+                }`}
+              >
+                <CalendarDays size={16} />
+                This Week
+              </button>
+            )}
 
             {/* Habits */}
             <button

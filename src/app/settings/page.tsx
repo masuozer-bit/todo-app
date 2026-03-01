@@ -7,7 +7,9 @@ import Header from "@/components/Header";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { useTodos } from "@/hooks/useTodos";
 import { useTags } from "@/hooks/useTags";
-import { Download, Trash2, User, AlertTriangle, Calendar } from "lucide-react";
+import { Download, Trash2, User, AlertTriangle, Calendar, FileText, Terminal } from "lucide-react";
+import { exportTodosPDF } from "@/lib/pdf-export";
+import CommandReference from "@/components/CommandReference";
 import {
   getCalendarStatus,
   disconnectCalendar,
@@ -247,6 +249,26 @@ export default function SettingsPage() {
               <div className="border-t border-black/5 dark:border-white/5 pt-3 flex items-center justify-between">
                 <div>
                   <p className="text-sm text-black dark:text-white">
+                    Export as PDF
+                  </p>
+                  <p className="text-xs text-gray-400">
+                    Well-designed printable task report
+                  </p>
+                </div>
+                <button
+                  onClick={() =>
+                    exportTodosPDF(todos, { title: "Task Report" })
+                  }
+                  className="px-3 py-1.5 rounded-lg border border-black/10 dark:border-white/10 text-sm text-black dark:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-default flex items-center gap-1.5"
+                >
+                  <FileText size={14} />
+                  Export PDF
+                </button>
+              </div>
+
+              <div className="border-t border-black/5 dark:border-white/5 pt-3 flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-black dark:text-white">
                     Clear completed tasks
                   </p>
                   <p className="text-xs text-gray-400">
@@ -372,6 +394,7 @@ export default function SettingsPage() {
                 ["N", "Focus new task input"],
                 ["/ or ⌘K", "Focus search"],
                 ["⌘D", "Toggle dark/light mode"],
+                ["?", "Show shortcuts overlay"],
                 ["Enter", "Save edit / Add subtask"],
                 ["Escape", "Cancel / Close panel"],
               ].map(([key, desc]) => (
@@ -385,6 +408,20 @@ export default function SettingsPage() {
                 </div>
               ))}
             </div>
+          </section>
+
+          {/* Smart Input Commands */}
+          <section className="glass-card p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Terminal size={16} className="text-gray-400" />
+              <h3 className="font-semibold text-black dark:text-white">
+                Smart Input Commands
+              </h3>
+            </div>
+            <p className="text-xs text-gray-400 mb-4">
+              Type these shortcuts directly in the task input field to quickly set dates, times, priorities, tags, and recurrence.
+            </p>
+            <CommandReference />
           </section>
 
           {/* Danger zone */}

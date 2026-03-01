@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Header from "@/components/Header";
@@ -355,29 +355,26 @@ export default function DashboardPage() {
 
   const activeList = lists.find((l) => l.id === activeListId);
 
-  // Quick filter: Today / This Week
-  const visibleTodos = useMemo(() => {
-    if (quickFilter === "today") {
-      const today = getToday();
-      return todos.filter((t) => t.due_date === today);
-    }
-    if (quickFilter === "thisWeek") {
-      const now = new Date();
-      const dayOfWeek = now.getDay();
-      const start = new Date(now);
-      start.setDate(now.getDate() - dayOfWeek);
-      start.setHours(0, 0, 0, 0);
-      const end = new Date(start);
-      end.setDate(start.getDate() + 6);
-      end.setHours(23, 59, 59, 999);
-      return todos.filter((t) => {
-        if (!t.due_date) return false;
-        const d = new Date(t.due_date + "T00:00:00");
-        return d >= start && d <= end;
-      });
-    }
-    return todos;
-  }, [todos, quickFilter]);
+  // Quick filter: Today / This Week (plain computation, not a hook)
+  let visibleTodos = todos;
+  if (quickFilter === "today") {
+    const today = getToday();
+    visibleTodos = todos.filter((t) => t.due_date === today);
+  } else if (quickFilter === "thisWeek") {
+    const now = new Date();
+    const dayOfWeek = now.getDay();
+    const start = new Date(now);
+    start.setDate(now.getDate() - dayOfWeek);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+    end.setHours(23, 59, 59, 999);
+    visibleTodos = todos.filter((t) => {
+      if (!t.due_date) return false;
+      const d = new Date(t.due_date + "T00:00:00");
+      return d >= start && d <= end;
+    });
+  }
 
   const activeTodoCount = visibleTodos.filter((t) => !t.completed).length;
   const completedTodoCount = visibleTodos.filter((t) => t.completed).length;

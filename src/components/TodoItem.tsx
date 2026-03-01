@@ -10,8 +10,10 @@ import {
   Calendar,
   FileText,
   List as ListIcon,
+  Repeat,
 } from "lucide-react";
-import type { Todo, Tag, Priority, List } from "@/lib/types";
+import type { Todo, Tag, Priority, List, RecurrenceType } from "@/lib/types";
+import { getToday, getTomorrow, getNextMonday, getNextWeek, formatRecurrence } from "@/lib/date-helpers";
 import TagPill from "./TagPill";
 
 interface TodoItemProps {
@@ -28,6 +30,8 @@ interface TodoItemProps {
       priority?: Priority;
       notes?: string | null;
       list_id?: string | null;
+      recurrence_type?: RecurrenceType | null;
+      recurrence_interval?: number | null;
     }
   ) => void;
   onDelete: (id: string) => void;
@@ -62,6 +66,14 @@ const PRIORITY_CONFIG: Record<
   },
   none: { label: "None", color: "text-gray-400", dot: "bg-gray-300" },
 };
+
+const RECURRENCE_OPTIONS: { value: RecurrenceType | "none"; label: string }[] = [
+  { value: "none", label: "No repeat" },
+  { value: "daily", label: "Daily" },
+  { value: "weekly", label: "Weekly" },
+  { value: "monthly", label: "Monthly" },
+  { value: "yearly", label: "Yearly" },
+];
 
 function formatDueDate(dateStr: string): { text: string; overdue: boolean } {
   const today = new Date();
@@ -110,6 +122,7 @@ export default function TodoItem({
   const completedSubtasks = subtasks.filter((s) => s.completed).length;
   const priorityConf = PRIORITY_CONFIG[todo.priority ?? "none"];
   const dueInfo = todo.due_date ? formatDueDate(todo.due_date) : null;
+  const recurrenceLabel = formatRecurrence(todo.recurrence_type, todo.recurrence_interval);
   // Show list name only when viewing "All Tasks" (no active list filter)
   const listName =
     !activeListId && todo.list_id
@@ -245,7 +258,7 @@ export default function TodoItem({
             </p>
           )}
 
-          {/* Meta: priority, due date, subtask count, notes */}
+          {/* Meta: priority, due date, recurrence, subtask count, notes */}
           <div className="flex flex-wrap items-center gap-2 mt-1.5">
             {todo.priority && todo.priority !== "none" && (
               <span
@@ -272,6 +285,12 @@ export default function TodoItem({
                     {todo.start_time}{todo.end_time ? `–${todo.end_time}` : ""}
                   </span>
                 )}
+              </span>
+            )}
+            {recurrenceLabel && (
+              <span className="flex items-center gap-1 text-xs text-purple-500 dark:text-purple-400">
+                <Repeat size={11} />
+                {recurrenceLabel}
               </span>
             )}
             {subtasks.length > 0 && (
@@ -370,6 +389,27 @@ export default function TodoItem({
               <p className="text-xs text-gray-400 mb-2 font-medium uppercase tracking-wide">
                 Due date & time
               </p>
+              {/* Quick-pick buttons */}
+              <div className="flex gap-2 flex-wrap mb-2">
+                {[
+                  { label: "Today", val: getToday() },
+                  { label: "Tomorrow", val: getTomorrow() },
+                  { label: "Next Mon", val: getNextMonday() },
+                  { label: "Next Week", val: getNextWeek() },
+                ].map((pick) => (
+                  <button
+                    key={pick.label}
+                    onClick={() => onUpdate(todo.id, { due_date: pick.val })}
+                    className={`text-xs px-2 py-1 rounded-lg border transition-default ${
+                      todo.due_date === pick.val
+                        ? "border-black/30 dark:border-white/30 bg-black/5 dark:bg-white/10 text-black dark:text-white font-medium"
+                        : "border-black/10 dark:border-white/10 text-gray-400 hover:border-black/20 dark:hover:border-white/20"
+                    }`}
+                  >
+                    {pick.label}
+                  </button>
+                ))}
+              </div>
               <div className="flex flex-wrap items-center gap-2">
                 <input
                   type="date"
@@ -414,6 +454,43 @@ export default function TodoItem({
                     Clear
                   </button>
                 )}
+              </div>
+            </div>
+          )}
+
+          {/* Recurrence */}
+          {!todo.completed && (
+            <div>
+              <p className="text-xs text-gray-400 mb-2 font-medium uppercase tracking-wide">
+                Repeat
+              </p>
+              <div className="flex gap-2 flex-wrap">
+                {RECURRENCE_OPTIONS.map((opt) => {
+                  const isActive = opt.value === "none"
+                    ? !todo.recurrence_type
+                    : todo.recurrence_type === opt.value;
+                  return (
+                    <button
+                      key={opt.value}
+                      onClick={() =>
+                        onUpdate(todo.id, {
+                          recurrence_type: opt.value === "none" ? null : opt.value,
+                          recurrence_interval: opt.value === "none" ? null : (todo.recurrence_interval ?? 1),
+                          // If setting recurrence and no due date, default to today
+                          ...(opt.value !== "none" && !todo.due_date ? { due_date: getToday() } : {}),
+                        })
+                      }
+                      className={`flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg border transition-default ${
+                        isActive
+                          ? "border-purple-400/50 bg-purple-50 dark:bg-purple-950/30 text-purple-600 dark:text-purple-400 font-medium"
+                          : "border-black/10 dark:border-white/10 text-gray-400 hover:border-black/20 dark:hover:border-white/20"
+                      }`}
+                    >
+                      {opt.value !== "none" && <Repeat size={11} />}
+                      {opt.label}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}

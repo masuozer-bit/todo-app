@@ -17,7 +17,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { Search, X, Filter } from "lucide-react";
-import type { Todo, Tag, Priority, List } from "@/lib/types";
+import type { Todo, Tag, Priority, List, RecurrenceType } from "@/lib/types";
 import SortableItem from "./SortableItem";
 import TodoItem from "./TodoItem";
 import ConfirmDialog from "./ConfirmDialog";
@@ -86,11 +86,29 @@ function groupByTimeline(todos: Todo[]): TimelineGroup[] {
     .map((c) => ({ key: c.key, label: c.label, todos: groups[c.key] }));
 }
 
+// ── Skeleton loader ───────────────────────────────────────────────
+function TodoSkeleton() {
+  return (
+    <div className="glass-card-subtle p-3 md:p-4 animate-pulse">
+      <div className="flex items-start gap-3">
+        <div className="w-5 h-5 rounded-md bg-black/10 dark:bg-white/10 flex-shrink-0 mt-0.5" />
+        <div className="flex-1 space-y-2">
+          <div className="h-4 bg-black/10 dark:bg-white/10 rounded-lg w-3/4" />
+          <div className="flex gap-2">
+            <div className="h-3 bg-black/5 dark:bg-white/5 rounded w-14" />
+            <div className="h-3 bg-black/5 dark:bg-white/5 rounded w-20" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 interface TodoListProps {
   todos: Todo[];
   allTags: Tag[];
   onToggle: (id: string, completed: boolean) => void;
-  onUpdate: (id: string, updates: { title?: string; due_date?: string | null; start_time?: string | null; end_time?: string | null; priority?: Priority; notes?: string | null; list_id?: string | null }) => void;
+  onUpdate: (id: string, updates: { title?: string; due_date?: string | null; start_time?: string | null; end_time?: string | null; priority?: Priority; notes?: string | null; list_id?: string | null; recurrence_type?: RecurrenceType | null; recurrence_interval?: number | null }) => void;
   onDelete: (id: string) => void;
   onTagToggle: (todoId: string, tagId: string, add: boolean) => void;
   onReorder: (reordered: Todo[]) => void;
@@ -225,10 +243,13 @@ export default function TodoList({
     }
   }
 
+  // Loading skeleton
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-16">
-        <div className="w-6 h-6 border-2 border-gray-400/30 border-t-black dark:border-t-white rounded-full animate-spin" />
+      <div className="space-y-2">
+        {[...Array(5)].map((_, i) => (
+          <TodoSkeleton key={i} />
+        ))}
       </div>
     );
   }

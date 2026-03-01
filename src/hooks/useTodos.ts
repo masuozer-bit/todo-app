@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
-import type { Todo, Tag, Subtask, Priority, List } from "@/lib/types";
+import type { Todo, Tag, Subtask, Priority, List, RecurrenceType } from "@/lib/types";
 import { syncTodoToCalendar } from "@/lib/calendar-sync-client";
+import { getNextDueDate } from "@/lib/date-helpers";
 
 export function useTodos(
   userId: string | undefined,
@@ -113,6 +114,8 @@ export function useTodos(
         priority?: Priority;
         notes?: string | null;
         list_id?: string | null;
+        recurrence_type?: RecurrenceType | null;
+        recurrence_interval?: number | null;
       }
     ) => {
       if (!userId) return;
@@ -120,7 +123,6 @@ export function useTodos(
       const maxOrder =
         todos.length > 0 ? Math.max(...todos.map((t) => t.sort_order)) : 0;
 
-      // Try with new columns first, fall back to basic insert if columns don't exist yet
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let todoData: any = null;
       const { data: d1, error: e1 } = await supabase
@@ -135,6 +137,8 @@ export function useTodos(
           priority: options?.priority ?? "none",
           notes: options?.notes ?? null,
           list_id: options?.list_id ?? activeListId ?? null,
+          recurrence_type: options?.recurrence_type ?? null,
+          recurrence_interval: options?.recurrence_interval ?? null,
         })
         .select()
         .single();
@@ -147,6 +151,12 @@ export function useTodos(
             user_id: userId,
             title,
             sort_order: maxOrder + 1,
+            due_date: options?.due_date ?? null,
+            start_time: options?.start_time ?? null,
+            end_time: options?.end_time ?? null,
+            priority: options?.priority ?? "none",
+            notes: options?.notes ?? null,
+            list_id: options?.list_id ?? activeListId ?? null,
           })
           .select()
           .single();
@@ -200,6 +210,118 @@ export function useTodos(
 
   const toggleTodo = useCallback(
     async (id: string, completed: boolean) => {
+      const todo = todosRef.current.find((t) => t.id === id);
+
+      // ── Recurring task logic ──────────────────────────────────
+      // When completing a recurring task, create next occurrence
+      if (
+        completed &&
+        todo &&
+        todo.recurrence_type &&
+        todo.due_date
+      ) {
+        // 1. Mark current as completed & remove recurrence (it's a "done" instance)
+        const { error } = await supabase
+          .from("todos")
+          .update({ completed: true, recurrence_type: null, recurrence_interval: null })
+          .eq("id", id);
+
+        if (error) return;
+
+        setTodos((prev) =>
+          prev.map((t) =>
+            t.id === id
+              ? { ...t, completed: true, recurrence_type: null, recurrence_interval: null }
+              : t
+          )
+        );
+
+        // 2. Create the next occurrence
+        const nextDate = getNextDueDate(
+          todo.due_date,
+          todo.recurrence_type,
+          todo.recurrence_interval ?? 1
+        );
+        const maxOrder =
+          todosRef.current.length > 0
+            ? Math.max(...todosRef.current.map((t) => t.sort_order))
+            : 0;
+
+        const { data: newTodo } = await supabase
+          .from("todos")
+          .insert({
+            user_id: todo.user_id,
+            title: todo.title,
+            sort_order: maxOrder + 1,
+            due_date: nextDate,
+            start_time: todo.start_time,
+            end_time: todo.end_time,
+            priority: todo.priority,
+            notes: todo.notes,
+            list_id: todo.list_id,
+            recurrence_type: todo.recurrence_type,
+            recurrence_interval: todo.recurrence_interval,
+          })
+          .select()
+          .single();
+
+        if (newTodo) {
+          // Copy tags to new occurrence
+          const tagIds = (todo.tags ?? []).map((t) => t.id);
+          if (tagIds.length > 0) {
+            await supabase
+              .from("todo_tags")
+              .insert(tagIds.map((tagId) => ({ todo_id: newTodo.id, tag_id: tagId })));
+          }
+
+          const nextTodo: Todo = {
+            ...newTodo,
+            priority: newTodo.priority ?? "none",
+            tags: todo.tags ?? [],
+            subtasks: [],
+          };
+
+          setTodos((prev) => [...prev, nextTodo]);
+
+          // Calendar sync for new occurrence
+          syncTodoToCalendar("create", newTodo.id, {
+            title: newTodo.title,
+            due_date: nextDate,
+            start_time: newTodo.start_time,
+            end_time: newTodo.end_time,
+            priority: newTodo.priority,
+            notes: newTodo.notes,
+            completed: false,
+            subtasks: [],
+            tag_names: (todo.tags ?? []).map((t) => t.name),
+            list_id: newTodo.list_id,
+            list_name: getListName(newTodo.list_id),
+          });
+        }
+
+        // Calendar sync: mark completed instance
+        if (todo.due_date) {
+          syncTodoToCalendar("complete", id, {
+            title: todo.title,
+            due_date: todo.due_date,
+            start_time: todo.start_time,
+            end_time: todo.end_time,
+            priority: todo.priority,
+            notes: todo.notes,
+            completed: true,
+            subtasks: (todo.subtasks ?? []).map((s) => ({
+              title: s.title,
+              completed: s.completed,
+            })),
+            tag_names: (todo.tags ?? []).map((t) => t.name),
+            list_id: todo.list_id,
+            list_name: getListName(todo.list_id),
+          });
+        }
+        return;
+      }
+
+      // ── Normal (non-recurring) toggle ─────────────────────────
       const { error } = await supabase
         .from("todos")
         .update({ completed })
@@ -211,7 +333,6 @@ export function useTodos(
         );
 
         // Calendar sync (fire-and-forget)
-        const todo = todosRef.current.find((t) => t.id === id);
         if (todo?.due_date) {
           syncTodoToCalendar("complete", id, {
             title: todo.title,
@@ -246,6 +367,8 @@ export function useTodos(
         priority?: Priority;
         notes?: string | null;
         list_id?: string | null;
+        recurrence_type?: RecurrenceType | null;
+        recurrence_interval?: number | null;
       }
     ) => {
       const { error } = await supabase
@@ -510,6 +633,8 @@ export function useTodos(
             priority: t.priority,
             due_date: t.due_date,
             notes: t.notes,
+            recurrence_type: t.recurrence_type,
+            recurrence_interval: t.recurrence_interval,
             tags: (t.tags ?? []).map((tag) => tag.name),
             subtasks: (t.subtasks ?? []).map((s) => ({
               title: s.title,
@@ -522,12 +647,13 @@ export function useTodos(
         downloadFile(data, "todos.json", "application/json");
       } else {
         const rows = [
-          ["Title", "Completed", "Priority", "Due Date", "Notes", "Tags"],
+          ["Title", "Completed", "Priority", "Due Date", "Recurrence", "Notes", "Tags"],
           ...todos.map((t) => [
             `"${t.title.replace(/"/g, '""')}"`,
             t.completed ? "Yes" : "No",
             t.priority,
             t.due_date ?? "",
+            t.recurrence_type ?? "",
             `"${(t.notes ?? "").replace(/"/g, '""')}"`,
             (t.tags ?? []).map((tag) => tag.name).join("; "),
           ]),

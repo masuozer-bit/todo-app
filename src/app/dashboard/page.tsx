@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Header from "@/components/Header";
@@ -10,6 +10,7 @@ import TagManager from "@/components/TagManager";
 import CalendarPanel from "@/components/CalendarPanel";
 import HabitInput from "@/components/HabitInput";
 import HabitList from "@/components/HabitList";
+import ToastContainer, { type ToastData } from "@/components/Toast";
 import { useTodos } from "@/hooks/useTodos";
 import { useTags } from "@/hooks/useTags";
 import { useLists } from "@/hooks/useLists";
@@ -168,9 +169,20 @@ export default function DashboardPage() {
   const [showCalendar, setShowCalendar] = useState(false);
   const [calendarDate, setCalendarDate] = useState<string | null>(null);
   const [habitsView, setHabitsView] = useState(false);
+  const [toasts, setToasts] = useState<ToastData[]>([]);
   const router = useRouter();
   const supabase = createClient();
   const { toggleTheme } = useTheme();
+
+  // Toast helpers
+  const addToast = useCallback((toast: Omit<ToastData, "id">) => {
+    const id = Math.random().toString(36).slice(2);
+    setToasts((prev) => [...prev, { ...toast, id }]);
+  }, []);
+
+  const dismissToast = useCallback((id: string) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
 
   useEffect(() => {
     supabase.auth
@@ -217,6 +229,22 @@ export default function DashboardPage() {
     toggleSubtask,
     deleteSubtask,
   } = useTodos(user?.id, tags, activeListId, lists);
+
+  // Wrapped delete that shows undo toast
+  const handleDeleteTodo = useCallback(
+    (id: string) => {
+      const todo = todos.find((t) => t.id === id);
+      if (!todo) {
+        deleteTodo(id);
+        return;
+      }
+      deleteTodo(id);
+      addToast({
+        message: `"${todo.title}" deleted`,
+      });
+    },
+    [todos, deleteTodo, addToast]
+  );
 
   // Keyboard shortcuts
   useKeyboardShortcuts({
@@ -553,7 +581,7 @@ export default function DashboardPage() {
               allTags={tags}
               onToggle={toggleTodo}
               onUpdate={updateTodo}
-              onDelete={deleteTodo}
+              onDelete={handleDeleteTodo}
               onTagToggle={toggleTodoTag}
               onReorder={reorderTodos}
               onAddSubtask={addSubtask}
@@ -582,6 +610,9 @@ export default function DashboardPage() {
       </div>
 
       <Header email={user?.email} />
+
+      {/* Toast notifications */}
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
     </div>
   );
 }

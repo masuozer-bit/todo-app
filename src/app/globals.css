@@ -102,13 +102,13 @@
   .custom-checkbox:checked::after {
     content: "";
     position: absolute;
-    left: 3px;
-    top: 0px;
-    width: 6px;
-    height: 10px;
+    left: 50%;
+    top: 45%;
+    width: 5px;
+    height: 9px;
     border: solid #FFFFFF;
     border-width: 0 2px 2px 0;
-    transform: rotate(45deg);
+    transform: translate(-50%, -50%) rotate(45deg);
   }
 
   .dark .custom-checkbox:checked::after {

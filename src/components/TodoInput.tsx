@@ -1,9 +1,27 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-import { Plus, ChevronDown, ChevronUp, Sparkles, Repeat } from "lucide-react";
+import { useState, useRef, useEffect, useMemo } from "react";
+import {
+  Plus,
+  ChevronDown,
+  ChevronUp,
+  Calendar,
+  Clock,
+  Flag,
+  Hash,
+  Repeat,
+  List as ListIcon,
+  X,
+} from "lucide-react";
 import type { Tag, Priority, List, RecurrenceType } from "@/lib/types";
-import { getToday, getTomorrow, getNextMonday, getNextWeek, parseNaturalLanguage } from "@/lib/date-helpers";
+import {
+  getToday,
+  getTomorrow,
+  getNextMonday,
+  getNextWeek,
+  parseNaturalLanguage,
+  type ParsedTask,
+} from "@/lib/date-helpers";
 import TagPill from "./TagPill";
 
 interface TodoInputProps {
@@ -33,13 +51,137 @@ const PRIORITY_OPTIONS: { value: Priority; label: string }[] = [
   { value: "low", label: "Low" },
 ];
 
-const RECURRENCE_OPTIONS: { value: RecurrenceType | "none"; label: string }[] = [
+const RECURRENCE_OPTIONS: {
+  value: RecurrenceType | "none";
+  label: string;
+}[] = [
   { value: "none", label: "No repeat" },
   { value: "daily", label: "Daily" },
   { value: "weekly", label: "Weekly" },
   { value: "monthly", label: "Monthly" },
   { value: "yearly", label: "Yearly" },
 ];
+
+const PRIORITY_COLORS: Record<Priority, string> = {
+  high: "bg-red-100 dark:bg-red-950/40 text-red-600 dark:text-red-400 border-red-200 dark:border-red-800/40",
+  medium:
+    "bg-amber-100 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800/40",
+  low: "bg-blue-100 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800/40",
+  none: "",
+};
+
+// Suggestions that appear while typing
+interface Suggestion {
+  trigger: string;
+  display: string;
+  insert: string;
+}
+
+function buildSuggestions(
+  input: string,
+  tags: Tag[],
+  lists: List[]
+): Suggestion[] {
+  if (!input.trim()) return [];
+  const words = input.split(/\s+/);
+  const lastWord = words[words.length - 1].toLowerCase();
+  if (!lastWord) return [];
+
+  const suggestions: Suggestion[] = [];
+
+  // Date suggestions
+  if ("today".startsWith(lastWord) && lastWord.length >= 2 && lastWord !== "today") {
+    suggestions.push({ trigger: lastWord, display: "today", insert: "today" });
+  }
+  if ("tomorrow".startsWith(lastWord) && lastWord.length >= 2 && lastWord !== "tomorrow") {
+    suggestions.push({ trigger: lastWord, display: "tomorrow", insert: "tomorrow" });
+  }
+
+  // "next" suggestions
+  if (lastWord === "next") {
+    suggestions.push(
+      { trigger: lastWord, display: "next monday", insert: "next monday" },
+      { trigger: lastWord, display: "next week", insert: "next week" }
+    );
+  }
+
+  // Priority suggestions
+  if (lastWord === "!" || lastWord === "!h" || lastWord === "!hi") {
+    suggestions.push({ trigger: lastWord, display: "!high", insert: "!high" });
+  }
+  if (lastWord === "!" || lastWord === "!m" || lastWord === "!me") {
+    suggestions.push({
+      trigger: lastWord,
+      display: "!medium",
+      insert: "!medium",
+    });
+  }
+  if (lastWord === "!" || lastWord === "!l" || lastWord === "!lo") {
+    suggestions.push({ trigger: lastWord, display: "!low", insert: "!low" });
+  }
+
+  // Tag suggestions
+  if (lastWord.startsWith("#") && lastWord.length >= 1) {
+    const partial = lastWord.slice(1).toLowerCase();
+    for (const tag of tags) {
+      if (
+        partial === "" ||
+        tag.name.toLowerCase().startsWith(partial)
+      ) {
+        if (`#${tag.name.toLowerCase()}` !== lastWord) {
+          suggestions.push({
+            trigger: lastWord,
+            display: `#${tag.name}`,
+            insert: `#${tag.name}`,
+          });
+        }
+      }
+    }
+  }
+
+  // Recurrence suggestions
+  if ("every".startsWith(lastWord) && lastWord.length >= 2 && lastWord !== "every") {
+    suggestions.push(
+      { trigger: lastWord, display: "every day", insert: "every day" },
+      { trigger: lastWord, display: "every week", insert: "every week" }
+    );
+  }
+  if (lastWord === "every") {
+    suggestions.push(
+      { trigger: lastWord, display: "every day", insert: "every day" },
+      { trigger: lastWord, display: "every week", insert: "every week" },
+      { trigger: lastWord, display: "every month", insert: "every month" }
+    );
+  }
+
+  // Time suggestions
+  if (lastWord === "at") {
+    suggestions.push(
+      { trigger: lastWord, display: "at 9am", insert: "at 9am" },
+      { trigger: lastWord, display: "at 3pm", insert: "at 3pm" },
+      { trigger: lastWord, display: "at 6pm", insert: "at 6pm" }
+    );
+  }
+
+  return suggestions.slice(0, 5);
+}
+
+function formatDateLabel(dateStr: string): string {
+  const today = getToday();
+  const tomorrow = getTomorrow();
+  if (dateStr === today) return "Today";
+  if (dateStr === tomorrow) return "Tomorrow";
+  const d = new Date(dateStr + "T00:00:00");
+  return d.toLocaleDateString("en", { month: "short", day: "numeric" });
+}
+
+function formatTimeLabel(time: string): string {
+  const [h, m] = time.split(":");
+  const hours = parseInt(h);
+  const suffix = hours >= 12 ? "PM" : "AM";
+  const hr = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
+  return `${hr}:${m} ${suffix}`;
+}
 
 export default function TodoInput({
   onAdd,
@@ -55,56 +197,115 @@ export default function TodoInput({
   const [endTime, setEndTime] = useState("");
   const [priority, setPriority] = useState<Priority>("none");
   const [notes, setNotes] = useState("");
-  const [recurrenceType, setRecurrenceType] = useState<RecurrenceType | "none">("none");
+  const [recurrenceType, setRecurrenceType] = useState<
+    RecurrenceType | "none"
+  >("none");
   const [recurrenceInterval, setRecurrenceInterval] = useState(1);
-  const [nlHint, setNlHint] = useState<string | null>(null);
+  const [listId, setListId] = useState<string | null>(activeListId ?? null);
+  const [selectedSuggestion, setSelectedSuggestion] = useState(0);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Natural language preview
+  // Sync listId when activeListId changes
   useEffect(() => {
-    if (!title.trim()) {
-      setNlHint(null);
-      return;
+    setListId(activeListId ?? null);
+  }, [activeListId]);
+
+  // Parse NL in real time
+  const parsed: ParsedTask | null = useMemo(() => {
+    if (!title.trim() || showOptions) return null;
+    const p = parseNaturalLanguage(title);
+    // Only return if something was actually detected
+    if (
+      p.due_date ||
+      p.start_time ||
+      (p.priority && p.priority !== "none") ||
+      (p.tagNames && p.tagNames.length > 0) ||
+      p.recurrence_type
+    ) {
+      return p;
     }
-    const parsed = parseNaturalLanguage(title);
-    const hints: string[] = [];
-    if (parsed.due_date) hints.push(parsed.due_date === getToday() ? "Today" : parsed.due_date);
-    if (parsed.start_time) hints.push(parsed.start_time);
-    if (parsed.priority && parsed.priority !== "none") hints.push(`!${parsed.priority}`);
-    if (parsed.tagNames && parsed.tagNames.length > 0) hints.push(parsed.tagNames.map(t => `#${t}`).join(" "));
-    if (parsed.recurrence_type) hints.push(`↻ ${parsed.recurrence_type}`);
-    setNlHint(hints.length > 0 ? hints.join(" · ") : null);
-  }, [title]);
+    return null;
+  }, [title, showOptions]);
+
+  // Suggestions
+  const suggestions = useMemo(() => {
+    if (showOptions || !title.trim()) return [];
+    return buildSuggestions(title, tags, lists);
+  }, [title, tags, lists, showOptions]);
+
+  useEffect(() => {
+    setSelectedSuggestion(0);
+    setShowSuggestions(suggestions.length > 0);
+  }, [suggestions]);
+
+  function applySuggestion(suggestion: Suggestion) {
+    const words = title.split(/\s+/);
+    // If the trigger is "next" and the insert is "next monday", we need to remove "next" and add "next monday"
+    // Just replace the last word(s) that match the trigger
+    const triggerWordCount = suggestion.trigger.split(/\s+/).length;
+    const newWords = words.slice(0, words.length - triggerWordCount);
+    newWords.push(suggestion.insert);
+    setTitle(newWords.join(" ") + " ");
+    setShowSuggestions(false);
+    inputRef.current?.focus();
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (showSuggestions && suggestions.length > 0) {
+      if (e.key === "Tab" || (e.key === "ArrowRight" && suggestions.length > 0)) {
+        e.preventDefault();
+        applySuggestion(suggestions[selectedSuggestion]);
+        return;
+      }
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setSelectedSuggestion((prev) =>
+          prev < suggestions.length - 1 ? prev + 1 : 0
+        );
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setSelectedSuggestion((prev) =>
+          prev > 0 ? prev - 1 : suggestions.length - 1
+        );
+        return;
+      }
+    }
+  }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const trimmed = title.trim();
     if (!trimmed) return;
 
-    // If options panel is NOT open, try natural language parsing
     let finalTitle = trimmed;
     let finalDueDate = dueDate || null;
     let finalStartTime = startTime || null;
     let finalEndTime = endTime || null;
     let finalPriority = priority;
     let finalTagIds = [...selectedTagIds];
-    let finalRecurrenceType: RecurrenceType | null = recurrenceType === "none" ? null : recurrenceType;
-    let finalRecurrenceInterval: number | null = recurrenceType === "none" ? null : recurrenceInterval;
+    let finalRecurrenceType: RecurrenceType | null =
+      recurrenceType === "none" ? null : recurrenceType;
+    let finalRecurrenceInterval: number | null =
+      recurrenceType === "none" ? null : recurrenceInterval;
 
     if (!showOptions) {
-      const parsed = parseNaturalLanguage(trimmed);
-      if (parsed.title) finalTitle = parsed.title;
-      if (parsed.due_date) finalDueDate = parsed.due_date;
-      if (parsed.start_time) finalStartTime = parsed.start_time;
-      if (parsed.priority && parsed.priority !== "none") finalPriority = parsed.priority;
-      if (parsed.recurrence_type) {
-        finalRecurrenceType = parsed.recurrence_type;
-        finalRecurrenceInterval = parsed.recurrence_interval ?? 1;
+      const p = parseNaturalLanguage(trimmed);
+      if (p.title) finalTitle = p.title;
+      if (p.due_date) finalDueDate = p.due_date;
+      if (p.start_time) finalStartTime = p.start_time;
+      if (p.priority && p.priority !== "none") finalPriority = p.priority;
+      if (p.recurrence_type) {
+        finalRecurrenceType = p.recurrence_type;
+        finalRecurrenceInterval = p.recurrence_interval ?? 1;
       }
-      // Match tag names to existing tags
-      if (parsed.tagNames && parsed.tagNames.length > 0) {
-        for (const name of parsed.tagNames) {
-          const tag = tags.find(t => t.name.toLowerCase() === name.toLowerCase());
+      if (p.tagNames && p.tagNames.length > 0) {
+        for (const name of p.tagNames) {
+          const tag = tags.find(
+            (t) => t.name.toLowerCase() === name.toLowerCase()
+          );
           if (tag && !finalTagIds.includes(tag.id)) {
             finalTagIds.push(tag.id);
           }
@@ -118,10 +319,11 @@ export default function TodoInput({
       end_time: finalEndTime,
       priority: finalPriority,
       notes: notes.trim() || null,
-      list_id: activeListId ?? null,
+      list_id: listId ?? activeListId ?? null,
       recurrence_type: finalRecurrenceType,
       recurrence_interval: finalRecurrenceInterval,
     });
+
     setTitle("");
     setSelectedTagIds([]);
     setDueDate("");
@@ -131,7 +333,9 @@ export default function TodoInput({
     setNotes("");
     setRecurrenceType("none");
     setRecurrenceInterval(1);
+    setListId(activeListId ?? null);
     setShowOptions(false);
+    setShowSuggestions(false);
     inputRef.current?.focus();
   }
 
@@ -143,6 +347,8 @@ export default function TodoInput({
     );
   }
 
+  const activeListName = lists.find((l) => l.id === listId)?.name;
+
   return (
     <div className="glass-card p-4">
       <form onSubmit={handleSubmit}>
@@ -153,7 +359,10 @@ export default function TodoInput({
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="Add a new task... (try: Buy groceries tomorrow at 3pm !high #shopping)"
+            onKeyDown={handleKeyDown}
+            onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+            onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+            placeholder="Add a task... (try: Buy milk tomorrow at 3pm !high #shopping)"
             className="flex-1 bg-transparent text-black dark:text-white placeholder:text-gray-400 focus:outline-none text-base"
             aria-label="New task title"
           />
@@ -165,7 +374,11 @@ export default function TodoInput({
             className="text-gray-400 hover:text-black dark:hover:text-white transition-default"
             aria-label={showOptions ? "Hide options" : "Show options"}
           >
-            {showOptions ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+            {showOptions ? (
+              <ChevronUp size={16} />
+            ) : (
+              <ChevronDown size={16} />
+            )}
           </button>
 
           <button
@@ -178,11 +391,118 @@ export default function TodoInput({
           </button>
         </div>
 
-        {/* Natural language hint */}
-        {!showOptions && nlHint && (
-          <div className="mt-2 flex items-center gap-1.5 text-xs text-gray-400">
-            <Sparkles size={11} className="text-amber-400" />
-            <span>{nlHint}</span>
+        {/* Autocomplete suggestions dropdown */}
+        {!showOptions && showSuggestions && suggestions.length > 0 && (
+          <div className="mt-1.5 bg-white dark:bg-neutral-900 border border-black/10 dark:border-white/10 rounded-xl shadow-lg overflow-hidden">
+            {suggestions.map((s, i) => (
+              <button
+                key={s.display + i}
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => applySuggestion(s)}
+                className={`w-full text-left px-3 py-2 text-sm flex items-center gap-2 transition-default ${
+                  i === selectedSuggestion
+                    ? "bg-black/5 dark:bg-white/10 text-black dark:text-white"
+                    : "text-gray-500 dark:text-gray-400 hover:bg-black/[0.03] dark:hover:bg-white/5"
+                }`}
+              >
+                <span className="font-medium">{s.display}</span>
+                <span className="text-xs text-gray-400 ml-auto">
+                  Tab ↹
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Rich NL live preview pills */}
+        {!showOptions && parsed && (
+          <div className="mt-2.5 flex items-center gap-1.5 flex-wrap">
+            <span className="text-[10px] uppercase tracking-wider text-gray-400 mr-0.5 font-medium">
+              Parsed:
+            </span>
+            {/* Cleaned title */}
+            {parsed.title && parsed.title !== title.trim() && (
+              <span className="text-xs text-black dark:text-white font-medium bg-black/[0.04] dark:bg-white/[0.08] px-2 py-0.5 rounded-md border border-black/5 dark:border-white/10 truncate max-w-[200px]">
+                &ldquo;{parsed.title}&rdquo;
+              </span>
+            )}
+            {/* Date pill */}
+            {parsed.due_date && (
+              <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-md border bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800/40">
+                <Calendar size={10} />
+                {formatDateLabel(parsed.due_date)}
+              </span>
+            )}
+            {/* Time pill */}
+            {parsed.start_time && (
+              <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-md border bg-green-50 dark:bg-green-950/40 text-green-600 dark:text-green-400 border-green-200 dark:border-green-800/40">
+                <Clock size={10} />
+                {formatTimeLabel(parsed.start_time)}
+              </span>
+            )}
+            {/* Priority pill */}
+            {parsed.priority && parsed.priority !== "none" && (
+              <span
+                className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-md border ${PRIORITY_COLORS[parsed.priority]}`}
+              >
+                <Flag size={10} />
+                {parsed.priority.charAt(0).toUpperCase() +
+                  parsed.priority.slice(1)}
+              </span>
+            )}
+            {/* Tag pills */}
+            {parsed.tagNames?.map((name) => (
+              <span
+                key={name}
+                className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-md border bg-gray-100 dark:bg-gray-800/40 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700/40"
+              >
+                <Hash size={10} />
+                {name}
+              </span>
+            ))}
+            {/* Recurrence pill */}
+            {parsed.recurrence_type && (
+              <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-md border bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 border-purple-200 dark:border-purple-800/40">
+                <Repeat size={10} />
+                {parsed.recurrence_type.charAt(0).toUpperCase() +
+                  parsed.recurrence_type.slice(1)}
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* List selector (always visible when lists exist, in both modes) */}
+        {lists.length > 0 && (
+          <div className="mt-2.5 flex items-center gap-2">
+            <ListIcon size={12} className="text-gray-400 flex-shrink-0" />
+            <div className="flex gap-1.5 flex-wrap">
+              <button
+                type="button"
+                onClick={() => setListId(null)}
+                className={`text-[11px] px-2 py-0.5 rounded-md border transition-default ${
+                  !listId
+                    ? "border-black/20 dark:border-white/20 bg-black/5 dark:bg-white/10 text-black dark:text-white font-medium"
+                    : "border-black/8 dark:border-white/8 text-gray-400 hover:border-black/15 dark:hover:border-white/15"
+                }`}
+              >
+                No list
+              </button>
+              {lists.map((list) => (
+                <button
+                  key={list.id}
+                  type="button"
+                  onClick={() => setListId(list.id)}
+                  className={`text-[11px] px-2 py-0.5 rounded-md border transition-default ${
+                    listId === list.id
+                      ? "border-black/20 dark:border-white/20 bg-black/5 dark:bg-white/10 text-black dark:text-white font-medium"
+                      : "border-black/8 dark:border-white/8 text-gray-400 hover:border-black/15 dark:hover:border-white/15"
+                  }`}
+                >
+                  {list.name}
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
@@ -222,7 +542,7 @@ export default function TodoInput({
                 />
               </div>
 
-              {/* Start time (only shown when due date is set) */}
+              {/* Start time */}
               {dueDate && (
                 <div className="flex flex-col gap-1">
                   <label className="text-xs text-gray-400 font-medium">
@@ -237,7 +557,7 @@ export default function TodoInput({
                 </div>
               )}
 
-              {/* End time (only shown when start time is set) */}
+              {/* End time */}
               {dueDate && startTime && (
                 <div className="flex flex-col gap-1">
                   <label className="text-xs text-gray-400 font-medium">
@@ -259,7 +579,11 @@ export default function TodoInput({
                 </label>
                 <select
                   value={recurrenceType}
-                  onChange={(e) => setRecurrenceType(e.target.value as RecurrenceType | "none")}
+                  onChange={(e) =>
+                    setRecurrenceType(
+                      e.target.value as RecurrenceType | "none"
+                    )
+                  }
                   className="text-xs bg-white dark:bg-black border border-black/10 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-black dark:text-white focus:outline-none focus:border-black/30 dark:focus:border-white/30 transition-default cursor-pointer"
                 >
                   {RECURRENCE_OPTIONS.map((opt) => (

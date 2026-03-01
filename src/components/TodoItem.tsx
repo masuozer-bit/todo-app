@@ -11,6 +11,7 @@ import {
   FileText,
   List as ListIcon,
   Repeat,
+  ArrowRightLeft,
 } from "lucide-react";
 import type { Todo, Tag, Priority, List, RecurrenceType } from "@/lib/types";
 import { getToday, getTomorrow, getNextMonday, getNextWeek, formatRecurrence } from "@/lib/date-helpers";
@@ -192,13 +193,13 @@ export default function TodoItem({
       } ${todo.completed ? "opacity-60" : ""}`}
     >
       {/* Main row */}
-      <div className="flex items-start gap-3 p-3 md:p-4" {...dragHandleProps}>
+      <div className="flex items-center gap-3 p-3 md:p-4" {...dragHandleProps}>
         {/* Checkbox */}
         <input
           type="checkbox"
           checked={todo.completed}
           onChange={() => onToggle(todo.id, !todo.completed)}
-          className="custom-checkbox mt-0.5"
+          className="custom-checkbox flex-shrink-0"
           aria-label={`Mark "${todo.title}" as ${
             todo.completed ? "incomplete" : "complete"
           }`}
@@ -331,18 +332,58 @@ export default function TodoItem({
           )}
         </div>
 
-        {/* Right: expand + delete */}
+        {/* Right: move-list + expand + delete */}
         <div className="flex items-center gap-1 flex-shrink-0">
+          {/* Quick move to list */}
+          {!todo.completed && lists.length > 0 && (
+            <div className="relative group/move">
+              <button
+                className="text-gray-400 opacity-0 group-hover:opacity-100 hover:text-black dark:hover:text-white transition-default"
+                aria-label="Move to list"
+                title="Move to list"
+              >
+                <ArrowRightLeft size={14} />
+              </button>
+              <div className="absolute right-0 top-full mt-1 hidden group-hover/move:block z-20 min-w-[140px]">
+                <div className="bg-white dark:bg-neutral-900 rounded-xl border border-black/10 dark:border-white/10 shadow-xl py-1">
+                  <button
+                    onClick={() => onUpdate(todo.id, { list_id: null })}
+                    className={`w-full text-left px-3 py-1.5 text-xs hover:bg-black/5 dark:hover:bg-white/10 transition-default ${
+                      !todo.list_id
+                        ? "text-black dark:text-white font-medium"
+                        : "text-gray-400"
+                    }`}
+                  >
+                    No list
+                  </button>
+                  {lists.map((list) => (
+                    <button
+                      key={list.id}
+                      onClick={() => onUpdate(todo.id, { list_id: list.id })}
+                      className={`w-full text-left px-3 py-1.5 text-xs hover:bg-black/5 dark:hover:bg-white/10 transition-default ${
+                        todo.list_id === list.id
+                          ? "text-black dark:text-white font-medium"
+                          : "text-gray-500 dark:text-gray-400"
+                      }`}
+                    >
+                      {list.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
           <button
             onClick={() => setExpanded(!expanded)}
-            className="mt-0.5 text-gray-400 opacity-0 group-hover:opacity-100 hover:text-black dark:hover:text-white transition-default"
+            className="text-gray-400 opacity-0 group-hover:opacity-100 hover:text-black dark:hover:text-white transition-default"
             aria-label={expanded ? "Collapse" : "Expand"}
           >
             {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
           </button>
           <button
             onClick={() => onDelete(todo.id)}
-            className="mt-0.5 text-gray-400 opacity-0 group-hover:opacity-100 hover:text-black dark:hover:text-white transition-default"
+            className="text-gray-400 opacity-0 group-hover:opacity-100 hover:text-black dark:hover:text-white transition-default"
             aria-label={`Delete "${todo.title}"`}
           >
             <Trash2 size={16} />

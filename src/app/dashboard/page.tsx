@@ -11,11 +11,15 @@ import CalendarPanel from "@/components/CalendarPanel";
 import HabitInput from "@/components/HabitInput";
 import HabitList from "@/components/HabitList";
 import ToastContainer, { type ToastData } from "@/components/Toast";
+import KeyboardShortcutsOverlay from "@/components/KeyboardShortcutsOverlay";
+import ProductivityStats from "@/components/ProductivityStats";
+import MobileSidebar from "@/components/MobileSidebar";
 import { useTodos } from "@/hooks/useTodos";
 import { useTags } from "@/hooks/useTags";
 import { useLists } from "@/hooks/useLists";
 import { useHabits } from "@/hooks/useHabits";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
+import { useNotifications } from "@/hooks/useNotifications";
 import { useTheme } from "@/components/ThemeProvider";
 import {
   DndContext,
@@ -34,7 +38,7 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Plus, List, Inbox, Trash2, Edit2, Check, X, Calendar, Repeat } from "lucide-react";
+import { Plus, List, Inbox, Trash2, Edit2, Check, X, Calendar, Repeat, Bell, Menu } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
 import type { List as ListType } from "@/lib/types";
 
@@ -170,6 +174,8 @@ export default function DashboardPage() {
   const [calendarDate, setCalendarDate] = useState<string | null>(null);
   const [habitsView, setHabitsView] = useState(false);
   const [toasts, setToasts] = useState<ToastData[]>([]);
+  const [showShortcuts, setShowShortcuts] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const router = useRouter();
   const supabase = createClient();
   const { toggleTheme } = useTheme();
@@ -230,6 +236,9 @@ export default function DashboardPage() {
     deleteSubtask,
   } = useTodos(user?.id, tags, activeListId, lists);
 
+  // Browser notifications for upcoming tasks
+  const { permission: notifPermission, requestPermission } = useNotifications(todos);
+
   // Wrapped delete that shows undo toast
   const handleDeleteTodo = useCallback(
     (id: string) => {
@@ -261,6 +270,7 @@ export default function DashboardPage() {
       input?.focus();
     },
     onToggleTheme: toggleTheme,
+    onShowShortcuts: () => setShowShortcuts((prev) => !prev),
   });
 
   // Sensors for list drag & drop
@@ -326,7 +336,7 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-white dark:bg-black transition-colors">
       <div className={`mx-auto px-4 pt-6 pb-8 flex gap-6 ${showCalendar ? "max-w-6xl" : "max-w-5xl"}`}>
-        {/* Sidebar — lists */}
+        {/* Sidebar — lists (desktop) */}
         <aside className="hidden md:block w-52 flex-shrink-0 pt-4">
           <div className="sticky top-4">
             {/* All Tasks */}
@@ -439,57 +449,97 @@ export default function DashboardPage() {
               </button>
             )}
 
-            {/* Tag Manager — tucked into sidebar */}
+            {/* Tag Manager */}
             <div className="mt-6 pt-4 border-t border-black/5 dark:border-white/5 px-1">
               <TagManager tags={tags} onAdd={addTag} onDelete={deleteTag} />
+            </div>
+
+            {/* Productivity Stats */}
+            <div className="mt-5 pt-4 border-t border-black/5 dark:border-white/5 px-1">
+              <ProductivityStats todos={todos} />
             </div>
           </div>
         </aside>
 
         {/* Main content */}
         <main className="flex-1 min-w-0 pt-4">
-          {/* Stats + calendar toggle */}
+          {/* Stats + calendar toggle + notification bell + mobile menu */}
           <div className="flex items-center justify-between mb-6">
-            <div className="flex items-baseline gap-4">
-              <h2 className="text-2xl md:text-3xl font-bold text-black dark:text-white">
-                {habitsView
-                  ? "Habits"
-                  : activeList
-                    ? activeList.name
-                    : "All Tasks"}
-              </h2>
-              <div className="flex items-center gap-3 text-sm text-gray-400">
-                {habitsView ? (
-                  <span>
-                    {todaysHabits.filter((h) => h.completedToday).length}/
-                    {todaysHabits.length} today
-                  </span>
-                ) : (
-                  <>
-                    <span>{activeTodoCount} active</span>
-                    {completedTodoCount > 0 && (
-                      <span>{completedTodoCount} done</span>
-                    )}
-                  </>
-                )}
+            <div className="flex items-center gap-3">
+              {/* Mobile hamburger */}
+              <button
+                onClick={() => setMobileSidebarOpen(true)}
+                className="md:hidden p-1.5 -ml-1.5 rounded-xl text-gray-400 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-default"
+                aria-label="Open menu"
+              >
+                <Menu size={20} />
+              </button>
+
+              <div className="flex items-baseline gap-4">
+                <h2 className="text-2xl md:text-3xl font-bold text-black dark:text-white">
+                  {habitsView
+                    ? "Habits"
+                    : activeList
+                      ? activeList.name
+                      : "All Tasks"}
+                </h2>
+                <div className="flex items-center gap-3 text-sm text-gray-400">
+                  {habitsView ? (
+                    <span>
+                      {todaysHabits.filter((h) => h.completedToday).length}/
+                      {todaysHabits.length} today
+                    </span>
+                  ) : (
+                    <>
+                      <span>{activeTodoCount} active</span>
+                      {completedTodoCount > 0 && (
+                        <span>{completedTodoCount} done</span>
+                      )}
+                    </>
+                  )}
+                </div>
               </div>
             </div>
-            {!habitsView && (
-              <button
-                onClick={() => {
-                  setShowCalendar(!showCalendar);
-                  if (showCalendar) setCalendarDate(null);
-                }}
-                className={`hidden md:flex w-10 h-10 rounded-xl glass-card-subtle items-center justify-center transition-default ${
-                  showCalendar
-                    ? "bg-black dark:bg-white text-white dark:text-black"
-                    : "text-gray-400 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10"
-                }`}
-                aria-label={showCalendar ? "Hide calendar" : "Show calendar"}
-              >
-                <Calendar size={18} />
-              </button>
-            )}
+
+            <div className="flex items-center gap-2">
+              {/* Notification bell */}
+              {!habitsView && notifPermission !== "granted" && (
+                <button
+                  onClick={requestPermission}
+                  className="hidden md:flex w-10 h-10 rounded-xl glass-card-subtle items-center justify-center text-gray-400 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-default"
+                  aria-label="Enable notifications"
+                  title="Enable task reminders"
+                >
+                  <Bell size={18} />
+                </button>
+              )}
+              {!habitsView && notifPermission === "granted" && (
+                <div
+                  className="hidden md:flex w-10 h-10 rounded-xl glass-card-subtle items-center justify-center text-green-500 dark:text-green-400"
+                  title="Notifications enabled"
+                >
+                  <Bell size={18} />
+                </div>
+              )}
+
+              {/* Calendar toggle */}
+              {!habitsView && (
+                <button
+                  onClick={() => {
+                    setShowCalendar(!showCalendar);
+                    if (showCalendar) setCalendarDate(null);
+                  }}
+                  className={`hidden md:flex w-10 h-10 rounded-xl glass-card-subtle items-center justify-center transition-default ${
+                    showCalendar
+                      ? "bg-black dark:bg-white text-white dark:text-black"
+                      : "text-gray-400 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10"
+                  }`}
+                  aria-label={showCalendar ? "Hide calendar" : "Show calendar"}
+                >
+                  <Calendar size={18} />
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Calendar date filter indicator */}
@@ -595,7 +645,7 @@ export default function DashboardPage() {
           )}
         </main>
 
-        {/* Calendar panel — desktop only, hidden in habits view */}
+        {/* Calendar panel — desktop only */}
         {!habitsView && showCalendar && (
           <aside className="hidden md:block w-80 flex-shrink-0 pt-4">
             <div className="sticky top-4">
@@ -610,6 +660,29 @@ export default function DashboardPage() {
       </div>
 
       <Header email={user?.email} />
+
+      {/* Mobile sidebar drawer */}
+      <MobileSidebar
+        open={mobileSidebarOpen}
+        onClose={() => setMobileSidebarOpen(false)}
+        lists={lists}
+        activeListId={activeListId}
+        habitsView={habitsView}
+        onSwitchToAll={switchToAllTasks}
+        onSwitchToHabits={switchToHabits}
+        onSwitchToList={switchToList}
+        onAddList={() => setShowNewList(true)}
+        tags={tags}
+        onAddTag={addTag}
+        onDeleteTag={deleteTag}
+        todos={todos}
+      />
+
+      {/* Keyboard shortcuts overlay */}
+      <KeyboardShortcutsOverlay
+        open={showShortcuts}
+        onClose={() => setShowShortcuts(false)}
+      />
 
       {/* Toast notifications */}
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />

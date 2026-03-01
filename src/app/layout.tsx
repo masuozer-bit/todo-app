@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import ErrorBoundary from "@/components/ErrorBoundary";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -31,7 +32,9 @@ export default function RootLayout({
         />
       </head>
       <body className="bg-white dark:bg-black text-black dark:text-white min-h-screen transition-colors">
-        <ThemeProvider>{children}</ThemeProvider>
+        <ErrorBoundary>
+          <ThemeProvider>{children}</ThemeProvider>
+        </ErrorBoundary>
       </body>
     </html>
   );

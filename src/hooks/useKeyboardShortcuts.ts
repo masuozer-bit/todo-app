@@ -6,12 +6,14 @@ interface ShortcutHandlers {
   onNewTask?: () => void;
   onSearch?: () => void;
   onToggleTheme?: () => void;
+  onShowShortcuts?: () => void;
 }
 
 export function useKeyboardShortcuts({
   onNewTask,
   onSearch,
   onToggleTheme,
+  onShowShortcuts,
 }: ShortcutHandlers) {
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -21,6 +23,13 @@ export function useKeyboardShortcuts({
         target.tagName === "INPUT" ||
         target.tagName === "TEXTAREA" ||
         target.isContentEditable;
+
+      // ? → show keyboard shortcuts (not while typing)
+      if (e.key === "?" && !isTyping && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault();
+        onShowShortcuts?.();
+        return;
+      }
 
       // N → focus new task input (not while typing)
       if (e.key === "n" && !isTyping && !e.metaKey && !e.ctrlKey) {
@@ -54,5 +63,5 @@ export function useKeyboardShortcuts({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onNewTask, onSearch, onToggleTheme]);
+  }, [onNewTask, onSearch, onToggleTheme, onShowShortcuts]);
 }

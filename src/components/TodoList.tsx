@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import {
   DndContext,
   closestCenter,
@@ -16,11 +16,12 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { Search, X, Filter } from "lucide-react";
+import { Search, X, Filter, CheckSquare } from "lucide-react";
 import type { Todo, Tag, Priority, List, RecurrenceType } from "@/lib/types";
 import SortableItem from "./SortableItem";
 import TodoItem from "./TodoItem";
 import ConfirmDialog from "./ConfirmDialog";
+import BulkActionBar from "./BulkActionBar";
 
 type FilterStatus = "all" | "active" | "completed";
 type SortBy = "default" | "priority" | "timeline";
@@ -71,7 +72,6 @@ function groupByTimeline(todos: Todo[]): TimelineGroup[] {
     if (!groups[key]) groups[key] = [];
     groups[key].push(todo);
   }
-  // Sort within each group by due_date
   for (const key of Object.keys(groups)) {
     if (key !== "someday") {
       groups[key].sort((a, b) => {
@@ -144,6 +144,10 @@ export default function TodoList({
   const [sortBy, setSortBy] = useState<SortBy>("default");
   const [showFilters, setShowFilters] = useState(false);
 
+  // Bulk select state
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
   const deleteTitle =
     todos.find((t) => t.id === deleteId)?.title ?? "this task";
 
@@ -165,12 +169,10 @@ export default function TodoList({
   const filtered = useMemo(() => {
     let result = todos;
 
-    // Calendar date filter
     if (filterDate) {
       result = result.filter((t) => t.due_date === filterDate);
     }
 
-    // Search
     if (search.trim()) {
       const q = search.toLowerCase();
       result = result.filter(
@@ -181,18 +183,15 @@ export default function TodoList({
       );
     }
 
-    // Status filter
     if (filterStatus === "active") result = result.filter((t) => !t.completed);
     if (filterStatus === "completed") result = result.filter((t) => t.completed);
 
-    // Tag filter
     if (filterTagId) {
       result = result.filter((t) =>
         (t.tags ?? []).some((tag) => tag.id === filterTagId)
       );
     }
 
-    // Sort (timeline grouping is handled separately in render)
     if (sortBy === "priority") {
       result = [...result].sort(
         (a, b) =>
@@ -200,7 +199,6 @@ export default function TodoList({
           PRIORITY_ORDER[b.priority ?? "none"]
       );
     } else if (sortBy === "timeline") {
-      // Sort by urgency order for flat filtering, grouped rendering handled below
       result = [...result].sort((a, b) => {
         const orderMap: Record<string, number> = {
           overdue: 0, today: 1, tomorrow: 2, this_week: 3, upcoming: 4, later: 5, someday: 6,
@@ -221,6 +219,48 @@ export default function TodoList({
   const completedTodos = filtered.filter((t) => t.completed);
   const hasFilters =
     search || filterStatus !== "all" || filterTagId || sortBy !== "default";
+
+  // Bulk actions
+  const toggleSelect = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const handleBulkComplete = useCallback(() => {
+    for (const id of selectedIds) {
+      onToggle(id, true);
+    }
+    setSelectedIds(new Set());
+    setSelectMode(false);
+  }, [selectedIds, onToggle]);
+
+  const handleBulkDelete = useCallback(() => {
+    for (const id of selectedIds) {
+      onDelete(id);
+    }
+    setSelectedIds(new Set());
+    setSelectMode(false);
+  }, [selectedIds, onDelete]);
+
+  const handleBulkMove = useCallback(
+    (listId: string | null) => {
+      for (const id of selectedIds) {
+        onUpdate(id, { list_id: listId });
+      }
+      setSelectedIds(new Set());
+      setSelectMode(false);
+    },
+    [selectedIds, onUpdate]
+  );
+
+  const cancelSelect = useCallback(() => {
+    setSelectMode(false);
+    setSelectedIds(new Set());
+  }, []);
 
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
@@ -243,6 +283,56 @@ export default function TodoList({
     }
   }
 
+  // Render a todo item with optional bulk select checkbox
+  function renderTodo(todo: Todo, sortable: boolean) {
+    const item = sortable ? (
+      <SortableItem
+        key={todo.id}
+        todo={todo}
+        allTags={allTags}
+        onToggle={onToggle}
+        onUpdate={onUpdate}
+        onDelete={handleDeleteRequest}
+        onTagToggle={onTagToggle}
+        onAddSubtask={onAddSubtask}
+        onToggleSubtask={onToggleSubtask}
+        onDeleteSubtask={onDeleteSubtask}
+        lists={lists}
+        activeListId={activeListId}
+      />
+    ) : (
+      <TodoItem
+        key={todo.id}
+        todo={todo}
+        allTags={allTags}
+        onToggle={onToggle}
+        onUpdate={onUpdate}
+        onDelete={handleDeleteRequest}
+        onTagToggle={onTagToggle}
+        onAddSubtask={onAddSubtask}
+        onToggleSubtask={onToggleSubtask}
+        onDeleteSubtask={onDeleteSubtask}
+        lists={lists}
+        activeListId={activeListId}
+      />
+    );
+
+    if (!selectMode) return item;
+
+    return (
+      <div key={todo.id} className="flex items-start gap-2">
+        <input
+          type="checkbox"
+          checked={selectedIds.has(todo.id)}
+          onChange={() => toggleSelect(todo.id)}
+          className="custom-checkbox mt-3 md:mt-4 flex-shrink-0"
+          aria-label={`Select "${todo.title}"`}
+        />
+        <div className="flex-1 min-w-0">{item}</div>
+      </div>
+    );
+  }
+
   // Loading skeleton
   if (loading) {
     return (
@@ -256,7 +346,7 @@ export default function TodoList({
 
   return (
     <>
-      {/* Progress bar (only if there are todos) */}
+      {/* Progress bar */}
       {totalCount > 0 && (
         <div className="mb-4">
           <div className="flex items-center justify-between mb-1.5">
@@ -276,9 +366,8 @@ export default function TodoList({
         </div>
       )}
 
-      {/* Search + Filter bar */}
+      {/* Search + Filter + Select bar */}
       <div className="mb-4 space-y-2">
-        {/* Search */}
         <div className="flex items-center gap-2">
           <div className="flex-1 flex items-center gap-2 glass-card-subtle px-3 py-2">
             <Search size={14} className="text-gray-400 flex-shrink-0" />
@@ -299,6 +388,26 @@ export default function TodoList({
               </button>
             )}
           </div>
+
+          {/* Bulk select toggle */}
+          {totalCount > 0 && (
+            <button
+              onClick={() => {
+                if (selectMode) cancelSelect();
+                else setSelectMode(true);
+              }}
+              className={`glass-card-subtle p-2 transition-default ${
+                selectMode
+                  ? "text-black dark:text-white bg-black/5 dark:bg-white/10"
+                  : "text-gray-400 hover:text-black dark:hover:text-white"
+              }`}
+              aria-label={selectMode ? "Cancel selection" : "Select multiple"}
+              title={selectMode ? "Cancel selection" : "Select multiple"}
+            >
+              <CheckSquare size={14} />
+            </button>
+          )}
+
           <button
             onClick={() => setShowFilters(!showFilters)}
             className={`glass-card-subtle p-2 transition-default ${
@@ -315,7 +424,6 @@ export default function TodoList({
         {/* Filter panel */}
         {showFilters && (
           <div className="glass-card-subtle p-3 space-y-3">
-            {/* Status */}
             <div>
               <p className="text-xs text-gray-400 mb-1.5 font-medium">Status</p>
               <div className="flex gap-2">
@@ -337,11 +445,8 @@ export default function TodoList({
               </div>
             </div>
 
-            {/* Sort */}
             <div>
-              <p className="text-xs text-gray-400 mb-1.5 font-medium">
-                Sort by
-              </p>
+              <p className="text-xs text-gray-400 mb-1.5 font-medium">Sort by</p>
               <div className="flex gap-2">
                 {(
                   [
@@ -365,12 +470,9 @@ export default function TodoList({
               </div>
             </div>
 
-            {/* Tag filter */}
             {allTags.length > 0 && (
               <div>
-                <p className="text-xs text-gray-400 mb-1.5 font-medium">
-                  Tag
-                </p>
+                <p className="text-xs text-gray-400 mb-1.5 font-medium">Tag</p>
                 <div className="flex gap-2 flex-wrap">
                   <button
                     onClick={() => setFilterTagId(null)}
@@ -386,9 +488,7 @@ export default function TodoList({
                     <button
                       key={tag.id}
                       onClick={() =>
-                        setFilterTagId(
-                          filterTagId === tag.id ? null : tag.id
-                        )
+                        setFilterTagId(filterTagId === tag.id ? null : tag.id)
                       }
                       className={`text-xs px-2.5 py-1 rounded-lg border transition-default ${
                         filterTagId === tag.id
@@ -403,7 +503,6 @@ export default function TodoList({
               </div>
             )}
 
-            {/* Clear filters */}
             {hasFilters && (
               <button
                 onClick={() => {
@@ -444,7 +543,6 @@ export default function TodoList({
           </button>
         </div>
       ) : sortBy === "timeline" ? (
-        /* Timeline grouped view */
         <div className="space-y-5">
           {groupByTimeline(activeTodos).map((group) => (
             <div key={group.key}>
@@ -461,27 +559,11 @@ export default function TodoList({
                 </span>
               </p>
               <div className="space-y-2">
-                {group.todos.map((todo) => (
-                  <TodoItem
-                    key={todo.id}
-                    todo={todo}
-                    allTags={allTags}
-                    onToggle={onToggle}
-                    onUpdate={onUpdate}
-                    onDelete={handleDeleteRequest}
-                    onTagToggle={onTagToggle}
-                    onAddSubtask={onAddSubtask}
-                    onToggleSubtask={onToggleSubtask}
-                    onDeleteSubtask={onDeleteSubtask}
-                    lists={lists}
-                    activeListId={activeListId}
-                  />
-                ))}
+                {group.todos.map((todo) => renderTodo(todo, false))}
               </div>
             </div>
           ))}
 
-          {/* Completed todos */}
           {completedTodos.length > 0 && (
             <div className="pt-2">
               <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2 px-1">
@@ -491,90 +573,58 @@ export default function TodoList({
                 </span>
               </p>
               <div className="space-y-2">
-                {completedTodos.map((todo) => (
-                  <TodoItem
-                    key={todo.id}
-                    todo={todo}
-                    allTags={allTags}
-                    onToggle={onToggle}
-                    onUpdate={onUpdate}
-                    onDelete={handleDeleteRequest}
-                    onTagToggle={onTagToggle}
-                    onAddSubtask={onAddSubtask}
-                    onToggleSubtask={onToggleSubtask}
-                    onDeleteSubtask={onDeleteSubtask}
-                    lists={lists}
-                    activeListId={activeListId}
-                  />
-                ))}
+                {completedTodos.map((todo) => renderTodo(todo, false))}
               </div>
             </div>
           )}
         </div>
       ) : (
-        /* Default / Priority flat view */
         <div className="space-y-2">
-          {/* Active todos (sortable only when no active filter/search) */}
           {activeTodos.length > 0 && (
-            <DndContext
-              sensors={sensors}
-              collisionDetection={closestCenter}
-              onDragEnd={handleDragEnd}
-            >
-              <SortableContext
-                items={activeTodos.map((t) => t.id)}
-                strategy={verticalListSortingStrategy}
+            selectMode ? (
+              <div className="space-y-2">
+                {activeTodos.map((todo) => renderTodo(todo, false))}
+              </div>
+            ) : (
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
               >
-                <div className="space-y-2">
-                  {activeTodos.map((todo) => (
-                    <SortableItem
-                      key={todo.id}
-                      todo={todo}
-                      allTags={allTags}
-                      onToggle={onToggle}
-                      onUpdate={onUpdate}
-                      onDelete={handleDeleteRequest}
-                      onTagToggle={onTagToggle}
-                      onAddSubtask={onAddSubtask}
-                      onToggleSubtask={onToggleSubtask}
-                      onDeleteSubtask={onDeleteSubtask}
-                      lists={lists}
-                      activeListId={activeListId}
-                    />
-                  ))}
-                </div>
-              </SortableContext>
-            </DndContext>
+                <SortableContext
+                  items={activeTodos.map((t) => t.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <div className="space-y-2">
+                    {activeTodos.map((todo) => renderTodo(todo, true))}
+                  </div>
+                </SortableContext>
+              </DndContext>
+            )
           )}
 
-          {/* Completed todos */}
           {completedTodos.length > 0 && (
             <div className="pt-4">
               <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2 px-1">
                 Completed ({completedTodos.length})
               </p>
               <div className="space-y-2">
-                {completedTodos.map((todo) => (
-                  <TodoItem
-                    key={todo.id}
-                    todo={todo}
-                    allTags={allTags}
-                    onToggle={onToggle}
-                    onUpdate={onUpdate}
-                    onDelete={handleDeleteRequest}
-                    onTagToggle={onTagToggle}
-                    onAddSubtask={onAddSubtask}
-                    onToggleSubtask={onToggleSubtask}
-                    onDeleteSubtask={onDeleteSubtask}
-                    lists={lists}
-                    activeListId={activeListId}
-                  />
-                ))}
+                {completedTodos.map((todo) => renderTodo(todo, false))}
               </div>
             </div>
           )}
         </div>
       )}
+
+      {/* Bulk action floating bar */}
+      <BulkActionBar
+        selectedCount={selectedIds.size}
+        onComplete={handleBulkComplete}
+        onDelete={handleBulkDelete}
+        onMoveToList={lists.length > 0 ? handleBulkMove : undefined}
+        onCancel={cancelSelect}
+        lists={lists}
+      />
 
       <ConfirmDialog
         open={deleteId !== null}

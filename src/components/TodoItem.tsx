@@ -10,6 +10,8 @@ import {
   Calendar,
   FileText,
   List as ListIcon,
+  Plus,
+  AlertCircle,
 } from "lucide-react";
 import type { Todo, Tag, Priority, List, Event } from "@/lib/types";
 import { getToday, getTomorrow, getNextMonday, getNextWeek } from "@/lib/date-helpers";
@@ -107,12 +109,14 @@ export default function TodoItem({
   const [notesValue, setNotesValue] = useState(todo.notes ?? "");
   const [newSubtask, setNewSubtask] = useState("");
   const [showSubtaskInput, setShowSubtaskInput] = useState(false);
+  const [blockedMsg, setBlockedMsg] = useState(false);
   const editRef = useRef<HTMLInputElement>(null);
   const subtaskRef = useRef<HTMLInputElement>(null);
   const cancelledRef = useRef(false);
   const todoTagIds = (todo.tags ?? []).map((t) => t.id);
   const subtasks = todo.subtasks ?? [];
   const completedSubtasks = subtasks.filter((s) => s.completed).length;
+  const allSubtasksDone = subtasks.length === 0 || completedSubtasks === subtasks.length;
   const priorityConf = PRIORITY_CONFIG[todo.priority ?? "none"];
   const dueInfo = todo.due_date ? formatDueDate(todo.due_date) : null;
   // Show list name only when viewing "All Tasks" (no active list filter)
@@ -133,6 +137,16 @@ export default function TodoItem({
       subtaskRef.current?.focus();
     }
   }, [showSubtaskInput]);
+
+  function handleToggle() {
+    // Block completing a task when subtasks are not all done
+    if (!todo.completed && !allSubtasksDone) {
+      setBlockedMsg(true);
+      setTimeout(() => setBlockedMsg(false), 2500);
+      return;
+    }
+    onToggle(todo.id, !todo.completed);
+  }
 
   function handleSave() {
     if (cancelledRef.current) {
@@ -166,7 +180,8 @@ export default function TodoItem({
     if (!trimmed) return;
     onAddSubtask(todo.id, trimmed);
     setNewSubtask("");
-    setShowSubtaskInput(false);
+    // Keep input open to add more
+    subtaskRef.current?.focus();
   }
 
   function handleSubtaskKeyDown(e: React.KeyboardEvent) {
@@ -184,17 +199,21 @@ export default function TodoItem({
       } ${todo.completed ? "opacity-60" : ""}`}
     >
       {/* Main row */}
-      <div className="flex items-center gap-3 p-3 md:p-4" {...dragHandleProps}>
-        {/* Checkbox */}
-        <input
-          type="checkbox"
-          checked={todo.completed}
-          onChange={() => onToggle(todo.id, !todo.completed)}
-          className="custom-checkbox flex-shrink-0"
-          aria-label={`Mark "${todo.title}" as ${
-            todo.completed ? "incomplete" : "complete"
-          }`}
-        />
+      <div className="flex items-start gap-3 p-3 md:p-4" {...dragHandleProps}>
+        {/* Checkbox — blocked when subtasks incomplete */}
+        <div className="flex flex-col items-center flex-shrink-0 mt-0.5">
+          <input
+            type="checkbox"
+            checked={todo.completed}
+            onChange={handleToggle}
+            className={`custom-checkbox ${
+              !todo.completed && !allSubtasksDone ? "cursor-not-allowed opacity-50" : ""
+            }`}
+            aria-label={`Mark "${todo.title}" as ${
+              todo.completed ? "incomplete" : "complete"
+            }`}
+          />
+        </div>
 
         {/* Content */}
         <div className="flex-1 min-w-0">
@@ -250,7 +269,15 @@ export default function TodoItem({
             </p>
           )}
 
-          {/* Meta: priority, due date, subtask count, notes */}
+          {/* Blocked message */}
+          {blockedMsg && (
+            <div className="flex items-center gap-1 mt-1 text-xs text-amber-500 dark:text-amber-400 animate-pulse">
+              <AlertCircle size={11} />
+              Complete all subtasks before marking done
+            </div>
+          )}
+
+          {/* Meta: priority, due date, notes, list */}
           <div className="flex flex-wrap items-center gap-2 mt-1.5">
             {todo.priority && todo.priority !== "none" && (
               <span
@@ -277,11 +304,6 @@ export default function TodoItem({
                     {todo.start_time}{todo.end_time ? `–${todo.end_time}` : ""}
                   </span>
                 )}
-              </span>
-            )}
-            {subtasks.length > 0 && (
-              <span className="text-xs text-gray-400">
-                {completedSubtasks}/{subtasks.length} subtasks
               </span>
             )}
             {todo.notes && (
@@ -313,6 +335,84 @@ export default function TodoItem({
                   }
                 />
               ))}
+            </div>
+          )}
+
+          {/* ── Inline subtasks (always visible when they exist) ── */}
+          {subtasks.length > 0 && (
+            <div className="mt-3 pl-1 border-l-2 border-black/10 dark:border-white/10 ml-0.5">
+              {/* Progress bar + fraction */}
+              <div className="flex items-center gap-2 mb-2">
+                <div className="flex-1 h-1 bg-black/5 dark:bg-white/10 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all duration-500 ${
+                      allSubtasksDone
+                        ? "bg-green-500 dark:bg-green-400"
+                        : "bg-black/40 dark:bg-white/40"
+                    }`}
+                    style={{
+                      width: `${(completedSubtasks / subtasks.length) * 100}%`,
+                    }}
+                  />
+                </div>
+                <span className={`text-xs flex-shrink-0 font-medium tabular-nums ${
+                  allSubtasksDone ? "text-green-500 dark:text-green-400" : "text-gray-400"
+                }`}>
+                  {completedSubtasks}/{subtasks.length}
+                </span>
+              </div>
+
+              {/* Subtask rows */}
+              <div className="space-y-1.5">
+                {subtasks.map((subtask) => (
+                  <div
+                    key={subtask.id}
+                    className="flex items-center gap-2 group/subtask"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={subtask.completed}
+                      onChange={() =>
+                        onToggleSubtask(todo.id, subtask.id, !subtask.completed)
+                      }
+                      className="custom-checkbox flex-shrink-0"
+                      style={{ width: "0.875rem", height: "0.875rem" }}
+                    />
+                    <span
+                      className={`flex-1 text-sm transition-default ${
+                        subtask.completed
+                          ? "line-through text-gray-400"
+                          : "text-gray-600 dark:text-gray-300"
+                      }`}
+                    >
+                      {subtask.title}
+                    </span>
+                    {!todo.completed && (
+                      <button
+                        onClick={() => onDeleteSubtask(todo.id, subtask.id)}
+                        className="opacity-0 group-hover/subtask:opacity-100 text-gray-400 hover:text-red-500 transition-default flex-shrink-0"
+                        aria-label="Delete subtask"
+                      >
+                        <X size={12} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* Quick add subtask link */}
+              {!todo.completed && !showSubtaskInput && !expanded && (
+                <button
+                  onClick={() => {
+                    setExpanded(true);
+                    setShowSubtaskInput(true);
+                  }}
+                  className="flex items-center gap-1 mt-2 text-xs text-gray-400 hover:text-black dark:hover:text-white transition-default"
+                >
+                  <Plus size={11} />
+                  Add subtask
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -521,103 +621,62 @@ export default function TodoItem({
             )}
           </div>
 
-          {/* Subtasks */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">
-                Subtasks{" "}
-                {subtasks.length > 0 && `(${completedSubtasks}/${subtasks.length})`}
-              </p>
-              {!todo.completed && (
-                <button
-                  onClick={() => setShowSubtaskInput(!showSubtaskInput)}
-                  className="text-xs text-gray-400 hover:text-black dark:hover:text-white transition-default"
-                >
-                  + Add
-                </button>
-              )}
-            </div>
-
-            {/* Subtask progress bar */}
-            {subtasks.length > 0 && (
-              <div className="w-full h-1 bg-black/5 dark:bg-white/10 rounded-full mb-3">
-                <div
-                  className="h-full bg-black dark:bg-white rounded-full transition-all duration-500"
-                  style={{
-                    width: `${(completedSubtasks / subtasks.length) * 100}%`,
-                  }}
-                />
-              </div>
-            )}
-
-            <div className="space-y-2">
-              {subtasks.map((subtask) => (
-                <div
-                  key={subtask.id}
-                  className="flex items-center gap-2 group/subtask"
-                >
-                  <input
-                    type="checkbox"
-                    checked={subtask.completed}
-                    onChange={() =>
-                      onToggleSubtask(
-                        todo.id,
-                        subtask.id,
-                        !subtask.completed
-                      )
-                    }
-                    className="custom-checkbox flex-shrink-0"
-                    style={{ width: "1rem", height: "1rem" }}
-                  />
-                  <span
-                    className={`flex-1 text-sm transition-default ${
-                      subtask.completed
-                        ? "line-through text-gray-400"
-                        : "text-black dark:text-white"
-                    }`}
-                  >
-                    {subtask.title}
-                  </span>
+          {/* Subtasks — add only (list shown inline above) */}
+          {!todo.completed && (
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">
+                  Subtasks
+                  {subtasks.length > 0 && (
+                    <span className="ml-1 font-normal">
+                      ({completedSubtasks}/{subtasks.length})
+                    </span>
+                  )}
+                </p>
+                {!showSubtaskInput && (
                   <button
-                    onClick={() => onDeleteSubtask(todo.id, subtask.id)}
-                    className="opacity-0 group-hover/subtask:opacity-100 text-gray-400 hover:text-black dark:hover:text-white transition-default"
-                    aria-label="Delete subtask"
+                    onClick={() => setShowSubtaskInput(true)}
+                    className="text-xs text-gray-400 hover:text-black dark:hover:text-white transition-default"
                   >
-                    <X size={12} />
+                    + Add
+                  </button>
+                )}
+              </div>
+
+              {showSubtaskInput && (
+                <div className="flex items-center gap-2">
+                  <input
+                    ref={subtaskRef}
+                    type="text"
+                    value={newSubtask}
+                    onChange={(e) => setNewSubtask(e.target.value)}
+                    onKeyDown={handleSubtaskKeyDown}
+                    placeholder="Subtask title..."
+                    className="flex-1 text-sm bg-transparent border-b border-black/20 dark:border-white/20 pb-0.5 text-black dark:text-white placeholder:text-gray-400 focus:outline-none"
+                  />
+                  <button
+                    onClick={handleAddSubtask}
+                    className="text-gray-400 hover:text-black dark:hover:text-white transition-default"
+                  >
+                    <Check size={14} />
+                  </button>
+                  <button
+                    onClick={() => {
+                      setNewSubtask("");
+                      setShowSubtaskInput(false);
+                    }}
+                    className="text-gray-400 hover:text-black dark:hover:text-white transition-default"
+                  >
+                    <X size={14} />
                   </button>
                 </div>
-              ))}
-            </div>
+              )}
 
-            {showSubtaskInput && (
-              <div className="flex items-center gap-2 mt-3">
-                <input
-                  ref={subtaskRef}
-                  type="text"
-                  value={newSubtask}
-                  onChange={(e) => setNewSubtask(e.target.value)}
-                  onKeyDown={handleSubtaskKeyDown}
-                  placeholder="Subtask title..."
-                  className="flex-1 text-sm bg-transparent border-b border-black/20 dark:border-white/20 pb-0.5 text-black dark:text-white placeholder:text-gray-400 focus:outline-none"
-                />
-                <button
-                  onClick={handleAddSubtask}
-                  className="text-gray-400 hover:text-black dark:hover:text-white transition-default"
-                >
-                  <Check size={14} />
-                </button>
-                <button
-                  onClick={() => {
-                    setNewSubtask("");
-                    setShowSubtaskInput(false);
-                  }}
-                  className="text-gray-400 hover:text-black dark:hover:text-white transition-default"
-                >
-                  <X size={14} />
-                </button>
-              </div>
-            )}
-          </div>
+              {subtasks.length === 0 && !showSubtaskInput && (
+                <p className="text-sm text-gray-300 dark:text-gray-600 italic">No subtasks</p>
+              )}
+            </div>
+          )}
 
           {/* Tags */}
           {!todo.completed && allTags.length > 0 && (

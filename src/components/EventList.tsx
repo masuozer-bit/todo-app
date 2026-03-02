@@ -1,26 +1,37 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import type { Event, List, Tag, Priority } from "@/lib/types";
 import EventCard from "./EventCard";
-import { ArrowUpDown } from "lucide-react";
+import { GripVertical, List as ListIcon } from "lucide-react";
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
-interface EventListProps {
-  events: Event[];
+interface SharedEventCardProps {
   lists: List[];
   allTags: Tag[];
-  loading: boolean;
+  events: Event[];
   onUpdate: (id: string, updates: { title?: string; description?: string | null; list_id?: string | null; color?: string; due_date?: string | null; end_date?: string | null }) => void;
   onDelete: (id: string) => void;
   onAddTask: (
     eventId: string,
     title: string,
-    options?: {
-      due_date?: string | null;
-      start_time?: string | null;
-      priority?: string;
-      list_id?: string | null;
-    }
+    options?: { due_date?: string | null; start_time?: string | null; priority?: string; list_id?: string | null }
   ) => void;
   onRemoveTask: (eventId: string, todoId: string) => void;
   onToggleTodo: (id: string, completed: boolean) => void;
@@ -34,7 +45,42 @@ interface EventListProps {
   onRefetchEvents?: () => void;
 }
 
-type SortOption = "default" | "title" | "due_date";
+interface EventListProps extends SharedEventCardProps {
+  loading: boolean;
+}
+
+type SortMode = "manual" | "list";
+
+function SortableEventItem({ event, ...props }: { event: Event } & SharedEventCardProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    setActivatorNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: event.id });
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
+      className={`relative pl-6 ${isDragging ? "opacity-50 z-10" : ""}`}
+    >
+      <button
+        ref={setActivatorNodeRef}
+        {...attributes}
+        {...listeners}
+        className="absolute left-0 top-3 text-gray-300 dark:text-gray-700 hover:text-gray-500 dark:hover:text-gray-400 cursor-grab active:cursor-grabbing touch-none p-0.5"
+        aria-label="Drag to reorder"
+      >
+        <GripVertical size={14} />
+      </button>
+      <EventCard event={event} {...props} />
+    </div>
+  );
+}
 
 export default function EventList({
   events,
@@ -55,31 +101,55 @@ export default function EventList({
   onAssignEvent,
   onRefetchEvents,
 }: EventListProps) {
-  const [sortBy, setSortBy] = useState<SortOption>("default");
+  const [sortMode, setSortMode] = useState<SortMode>("manual");
+  const [manualOrder, setManualOrder] = useState<string[]>(() => events.map(e => e.id));
 
-  const sortedEvents = useMemo(() => {
-    if (sortBy === "title") {
-      return [...events].sort((a, b) => a.title.localeCompare(b.title));
-    }
-    if (sortBy === "due_date") {
+  // Keep manual order in sync when events are added or removed
+  useEffect(() => {
+    setManualOrder(prev => {
+      const currentIds = events.map(e => e.id);
+      const kept = prev.filter(id => currentIds.includes(id));
+      const added = currentIds.filter(id => !kept.includes(id));
+      return [...kept, ...added];
+    });
+  }, [events]);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  function handleDragEnd(e: DragEndEvent) {
+    const { active, over } = e;
+    if (!over || active.id === over.id) return;
+    setManualOrder(prev => {
+      const oldIdx = prev.indexOf(String(active.id));
+      const newIdx = prev.indexOf(String(over.id));
+      return arrayMove(prev, oldIdx, newIdx);
+    });
+  }
+
+  const displayedEvents = useMemo(() => {
+    if (sortMode === "list") {
       return [...events].sort((a, b) => {
-        if (!a.due_date && !b.due_date) return 0;
-        if (!a.due_date) return 1;
-        if (!b.due_date) return -1;
-        return a.due_date.localeCompare(b.due_date);
+        const aName = lists.find(l => l.id === a.list_id)?.name ?? "";
+        const bName = lists.find(l => l.id === b.list_id)?.name ?? "";
+        if (!aName && !bName) return 0;
+        if (!aName) return 1;  // no list → end
+        if (!bName) return -1;
+        return aName.localeCompare(bName);
       });
     }
-    return events;
-  }, [events, sortBy]);
+    // Manual order
+    const map = new Map(events.map(e => [e.id, e]));
+    return manualOrder.map(id => map.get(id)).filter((e): e is Event => e !== undefined);
+  }, [events, sortMode, manualOrder, lists]);
 
   if (loading) {
     return (
       <div className="space-y-3">
         {[...Array(3)].map((_, i) => (
-          <div
-            key={i}
-            className="glass-card-subtle p-4 animate-pulse"
-          >
+          <div key={i} className="glass-card-subtle p-4 animate-pulse">
             <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded w-1/3 mb-2" />
             <div className="h-3 bg-gray-100 dark:bg-gray-900 rounded w-1/4" />
           </div>
@@ -98,56 +168,64 @@ export default function EventList({
     );
   }
 
-  const SORT_OPTIONS: { value: SortOption; label: string }[] = [
-    { value: "default", label: "Default" },
-    { value: "title", label: "Title" },
-    { value: "due_date", label: "Due date" },
-  ];
+  const sharedProps: SharedEventCardProps = {
+    lists, allTags, events, onUpdate, onDelete, onAddTask, onRemoveTask,
+    onToggleTodo, onUpdateTodo, onDeleteTodo, onTagToggle, onAddSubtask,
+    onToggleSubtask, onDeleteSubtask, onAssignEvent, onRefetchEvents,
+  };
 
   return (
     <div className="space-y-3">
-      {/* Sort controls */}
-      <div className="flex items-center gap-2 mb-1">
-        <ArrowUpDown size={13} className="text-gray-400 flex-shrink-0" />
-        <div className="flex gap-1.5 flex-wrap">
-          {SORT_OPTIONS.map((opt) => (
-            <button
-              key={opt.value}
-              onClick={() => setSortBy(opt.value)}
-              className={`text-xs px-2.5 py-1 rounded-lg border transition-default ${
-                sortBy === opt.value
-                  ? "bg-black dark:bg-white text-white dark:text-black border-transparent font-medium"
-                  : "border-black/10 dark:border-white/10 text-gray-400 hover:border-black/20 dark:hover:border-white/20 hover:text-black dark:hover:text-white"
-              }`}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
+      {/* Sort mode toggle */}
+      <div className="flex items-center gap-1.5 mb-1">
+        <button
+          onClick={() => setSortMode("manual")}
+          className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg border transition-default ${
+            sortMode === "manual"
+              ? "bg-black dark:bg-white text-white dark:text-black border-transparent font-medium"
+              : "border-black/10 dark:border-white/10 text-gray-400 hover:border-black/20 dark:hover:border-white/20 hover:text-black dark:hover:text-white"
+          }`}
+        >
+          <GripVertical size={12} />
+          Manual
+        </button>
+        <button
+          onClick={() => setSortMode("list")}
+          className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg border transition-default ${
+            sortMode === "list"
+              ? "bg-black dark:bg-white text-white dark:text-black border-transparent font-medium"
+              : "border-black/10 dark:border-white/10 text-gray-400 hover:border-black/20 dark:hover:border-white/20 hover:text-black dark:hover:text-white"
+          }`}
+        >
+          <ListIcon size={12} />
+          By List
+        </button>
       </div>
 
-      {sortedEvents.map((event) => (
-        <EventCard
-          key={event.id}
-          event={event}
-          lists={lists}
-          allTags={allTags}
-          events={events}
-          onUpdate={onUpdate}
-          onDelete={onDelete}
-          onAddTask={onAddTask}
-          onRemoveTask={onRemoveTask}
-          onToggleTodo={onToggleTodo}
-          onUpdateTodo={onUpdateTodo}
-          onDeleteTodo={onDeleteTodo}
-          onTagToggle={onTagToggle}
-          onAddSubtask={onAddSubtask}
-          onToggleSubtask={onToggleSubtask}
-          onDeleteSubtask={onDeleteSubtask}
-          onAssignEvent={onAssignEvent}
-          onRefetchEvents={onRefetchEvents}
-        />
-      ))}
+      {sortMode === "manual" ? (
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext
+            items={displayedEvents.map(e => e.id)}
+            strategy={verticalListSortingStrategy}
+          >
+            <div className="space-y-3">
+              {displayedEvents.map(event => (
+                <SortableEventItem key={event.id} event={event} {...sharedProps} />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
+      ) : (
+        <div className="space-y-3">
+          {displayedEvents.map(event => (
+            <EventCard key={event.id} event={event} {...sharedProps} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -139,9 +139,7 @@ function SortableListItem({
             <List size={14} />
             <span className="truncate flex-1">{list.name}</span>
             {count > 0 && (
-              <span className={`text-xs font-medium tabular-nums flex-shrink-0 ${
-                isActive ? "text-white/60 dark:text-black/60" : "text-gray-400"
-              }`}>
+              <span className="flex-shrink-0 min-w-[18px] h-[18px] rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center px-1 tabular-nums leading-none">
                 {count}
               </span>
             )}
@@ -446,16 +444,27 @@ export default function DashboardPage() {
     setCalendarDate(null);
   }
 
-  // Per-list active task counts for sidebar badges
-  // Must be before any early returns (Rules of Hooks)
-  const listTaskCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
+  // Task counts for sidebar badges — computed before early returns (Rules of Hooks)
+  const taskCounts = useMemo(() => {
+    const todayStr = getToday();
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    const weekEnd = new Date(now);
+    weekEnd.setDate(now.getDate() + 6);
+    weekEnd.setHours(23, 59, 59, 999);
+    let total = 0, today = 0, thisWeek = 0;
+    const lists: Record<string, number> = {};
     for (const t of todos) {
-      if (!t.completed && t.list_id) {
-        counts[t.list_id] = (counts[t.list_id] ?? 0) + 1;
+      if (t.completed) continue;
+      total++;
+      if (t.list_id) lists[t.list_id] = (lists[t.list_id] ?? 0) + 1;
+      if (t.due_date === todayStr) today++;
+      if (t.due_date) {
+        const d = new Date(t.due_date + "T00:00:00");
+        if (d <= weekEnd) thisWeek++; // overdue or within next 7 days
       }
     }
-    return counts;
+    return { total, today, thisWeek, lists };
   }, [todos]);
 
   if (authLoading) {
@@ -510,7 +519,12 @@ export default function DashboardPage() {
               }`}
             >
               <Inbox size={15} />
-              All Tasks
+              <span className="flex-1 text-left">All Tasks</span>
+              {taskCounts.total > 0 && (
+                <span className="flex-shrink-0 min-w-[18px] h-[18px] rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center px-1 tabular-nums leading-none">
+                  {taskCounts.total}
+                </span>
+              )}
             </button>
 
             {/* Today */}
@@ -523,7 +537,12 @@ export default function DashboardPage() {
               }`}
             >
               <Sun size={15} />
-              Today
+              <span className="flex-1 text-left">Today</span>
+              {taskCounts.today > 0 && (
+                <span className="flex-shrink-0 min-w-[18px] h-[18px] rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center px-1 tabular-nums leading-none">
+                  {taskCounts.today}
+                </span>
+              )}
             </button>
 
             {/* This Week */}
@@ -536,7 +555,12 @@ export default function DashboardPage() {
               }`}
             >
               <CalendarDays size={15} />
-              This Week
+              <span className="flex-1 text-left">This Week</span>
+              {taskCounts.thisWeek > 0 && (
+                <span className="flex-shrink-0 min-w-[18px] h-[18px] rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center px-1 tabular-nums leading-none">
+                  {taskCounts.thisWeek}
+                </span>
+              )}
             </button>
 
             {/* Events */}
@@ -600,7 +624,7 @@ export default function DashboardPage() {
                             deleteList(list.id);
                             if (activeListId === list.id) setActiveListId(null);
                           }}
-                          count={listTaskCounts[list.id] ?? 0}
+                          count={taskCounts.lists[list.id] ?? 0}
                         />
                       ))}
                     </div>

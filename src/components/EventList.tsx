@@ -21,6 +21,7 @@ interface EventListProps {
   ) => void;
   onRemoveTask: (eventId: string, todoId: string) => void;
   onToggleTodo: (id: string, completed: boolean) => void;
+  onRefetchEvents?: () => void;
 }
 
 export default function EventList({
@@ -32,6 +33,7 @@ export default function EventList({
   onAddTask,
   onRemoveTask,
   onToggleTodo,
+  onRefetchEvents,
 }: EventListProps) {
   if (loading) {
     return (
@@ -71,6 +73,7 @@ export default function EventList({
           onAddTask={onAddTask}
           onRemoveTask={onRemoveTask}
           onToggleTodo={onToggleTodo}
+          onRefetchEvents={onRefetchEvents}
         />
       ))}
     </div>

@@ -16,8 +16,8 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { Search, X, Filter, CheckSquare } from "lucide-react";
-import type { Todo, Tag, Priority, List } from "@/lib/types";
+import { Search, X, Filter, CheckSquare, Calendar } from "lucide-react";
+import type { Todo, Tag, Priority, List, Event } from "@/lib/types";
 import SortableItem from "./SortableItem";
 import TodoItem from "./TodoItem";
 import ConfirmDialog from "./ConfirmDialog";
@@ -119,6 +119,7 @@ interface TodoListProps {
   filterDate?: string | null;
   lists?: List[];
   activeListId?: string | null;
+  events?: Event[];
 }
 
 export default function TodoList({
@@ -136,6 +137,7 @@ export default function TodoList({
   filterDate,
   lists = [],
   activeListId,
+  events = [],
 }: TodoListProps) {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -220,6 +222,21 @@ export default function TodoList({
   const hasFilters =
     search || filterStatus !== "all" || filterTagId || sortBy !== "default";
 
+  // Separate event-based todos from standalone todos
+  const eventTodosByEventId = useMemo(() => {
+    const grouped: Record<string, Todo[]> = {};
+    for (const todo of activeTodos) {
+      if (todo.event_id) {
+        if (!grouped[todo.event_id]) grouped[todo.event_id] = [];
+        grouped[todo.event_id].push(todo);
+      }
+    }
+    return grouped;
+  }, [activeTodos]);
+
+  const standaloneActiveTodos = activeTodos.filter((t) => !t.event_id);
+  const standaloneCompletedTodos = completedTodos.filter((t) => !t.event_id);
+
   // Bulk actions
   const toggleSelect = useCallback((id: string) => {
     setSelectedIds((prev) => {
@@ -281,6 +298,99 @@ export default function TodoList({
       onDelete(deleteId);
       setDeleteId(null);
     }
+  }
+
+  // Render an event container with its tasks
+  function renderEventContainer(event: Event) {
+    const eventTodos = eventTodosByEventId[event.id] || [];
+    if (eventTodos.length === 0) return null;
+
+    const completedCount = eventTodos.filter((t) => t.completed).length;
+    const listName = event.list_id
+      ? lists.find((l) => l.id === event.list_id)?.name
+      : null;
+
+    return (
+      <div key={event.id} className="glass-card-subtle overflow-hidden">
+        {/* Color accent bar */}
+        <div
+          className="h-1"
+          style={{ backgroundColor: event.color ?? "#6366f1" }}
+        />
+
+        {/* Header */}
+        <div className="p-3 md:p-4">
+          <div className="flex items-center gap-3">
+            <div className="flex-1 min-w-0">
+              <p className="text-base font-medium text-black dark:text-white">
+                {event.title}
+              </p>
+
+              {/* Meta */}
+              <div className="flex items-center gap-2 mt-1">
+                <span className="text-xs text-gray-400">
+                  {eventTodos.length} task{eventTodos.length !== 1 ? "s" : ""}
+                  {completedCount > 0 && ` · ${completedCount} done`}
+                </span>
+                {listName && (
+                  <span className="text-xs text-gray-300 dark:text-gray-600">
+                    · {listName}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Progress bar */}
+          {eventTodos.length > 0 && (
+            <div className="mt-3 w-full h-1 bg-black/5 dark:bg-white/10 rounded-full overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all duration-500"
+                style={{
+                  width: `${(completedCount / eventTodos.length) * 100}%`,
+                  backgroundColor: event.color ?? "#6366f1",
+                }}
+              />
+            </div>
+          )}
+
+          {/* Tasks in event */}
+          <div className="mt-3 space-y-1.5">
+            {eventTodos.map((todo) => (
+              <div
+                key={todo.id}
+                className="flex items-center gap-2.5 py-1.5 px-2 rounded-lg hover:bg-black/[0.03] dark:hover:bg-white/[0.05] transition-default"
+              >
+                <input
+                  type="checkbox"
+                  checked={todo.completed}
+                  onChange={() => onToggle(todo.id, !todo.completed)}
+                  className="custom-checkbox flex-shrink-0"
+                />
+                <span
+                  className={`flex-1 text-sm transition-default ${
+                    todo.completed
+                      ? "line-through text-gray-400"
+                      : "text-black dark:text-white"
+                  }`}
+                >
+                  {todo.title}
+                </span>
+                {todo.due_date && (
+                  <span className="text-xs text-gray-400 flex items-center gap-1 flex-shrink-0">
+                    <Calendar size={10} />
+                    {new Date(todo.due_date + "T00:00:00").toLocaleDateString(
+                      "en",
+                      { month: "short", day: "numeric" }
+                    )}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
   }
 
   // Render a todo item with optional bulk select checkbox
@@ -544,7 +654,17 @@ export default function TodoList({
         </div>
       ) : sortBy === "timeline" ? (
         <div className="space-y-5">
-          {groupByTimeline(activeTodos).map((group) => (
+          {/* Events section */}
+          {Object.keys(eventTodosByEventId).length > 0 && (
+            <div className="space-y-3">
+              {events
+                .filter((e) => eventTodosByEventId[e.id]?.length > 0)
+                .map((event) => renderEventContainer(event))}
+            </div>
+          )}
+
+          {/* Timeline groups for standalone todos */}
+          {groupByTimeline(standaloneActiveTodos).map((group) => (
             <div key={group.key}>
               <p className={`text-xs font-medium uppercase tracking-wider mb-2 px-1 ${
                 group.key === "overdue"
@@ -564,55 +684,67 @@ export default function TodoList({
             </div>
           ))}
 
-          {completedTodos.length > 0 && (
+          {standaloneCompletedTodos.length > 0 && (
             <div className="pt-2">
               <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2 px-1">
                 Done
                 <span className="ml-1.5 text-gray-300 dark:text-gray-600 font-normal">
-                  {completedTodos.length}
+                  {standaloneCompletedTodos.length}
                 </span>
               </p>
               <div className="space-y-2">
-                {completedTodos.map((todo) => renderTodo(todo, false))}
+                {standaloneCompletedTodos.map((todo) => renderTodo(todo, false))}
               </div>
             </div>
           )}
         </div>
       ) : (
-        <div className="space-y-2">
-          {activeTodos.length > 0 && (
-            selectMode ? (
-              <div className="space-y-2">
-                {activeTodos.map((todo) => renderTodo(todo, false))}
-              </div>
-            ) : (
-              <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragEnd={handleDragEnd}
-              >
-                <SortableContext
-                  items={activeTodos.map((t) => t.id)}
-                  strategy={verticalListSortingStrategy}
-                >
-                  <div className="space-y-2">
-                    {activeTodos.map((todo) => renderTodo(todo, true))}
-                  </div>
-                </SortableContext>
-              </DndContext>
-            )
-          )}
-
-          {completedTodos.length > 0 && (
-            <div className="pt-4">
-              <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2 px-1">
-                Completed ({completedTodos.length})
-              </p>
-              <div className="space-y-2">
-                {completedTodos.map((todo) => renderTodo(todo, false))}
-              </div>
+        <div className="space-y-3">
+          {/* Events section */}
+          {Object.keys(eventTodosByEventId).length > 0 && (
+            <div className="space-y-3">
+              {events
+                .filter((e) => eventTodosByEventId[e.id]?.length > 0)
+                .map((event) => renderEventContainer(event))}
             </div>
           )}
+
+          {/* Standalone todos */}
+          <div className="space-y-2">
+            {standaloneActiveTodos.length > 0 && (
+              selectMode ? (
+                <div className="space-y-2">
+                  {standaloneActiveTodos.map((todo) => renderTodo(todo, false))}
+                </div>
+              ) : (
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleDragEnd}
+                >
+                  <SortableContext
+                    items={standaloneActiveTodos.map((t) => t.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    <div className="space-y-2">
+                      {standaloneActiveTodos.map((todo) => renderTodo(todo, true))}
+                    </div>
+                  </SortableContext>
+                </DndContext>
+              )
+            )}
+
+            {standaloneCompletedTodos.length > 0 && (
+              <div className="pt-4">
+                <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2 px-1">
+                  Completed ({standaloneCompletedTodos.length})
+                </p>
+                <div className="space-y-2">
+                  {standaloneCompletedTodos.map((todo) => renderTodo(todo, false))}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
 

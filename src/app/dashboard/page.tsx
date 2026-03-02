@@ -250,6 +250,7 @@ export default function DashboardPage() {
     deleteEvent,
     addTaskToEvent,
     removeTaskFromEvent,
+    refetchEvents,
   } = useEvents(user?.id, tags);
 
   // Browser notifications for upcoming tasks
@@ -801,6 +802,7 @@ export default function DashboardPage() {
               onAddTask={addTaskToEvent}
               onRemoveTask={removeTaskFromEvent}
               onToggleTodo={toggleTodo}
+              onRefetchEvents={refetchEvents}
             />
           ) : habitsView ? (
             <HabitList
@@ -827,6 +829,7 @@ export default function DashboardPage() {
               filterDate={calendarDate}
               lists={lists}
               activeListId={activeListId}
+              events={events}
             />
           )}
         </main>

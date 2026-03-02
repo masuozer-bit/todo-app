@@ -30,18 +30,9 @@ interface EventCardProps {
   ) => void;
   onRemoveTask: (eventId: string, todoId: string) => void;
   onToggleTodo: (id: string, completed: boolean) => void;
+  onRefetchEvents?: () => void;
 }
 
-const EVENT_COLORS = [
-  "#6366f1", // indigo
-  "#ec4899", // pink
-  "#f59e0b", // amber
-  "#10b981", // emerald
-  "#3b82f6", // blue
-  "#8b5cf6", // violet
-  "#ef4444", // red
-  "#06b6d4", // cyan
-];
 
 function formatEventDate(dateStr: string): string {
   const d = new Date(dateStr + "T00:00:00");
@@ -64,6 +55,7 @@ export default function EventCard({
   onAddTask,
   onRemoveTask,
   onToggleTodo,
+  onRefetchEvents,
 }: EventCardProps) {
   const [expanded, setExpanded] = useState(false);
   const [showAddTask, setShowAddTask] = useState(false);
@@ -218,25 +210,13 @@ export default function EventCard({
             <span className="text-xs text-gray-400 font-medium uppercase tracking-wide">
               Color
             </span>
-            <div className="flex gap-1.5">
-              {EVENT_COLORS.map((color) => (
-                <button
-                  key={color}
-                  onClick={() => onUpdate(event.id, { color })}
-                  className={`w-5 h-5 rounded-full transition-default ${
-                    event.color === color
-                      ? "ring-2 ring-offset-2 ring-offset-white dark:ring-offset-black"
-                      : "hover:scale-110"
-                  }`}
-                  style={{
-                    backgroundColor: color,
-                    // @ts-expect-error Tailwind ring-color via CSS custom property
-                    "--tw-ring-color": event.color === color ? color : undefined,
-                  }}
-                  aria-label={`Set color to ${color}`}
-                />
-              ))}
-            </div>
+            <input
+              type="color"
+              value={event.color ?? "#6366f1"}
+              onChange={(e) => onUpdate(event.id, { color: e.target.value })}
+              className="w-6 h-6 rounded cursor-pointer border border-black/20 dark:border-white/20"
+              aria-label="Pick event color"
+            />
           </div>
 
           {/* List assignment */}
@@ -273,7 +253,10 @@ export default function EventCard({
                   <input
                     type="checkbox"
                     checked={todo.completed}
-                    onChange={() => onToggleTodo(todo.id, !todo.completed)}
+                    onChange={() => {
+                      onToggleTodo(todo.id, !todo.completed);
+                      onRefetchEvents?.();
+                    }}
                     className="custom-checkbox flex-shrink-0"
                   />
                   <span

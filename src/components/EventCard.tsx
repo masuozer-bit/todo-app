@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { ChevronDown, ChevronRight, Plus, Trash2, Check, X } from "lucide-react";
+import { ChevronDown, ChevronRight, Plus, Trash2, Check, X, Maximize2 } from "lucide-react";
 import type { Event, Todo, Tag, List, Priority } from "@/lib/types";
 import TodoItem from "./TodoItem";
 
@@ -32,6 +32,7 @@ interface EventCardProps {
   onDeleteSubtask: (todoId: string, subtaskId: string) => void;
   onAssignEvent: (todoId: string, eventId: string | null) => void;
   onRefetchEvents?: () => void;
+  onOpenDetail?: (id: string) => void;
 }
 
 
@@ -63,6 +64,7 @@ export default function EventCard({
   onDeleteSubtask,
   onAssignEvent,
   onRefetchEvents,
+  onOpenDetail,
 }: EventCardProps) {
   const [expanded, setExpanded] = useState(false);
   const [showAddTask, setShowAddTask] = useState(false);
@@ -181,6 +183,16 @@ export default function EventCard({
 
           {/* Actions */}
           <div className="flex items-center gap-1 flex-shrink-0">
+            {onOpenDetail && (
+              <button
+                onClick={() => onOpenDetail(event.id)}
+                className="text-gray-400 opacity-0 group-hover:opacity-100 hover:text-black dark:hover:text-white transition-default p-1"
+                aria-label="Open event detail"
+                title="Open detail view"
+              >
+                <Maximize2 size={13} />
+              </button>
+            )}
             <button
               onClick={() => {
                 setExpanded(true);

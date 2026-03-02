@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect } from "react";
 import type { Event, List, Tag, Priority } from "@/lib/types";
 import EventCard from "./EventCard";
+import EventDetail from "./EventDetail";
 import { GripVertical, List as ListIcon } from "lucide-react";
 import {
   DndContext,
@@ -43,6 +44,7 @@ interface SharedEventCardProps {
   onDeleteSubtask: (todoId: string, subtaskId: string) => void;
   onAssignEvent: (todoId: string, eventId: string | null) => void;
   onRefetchEvents?: () => void;
+  onOpenDetail?: (id: string) => void;
 }
 
 interface EventListProps extends SharedEventCardProps {
@@ -103,6 +105,7 @@ export default function EventList({
 }: EventListProps) {
   const [sortMode, setSortMode] = useState<SortMode>("manual");
   const [manualOrder, setManualOrder] = useState<string[]>(() => events.map(e => e.id));
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
 
   // Keep manual order in sync when events are added or removed
   useEffect(() => {
@@ -113,6 +116,13 @@ export default function EventList({
       return [...kept, ...added];
     });
   }, [events]);
+
+  // Auto-back if the selected event was deleted
+  useEffect(() => {
+    if (selectedEventId && !events.find(e => e.id === selectedEventId)) {
+      setSelectedEventId(null);
+    }
+  }, [events, selectedEventId]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -135,12 +145,11 @@ export default function EventList({
         const aName = lists.find(l => l.id === a.list_id)?.name ?? "";
         const bName = lists.find(l => l.id === b.list_id)?.name ?? "";
         if (!aName && !bName) return 0;
-        if (!aName) return 1;  // no list → end
+        if (!aName) return 1;
         if (!bName) return -1;
         return aName.localeCompare(bName);
       });
     }
-    // Manual order
     const map = new Map(events.map(e => [e.id, e]));
     return manualOrder.map(id => map.get(id)).filter((e): e is Event => e !== undefined);
   }, [events, sortMode, manualOrder, lists]);
@@ -158,6 +167,36 @@ export default function EventList({
     );
   }
 
+  // ── Detail view ───────────────────────────────────────────────────
+  const selectedEvent = selectedEventId
+    ? events.find(e => e.id === selectedEventId)
+    : null;
+
+  if (selectedEvent) {
+    return (
+      <EventDetail
+        event={selectedEvent}
+        lists={lists}
+        allTags={allTags}
+        events={events}
+        onBack={() => setSelectedEventId(null)}
+        onUpdate={onUpdate}
+        onDelete={onDelete}
+        onAddTask={onAddTask}
+        onToggleTodo={onToggleTodo}
+        onUpdateTodo={onUpdateTodo}
+        onDeleteTodo={onDeleteTodo}
+        onTagToggle={onTagToggle}
+        onAddSubtask={onAddSubtask}
+        onToggleSubtask={onToggleSubtask}
+        onDeleteSubtask={onDeleteSubtask}
+        onAssignEvent={onAssignEvent}
+        onRefetchEvents={onRefetchEvents}
+      />
+    );
+  }
+
+  // ── List view ─────────────────────────────────────────────────────
   if (events.length === 0) {
     return (
       <div className="text-center py-12">
@@ -172,6 +211,7 @@ export default function EventList({
     lists, allTags, events, onUpdate, onDelete, onAddTask, onRemoveTask,
     onToggleTodo, onUpdateTodo, onDeleteTodo, onTagToggle, onAddSubtask,
     onToggleSubtask, onDeleteSubtask, onAssignEvent, onRefetchEvents,
+    onOpenDetail: (id) => setSelectedEventId(id),
   };
 
   return (

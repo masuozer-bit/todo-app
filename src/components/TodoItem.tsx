@@ -248,7 +248,7 @@ export default function TodoItem({
                 value={editValue}
                 onChange={(e) => setEditValue(e.target.value)}
                 onBlur={handleSave}
-                onKeyDown={handleKeyDown}
+                onKeyDown={(e) => { e.stopPropagation(); handleKeyDown(e); }}
                 className="flex-1 bg-transparent text-black dark:text-white focus:outline-none text-base border-b border-black/20 dark:border-white/20 pb-0.5"
                 aria-label="Edit task title"
               />

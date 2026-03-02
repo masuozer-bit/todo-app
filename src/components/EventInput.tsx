@@ -5,19 +5,23 @@ import { Plus } from "lucide-react";
 import type { List } from "@/lib/types";
 
 interface EventInputProps {
-  onAdd: (title: string, options?: { description?: string; list_id?: string | null; color?: string }) => void;
+  onAdd: (title: string, options?: { description?: string; list_id?: string | null; color?: string; due_date?: string | null; end_date?: string | null }) => void;
   lists?: List[];
 }
 
 export default function EventInput({ onAdd, lists = [] }: EventInputProps) {
   const [title, setTitle] = useState("");
+  const [dueDate, setDueDate] = useState("");
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const trimmed = title.trim();
     if (!trimmed) return;
-    onAdd(trimmed);
+    onAdd(trimmed, {
+      due_date: dueDate || null,
+    });
     setTitle("");
+    setDueDate("");
   }
 
   return (
@@ -31,6 +35,14 @@ export default function EventInput({ onAdd, lists = [] }: EventInputProps) {
             placeholder="Create a new event... (e.g., Sprint Planning, Birthday Party)"
             className="flex-1 bg-transparent text-black dark:text-white placeholder:text-gray-400 focus:outline-none text-base"
             aria-label="New event title"
+          />
+          <input
+            type="date"
+            value={dueDate}
+            onChange={(e) => setDueDate(e.target.value)}
+            className="text-xs bg-transparent border border-black/10 dark:border-white/10 rounded-lg px-2 py-1.5 text-black dark:text-white focus:outline-none cursor-pointer flex-shrink-0"
+            aria-label="Event date (optional)"
+            title="Optional start date"
           />
           <button
             type="submit"

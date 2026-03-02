@@ -8,7 +8,7 @@ interface EventListProps {
   lists: List[];
   allTags: Tag[];
   loading: boolean;
-  onUpdate: (id: string, updates: { title?: string; description?: string | null; list_id?: string | null; color?: string }) => void;
+  onUpdate: (id: string, updates: { title?: string; description?: string | null; list_id?: string | null; color?: string; due_date?: string | null; end_date?: string | null }) => void;
   onDelete: (id: string) => void;
   onAddTask: (
     eventId: string,

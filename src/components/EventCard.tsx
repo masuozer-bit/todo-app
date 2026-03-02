@@ -10,7 +10,7 @@ interface EventCardProps {
   lists: List[];
   allTags: Tag[];
   events: Event[];
-  onUpdate: (id: string, updates: { title?: string; description?: string | null; list_id?: string | null; color?: string }) => void;
+  onUpdate: (id: string, updates: { title?: string; description?: string | null; list_id?: string | null; color?: string; due_date?: string | null; end_date?: string | null }) => void;
   onDelete: (id: string) => void;
   onAddTask: (
     eventId: string,
@@ -35,6 +35,15 @@ interface EventCardProps {
 }
 
 
+
+function formatEventDate(dateStr: string): string {
+  // Parse YYYY-MM-DD without timezone shift
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  });
+}
 
 export default function EventCard({
   event,
@@ -99,7 +108,7 @@ export default function EventCard({
   }
 
   return (
-    <div className="glass-card-subtle overflow-hidden">
+    <div className="glass-card-subtle overflow-hidden group">
       {/* Color accent bar */}
       <div
         className="h-1"
@@ -149,11 +158,19 @@ export default function EventCard({
             )}
 
             {/* Meta */}
-            <div className="flex items-center gap-2 mt-1">
+            <div className="flex items-center gap-2 mt-1 flex-wrap">
               <span className="text-xs text-gray-400">
                 {todos.length} task{todos.length !== 1 ? "s" : ""}
                 {completedCount > 0 && ` · ${completedCount} done`}
               </span>
+              {event.due_date && (
+                <span className="text-xs text-gray-400">
+                  · {formatEventDate(event.due_date)}
+                  {event.end_date && event.end_date !== event.due_date
+                    ? ` → ${formatEventDate(event.end_date)}`
+                    : ""}
+                </span>
+              )}
               {listName && (
                 <span className="text-xs text-gray-300 dark:text-gray-600">
                   · {listName}
@@ -215,6 +232,42 @@ export default function EventCard({
               className="w-6 h-6 rounded cursor-pointer border border-black/20 dark:border-white/20"
               aria-label="Pick event color"
             />
+          </div>
+
+          {/* Date range */}
+          <div className="flex items-center gap-2 mb-3 flex-wrap">
+            <span className="text-xs text-gray-400 font-medium uppercase tracking-wide">
+              Date
+            </span>
+            <input
+              type="date"
+              value={event.due_date ?? ""}
+              onChange={(e) =>
+                onUpdate(event.id, { due_date: e.target.value || null })
+              }
+              className="text-xs bg-white dark:bg-black border border-black/10 dark:border-white/10 rounded-lg px-2 py-1 text-black dark:text-white focus:outline-none cursor-pointer"
+              aria-label="Event start date"
+            />
+            <span className="text-xs text-gray-400">→</span>
+            <input
+              type="date"
+              value={event.end_date ?? ""}
+              min={event.due_date ?? undefined}
+              onChange={(e) =>
+                onUpdate(event.id, { end_date: e.target.value || null })
+              }
+              className="text-xs bg-white dark:bg-black border border-black/10 dark:border-white/10 rounded-lg px-2 py-1 text-black dark:text-white focus:outline-none cursor-pointer"
+              aria-label="Event end date"
+            />
+            {(event.due_date || event.end_date) && (
+              <button
+                onClick={() => onUpdate(event.id, { due_date: null, end_date: null })}
+                className="text-xs text-gray-400 hover:text-red-500 transition-default"
+                title="Clear dates"
+              >
+                <X size={12} />
+              </button>
+            )}
           </div>
 
           {/* List assignment */}

@@ -11,7 +11,7 @@ import {
   FileText,
   List as ListIcon,
 } from "lucide-react";
-import type { Todo, Tag, Priority, List } from "@/lib/types";
+import type { Todo, Tag, Priority, List, Event } from "@/lib/types";
 import { getToday, getTomorrow, getNextMonday, getNextWeek } from "@/lib/date-helpers";
 import TagPill from "./TagPill";
 
@@ -40,6 +40,8 @@ interface TodoItemProps {
   isDragging?: boolean;
   lists?: List[];
   activeListId?: string | null;
+  events?: Event[];
+  onAssignEvent?: (todoId: string, eventId: string | null) => void;
 }
 
 const PRIORITY_CONFIG: Record<
@@ -95,6 +97,8 @@ export default function TodoItem({
   isDragging = false,
   lists = [],
   activeListId,
+  events = [],
+  onAssignEvent,
 }: TodoItemProps) {
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState(todo.title);
@@ -635,6 +639,29 @@ export default function TodoItem({
                   );
                 })}
               </div>
+            </div>
+          )}
+
+          {/* Event assignment */}
+          {!todo.completed && onAssignEvent && events.length > 0 && (
+            <div>
+              <p className="text-xs text-gray-400 mb-2 font-medium uppercase tracking-wide">
+                Event
+              </p>
+              <select
+                value={todo.event_id ?? ""}
+                onChange={(e) =>
+                  onAssignEvent(todo.id, e.target.value || null)
+                }
+                className="text-xs bg-white dark:bg-black border border-black/10 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-black dark:text-white focus:outline-none focus:border-black/30 dark:focus:border-white/30 transition-default cursor-pointer"
+              >
+                <option value="">No event</option>
+                {events.map((ev) => (
+                  <option key={ev.id} value={ev.id}>
+                    {ev.title}
+                  </option>
+                ))}
+              </select>
             </div>
           )}
         </div>

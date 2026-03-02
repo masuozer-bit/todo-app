@@ -1,21 +1,15 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import {
-  ChevronDown,
-  ChevronRight,
-  Plus,
-  Trash2,
-  Calendar,
-  Check,
-  X,
-  Unlink,
-} from "lucide-react";
-import type { Event, Todo, List } from "@/lib/types";
+import { ChevronDown, ChevronRight, Plus, Trash2, Check, X } from "lucide-react";
+import type { Event, Todo, Tag, List, Priority } from "@/lib/types";
+import TodoItem from "./TodoItem";
 
 interface EventCardProps {
   event: Event;
   lists: List[];
+  allTags: Tag[];
+  events: Event[];
   onUpdate: (id: string, updates: { title?: string; description?: string | null; list_id?: string | null; color?: string }) => void;
   onDelete: (id: string) => void;
   onAddTask: (
@@ -30,31 +24,35 @@ interface EventCardProps {
   ) => void;
   onRemoveTask: (eventId: string, todoId: string) => void;
   onToggleTodo: (id: string, completed: boolean) => void;
+  onUpdateTodo: (id: string, updates: { title?: string; due_date?: string | null; start_time?: string | null; end_time?: string | null; priority?: Priority; notes?: string | null; list_id?: string | null }) => void;
+  onDeleteTodo: (id: string) => void;
+  onTagToggle: (todoId: string, tagId: string, add: boolean) => void;
+  onAddSubtask: (todoId: string, title: string) => void;
+  onToggleSubtask: (todoId: string, subtaskId: string, completed: boolean) => void;
+  onDeleteSubtask: (todoId: string, subtaskId: string) => void;
+  onAssignEvent: (todoId: string, eventId: string | null) => void;
   onRefetchEvents?: () => void;
 }
 
 
-function formatEventDate(dateStr: string): string {
-  const d = new Date(dateStr + "T00:00:00");
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const diffDays = Math.round(
-    (d.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
-  );
-  if (diffDays < 0) return `${Math.abs(diffDays)}d ago`;
-  if (diffDays === 0) return "Today";
-  if (diffDays === 1) return "Tomorrow";
-  return d.toLocaleDateString("en", { month: "short", day: "numeric" });
-}
 
 export default function EventCard({
   event,
   lists,
+  allTags,
+  events,
   onUpdate,
   onDelete,
   onAddTask,
   onRemoveTask,
   onToggleTodo,
+  onUpdateTodo,
+  onDeleteTodo,
+  onTagToggle,
+  onAddSubtask,
+  onToggleSubtask,
+  onDeleteSubtask,
+  onAssignEvent,
   onRefetchEvents,
 }: EventCardProps) {
   const [expanded, setExpanded] = useState(false);
@@ -242,47 +240,28 @@ export default function EventCard({
             </div>
           )}
 
-          {/* Tasks */}
+          {/* Tasks — full TodoItem with all options */}
           {todos.length > 0 ? (
-            <div className="space-y-1.5">
+            <div className="-mx-4 border-t border-black/5 dark:border-white/5 divide-y divide-black/5 dark:divide-white/5">
               {todos.map((todo) => (
-                <div
+                <TodoItem
                   key={todo.id}
-                  className="flex items-center gap-2.5 group/task py-1.5 px-2 rounded-lg hover:bg-black/[0.03] dark:hover:bg-white/[0.05] transition-default"
-                >
-                  <input
-                    type="checkbox"
-                    checked={todo.completed}
-                    onChange={() => {
-                      onToggleTodo(todo.id, !todo.completed);
-                      onRefetchEvents?.();
-                    }}
-                    className="custom-checkbox flex-shrink-0"
-                  />
-                  <span
-                    className={`flex-1 text-sm transition-default ${
-                      todo.completed
-                        ? "line-through text-gray-400"
-                        : "text-black dark:text-white"
-                    }`}
-                  >
-                    {todo.title}
-                  </span>
-                  {todo.due_date && (
-                    <span className="text-xs text-gray-400 flex items-center gap-1 flex-shrink-0">
-                      <Calendar size={10} />
-                      {formatEventDate(todo.due_date)}
-                    </span>
-                  )}
-                  <button
-                    onClick={() => onRemoveTask(event.id, todo.id)}
-                    className="opacity-0 group-hover/task:opacity-100 text-gray-400 hover:text-red-500 transition-default flex-shrink-0"
-                    aria-label="Remove from event"
-                    title="Remove from event"
-                  >
-                    <Unlink size={12} />
-                  </button>
-                </div>
+                  todo={todo}
+                  allTags={allTags}
+                  onToggle={(id, completed) => {
+                    onToggleTodo(id, completed);
+                    onRefetchEvents?.();
+                  }}
+                  onUpdate={onUpdateTodo}
+                  onDelete={onDeleteTodo}
+                  onTagToggle={onTagToggle}
+                  onAddSubtask={onAddSubtask}
+                  onToggleSubtask={onToggleSubtask}
+                  onDeleteSubtask={onDeleteSubtask}
+                  lists={lists}
+                  events={events}
+                  onAssignEvent={onAssignEvent}
+                />
               ))}
             </div>
           ) : (

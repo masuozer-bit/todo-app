@@ -240,6 +240,7 @@ export default function DashboardPage() {
     addSubtask,
     toggleSubtask,
     deleteSubtask,
+    assignTodoToEvent,
   } = useTodos(user?.id, tags, activeListId, lists);
 
   const {
@@ -255,6 +256,15 @@ export default function DashboardPage() {
 
   // Browser notifications for upcoming tasks
   const { permission: notifPermission, requestPermission } = useNotifications(todos);
+
+  // Assign todo to event and refetch so events update immediately
+  const handleAssignTodoToEvent = useCallback(
+    async (todoId: string, eventId: string | null) => {
+      await assignTodoToEvent(todoId, eventId);
+      refetchEvents();
+    },
+    [assignTodoToEvent, refetchEvents]
+  );
 
   // Wrapped delete that shows undo toast
   const handleDeleteTodo = useCallback(
@@ -796,12 +806,20 @@ export default function DashboardPage() {
             <EventList
               events={events}
               lists={lists}
+              allTags={tags}
               loading={eventsLoading}
               onUpdate={updateEvent}
               onDelete={deleteEvent}
               onAddTask={addTaskToEvent}
               onRemoveTask={removeTaskFromEvent}
               onToggleTodo={toggleTodo}
+              onUpdateTodo={updateTodo}
+              onDeleteTodo={deleteTodo}
+              onTagToggle={toggleTodoTag}
+              onAddSubtask={addSubtask}
+              onToggleSubtask={toggleSubtask}
+              onDeleteSubtask={deleteSubtask}
+              onAssignEvent={handleAssignTodoToEvent}
               onRefetchEvents={refetchEvents}
             />
           ) : habitsView ? (
@@ -830,6 +848,8 @@ export default function DashboardPage() {
               lists={lists}
               activeListId={activeListId}
               events={events}
+              onAssignEvent={handleAssignTodoToEvent}
+              onDeleteEvent={deleteEvent}
             />
           )}
         </main>

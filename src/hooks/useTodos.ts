@@ -557,6 +557,24 @@ export function useTodos(
     URL.revokeObjectURL(url);
   }
 
+  const assignTodoToEvent = useCallback(
+    async (todoId: string, eventId: string | null) => {
+      const { error } = await supabase
+        .from("todos")
+        .update({ event_id: eventId })
+        .eq("id", todoId);
+
+      if (!error) {
+        setTodos((prev) =>
+          prev.map((t) =>
+            t.id === todoId ? { ...t, event_id: eventId } : t
+          )
+        );
+      }
+    },
+    []
+  );
+
   return {
     todos,
     loading,
@@ -571,5 +589,6 @@ export function useTodos(
     deleteSubtask,
     clearCompleted,
     exportTodos,
+    assignTodoToEvent,
   };
 }

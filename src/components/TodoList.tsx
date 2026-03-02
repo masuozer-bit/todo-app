@@ -16,7 +16,7 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { Search, X, Filter, CheckSquare, Calendar } from "lucide-react";
+import { Search, X, Filter, CheckSquare, Trash2 } from "lucide-react";
 import type { Todo, Tag, Priority, List, Event } from "@/lib/types";
 import SortableItem from "./SortableItem";
 import TodoItem from "./TodoItem";
@@ -120,6 +120,8 @@ interface TodoListProps {
   lists?: List[];
   activeListId?: string | null;
   events?: Event[];
+  onAssignEvent?: (todoId: string, eventId: string | null) => void;
+  onDeleteEvent?: (eventId: string) => void;
 }
 
 export default function TodoList({
@@ -138,6 +140,8 @@ export default function TodoList({
   lists = [],
   activeListId,
   events = [],
+  onAssignEvent,
+  onDeleteEvent,
 }: TodoListProps) {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -300,7 +304,7 @@ export default function TodoList({
     }
   }
 
-  // Render an event container with its tasks
+  // Render an event container with full TodoItem tasks
   function renderEventContainer(event: Event) {
     const eventTodos = eventTodosByEventId[event.id] || [];
     if (eventTodos.length === 0) return null;
@@ -313,37 +317,40 @@ export default function TodoList({
     return (
       <div key={event.id} className="glass-card-subtle overflow-hidden">
         {/* Color accent bar */}
-        <div
-          className="h-1"
-          style={{ backgroundColor: event.color ?? "#6366f1" }}
-        />
+        <div className="h-1" style={{ backgroundColor: event.color ?? "#6366f1" }} />
 
         {/* Header */}
-        <div className="p-3 md:p-4">
-          <div className="flex items-center gap-3">
+        <div className="p-3 md:p-4 pb-2">
+          <div className="flex items-center gap-3 group">
             <div className="flex-1 min-w-0">
               <p className="text-base font-medium text-black dark:text-white">
                 {event.title}
               </p>
-
-              {/* Meta */}
-              <div className="flex items-center gap-2 mt-1">
+              <div className="flex items-center gap-2 mt-0.5">
                 <span className="text-xs text-gray-400">
                   {eventTodos.length} task{eventTodos.length !== 1 ? "s" : ""}
                   {completedCount > 0 && ` · ${completedCount} done`}
                 </span>
                 {listName && (
-                  <span className="text-xs text-gray-300 dark:text-gray-600">
-                    · {listName}
-                  </span>
+                  <span className="text-xs text-gray-300 dark:text-gray-600">· {listName}</span>
                 )}
               </div>
             </div>
+            {onDeleteEvent && (
+              <button
+                onClick={() => onDeleteEvent(event.id)}
+                className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 transition-default p-1 flex-shrink-0"
+                aria-label="Delete event"
+                title="Delete event"
+              >
+                <Trash2 size={14} />
+              </button>
+            )}
           </div>
 
           {/* Progress bar */}
           {eventTodos.length > 0 && (
-            <div className="mt-3 w-full h-1 bg-black/5 dark:bg-white/10 rounded-full overflow-hidden">
+            <div className="mt-2 w-full h-1 bg-black/5 dark:bg-white/10 rounded-full overflow-hidden">
               <div
                 className="h-full rounded-full transition-all duration-500"
                 style={{
@@ -353,41 +360,28 @@ export default function TodoList({
               />
             </div>
           )}
+        </div>
 
-          {/* Tasks in event */}
-          <div className="mt-3 space-y-1.5">
-            {eventTodos.map((todo) => (
-              <div
-                key={todo.id}
-                className="flex items-center gap-2.5 py-1.5 px-2 rounded-lg hover:bg-black/[0.03] dark:hover:bg-white/[0.05] transition-default"
-              >
-                <input
-                  type="checkbox"
-                  checked={todo.completed}
-                  onChange={() => onToggle(todo.id, !todo.completed)}
-                  className="custom-checkbox flex-shrink-0"
-                />
-                <span
-                  className={`flex-1 text-sm transition-default ${
-                    todo.completed
-                      ? "line-through text-gray-400"
-                      : "text-black dark:text-white"
-                  }`}
-                >
-                  {todo.title}
-                </span>
-                {todo.due_date && (
-                  <span className="text-xs text-gray-400 flex items-center gap-1 flex-shrink-0">
-                    <Calendar size={10} />
-                    {new Date(todo.due_date + "T00:00:00").toLocaleDateString(
-                      "en",
-                      { month: "short", day: "numeric" }
-                    )}
-                  </span>
-                )}
-              </div>
-            ))}
-          </div>
+        {/* Full TodoItem for each task */}
+        <div className="border-t border-black/5 dark:border-white/5 divide-y divide-black/5 dark:divide-white/5">
+          {eventTodos.map((todo) => (
+            <TodoItem
+              key={todo.id}
+              todo={todo}
+              allTags={allTags}
+              onToggle={onToggle}
+              onUpdate={onUpdate}
+              onDelete={handleDeleteRequest}
+              onTagToggle={onTagToggle}
+              onAddSubtask={onAddSubtask}
+              onToggleSubtask={onToggleSubtask}
+              onDeleteSubtask={onDeleteSubtask}
+              lists={lists}
+              activeListId={activeListId}
+              events={events}
+              onAssignEvent={onAssignEvent}
+            />
+          ))}
         </div>
       </div>
     );
@@ -409,6 +403,8 @@ export default function TodoList({
         onDeleteSubtask={onDeleteSubtask}
         lists={lists}
         activeListId={activeListId}
+        events={events}
+        onAssignEvent={onAssignEvent}
       />
     ) : (
       <TodoItem
@@ -424,6 +420,8 @@ export default function TodoList({
         onDeleteSubtask={onDeleteSubtask}
         lists={lists}
         activeListId={activeListId}
+        events={events}
+        onAssignEvent={onAssignEvent}
       />
     );
 

@@ -1,11 +1,12 @@
 "use client";
 
-import type { Event, List } from "@/lib/types";
+import type { Event, List, Tag, Priority } from "@/lib/types";
 import EventCard from "./EventCard";
 
 interface EventListProps {
   events: Event[];
   lists: List[];
+  allTags: Tag[];
   loading: boolean;
   onUpdate: (id: string, updates: { title?: string; description?: string | null; list_id?: string | null; color?: string }) => void;
   onDelete: (id: string) => void;
@@ -21,18 +22,33 @@ interface EventListProps {
   ) => void;
   onRemoveTask: (eventId: string, todoId: string) => void;
   onToggleTodo: (id: string, completed: boolean) => void;
+  onUpdateTodo: (id: string, updates: { title?: string; due_date?: string | null; start_time?: string | null; end_time?: string | null; priority?: Priority; notes?: string | null; list_id?: string | null }) => void;
+  onDeleteTodo: (id: string) => void;
+  onTagToggle: (todoId: string, tagId: string, add: boolean) => void;
+  onAddSubtask: (todoId: string, title: string) => void;
+  onToggleSubtask: (todoId: string, subtaskId: string, completed: boolean) => void;
+  onDeleteSubtask: (todoId: string, subtaskId: string) => void;
+  onAssignEvent: (todoId: string, eventId: string | null) => void;
   onRefetchEvents?: () => void;
 }
 
 export default function EventList({
   events,
   lists,
+  allTags,
   loading,
   onUpdate,
   onDelete,
   onAddTask,
   onRemoveTask,
   onToggleTodo,
+  onUpdateTodo,
+  onDeleteTodo,
+  onTagToggle,
+  onAddSubtask,
+  onToggleSubtask,
+  onDeleteSubtask,
+  onAssignEvent,
   onRefetchEvents,
 }: EventListProps) {
   if (loading) {
@@ -68,11 +84,20 @@ export default function EventList({
           key={event.id}
           event={event}
           lists={lists}
+          allTags={allTags}
+          events={events}
           onUpdate={onUpdate}
           onDelete={onDelete}
           onAddTask={onAddTask}
           onRemoveTask={onRemoveTask}
           onToggleTodo={onToggleTodo}
+          onUpdateTodo={onUpdateTodo}
+          onDeleteTodo={onDeleteTodo}
+          onTagToggle={onTagToggle}
+          onAddSubtask={onAddSubtask}
+          onToggleSubtask={onToggleSubtask}
+          onDeleteSubtask={onDeleteSubtask}
+          onAssignEvent={onAssignEvent}
           onRefetchEvents={onRefetchEvents}
         />
       ))}

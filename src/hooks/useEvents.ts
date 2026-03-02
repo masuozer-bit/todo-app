@@ -133,12 +133,8 @@ export function useEvents(userId: string | undefined, allTags: Tag[]) {
 
   const deleteEvent = useCallback(
     async (id: string) => {
-      // First unlink todos from the event (don't delete the tasks themselves)
-      await supabase
-        .from("todos")
-        .update({ event_id: null })
-        .eq("event_id", id);
-
+      // Delete all tasks belonging to this event, then delete the event itself
+      await supabase.from("todos").delete().eq("event_id", id);
       const { error } = await supabase.from("events").delete().eq("id", id);
 
       if (!error) {

@@ -290,6 +290,15 @@ export default function DashboardPage() {
     [addTaskToEvent, refetchTodos]
   );
 
+  // Delete event and its tasks, then sync useTodos state
+  const handleDeleteEvent = useCallback(
+    async (id: string) => {
+      await deleteEvent(id);
+      refetchTodos();
+    },
+    [deleteEvent, refetchTodos]
+  );
+
   // Wrapped delete that shows undo toast
   const handleDeleteTodo = useCallback(
     (id: string) => {
@@ -833,7 +842,7 @@ export default function DashboardPage() {
               allTags={tags}
               loading={eventsLoading}
               onUpdate={updateEvent}
-              onDelete={deleteEvent}
+              onDelete={handleDeleteEvent}
               onAddTask={handleAddTaskToEvent}
               onRemoveTask={removeTaskFromEvent}
               onToggleTodo={toggleTodo}
@@ -873,7 +882,7 @@ export default function DashboardPage() {
               activeListId={activeListId}
               events={events}
               onAssignEvent={handleAssignTodoToEvent}
-              onDeleteEvent={deleteEvent}
+              onDeleteEvent={handleDeleteEvent}
             />
           )}
         </main>

@@ -15,6 +15,7 @@ import KeyboardShortcutsOverlay from "@/components/KeyboardShortcutsOverlay";
 import ProductivityStats from "@/components/ProductivityStats";
 import EventInput from "@/components/EventInput";
 import EventList from "@/components/EventList";
+import ConfirmDialog from "@/components/ConfirmDialog";
 import MobileSidebar from "@/components/MobileSidebar";
 import { useTodos } from "@/hooks/useTodos";
 import { useTags } from "@/hooks/useTags";
@@ -290,14 +291,22 @@ export default function DashboardPage() {
     [addTaskToEvent, refetchTodos]
   );
 
-  // Delete event and its tasks, then sync useTodos state
-  const handleDeleteEvent = useCallback(
-    async (id: string) => {
-      await deleteEvent(id);
-      refetchTodos();
-    },
-    [deleteEvent, refetchTodos]
-  );
+  // Delete event — show confirm dialog first
+  const [deleteEventId, setDeleteEventId] = useState<string | null>(null);
+  const deleteEventTitle = deleteEventId
+    ? (events.find((e) => e.id === deleteEventId)?.title ?? "this event")
+    : "this event";
+
+  const handleDeleteEvent = useCallback((id: string) => {
+    setDeleteEventId(id);
+  }, []);
+
+  const confirmDeleteEvent = useCallback(async () => {
+    if (!deleteEventId) return;
+    await deleteEvent(deleteEventId);
+    refetchTodos();
+    setDeleteEventId(null);
+  }, [deleteEvent, refetchTodos, deleteEventId]);
 
   // Wrapped delete that shows undo toast
   const handleDeleteTodo = useCallback(
@@ -929,6 +938,15 @@ export default function DashboardPage() {
       <KeyboardShortcutsOverlay
         open={showShortcuts}
         onClose={() => setShowShortcuts(false)}
+      />
+
+      {/* Confirm event deletion */}
+      <ConfirmDialog
+        open={deleteEventId !== null}
+        title="Delete event"
+        message={`Are you sure you want to delete "${deleteEventTitle}" and all its tasks? This cannot be undone.`}
+        onConfirm={confirmDeleteEvent}
+        onCancel={() => setDeleteEventId(null)}
       />
 
       {/* Toast notifications */}

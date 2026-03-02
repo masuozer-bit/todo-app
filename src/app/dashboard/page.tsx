@@ -446,17 +446,8 @@ export default function DashboardPage() {
     setCalendarDate(null);
   }
 
-  if (authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-white dark:bg-black">
-        <div className="w-6 h-6 border-2 border-gray-400/30 border-t-black dark:border-t-white rounded-full animate-spin" />
-      </div>
-    );
-  }
-
-  const activeList = lists.find((l) => l.id === activeListId);
-
   // Per-list active task counts for sidebar badges
+  // Must be before any early returns (Rules of Hooks)
   const listTaskCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     for (const t of todos) {
@@ -466,6 +457,16 @@ export default function DashboardPage() {
     }
     return counts;
   }, [todos]);
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white dark:bg-black">
+        <div className="w-6 h-6 border-2 border-gray-400/30 border-t-black dark:border-t-white rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  const activeList = lists.find((l) => l.id === activeListId);
 
   // Build visible todos: start with list filter, then apply quick/date filters
   let visibleTodos = activeListId

@@ -28,17 +28,13 @@ export function useTodos(
   const fetchTodos = useCallback(async () => {
     if (!userId) return;
 
-    let query = supabase
+    // Fetch ALL todos — filtering by list is done client-side in the dashboard
+    // so the full set is available for per-list counts and quick filters
+    const { data: todosData, error: todosError } = await supabase
       .from("todos")
       .select("*")
       .eq("user_id", userId)
       .order("sort_order", { ascending: true });
-
-    if (activeListId) {
-      query = query.eq("list_id", activeListId);
-    }
-
-    const { data: todosData, error: todosError } = await query;
 
     if (todosError || !todosData) {
       setLoading(false);
@@ -96,7 +92,7 @@ export function useTodos(
 
     setTodos(todosWithData);
     setLoading(false);
-  }, [userId, allTags, activeListId]);
+  }, [userId, allTags]);
 
   useEffect(() => {
     fetchTodos();

@@ -1,7 +1,9 @@
 "use client";
 
+import { useState, useMemo } from "react";
 import type { Event, List, Tag, Priority } from "@/lib/types";
 import EventCard from "./EventCard";
+import { ArrowUpDown } from "lucide-react";
 
 interface EventListProps {
   events: Event[];
@@ -32,6 +34,8 @@ interface EventListProps {
   onRefetchEvents?: () => void;
 }
 
+type SortOption = "default" | "title" | "due_date";
+
 export default function EventList({
   events,
   lists,
@@ -51,6 +55,23 @@ export default function EventList({
   onAssignEvent,
   onRefetchEvents,
 }: EventListProps) {
+  const [sortBy, setSortBy] = useState<SortOption>("default");
+
+  const sortedEvents = useMemo(() => {
+    if (sortBy === "title") {
+      return [...events].sort((a, b) => a.title.localeCompare(b.title));
+    }
+    if (sortBy === "due_date") {
+      return [...events].sort((a, b) => {
+        if (!a.due_date && !b.due_date) return 0;
+        if (!a.due_date) return 1;
+        if (!b.due_date) return -1;
+        return a.due_date.localeCompare(b.due_date);
+      });
+    }
+    return events;
+  }, [events, sortBy]);
+
   if (loading) {
     return (
       <div className="space-y-3">
@@ -77,9 +98,35 @@ export default function EventList({
     );
   }
 
+  const SORT_OPTIONS: { value: SortOption; label: string }[] = [
+    { value: "default", label: "Default" },
+    { value: "title", label: "Title" },
+    { value: "due_date", label: "Due date" },
+  ];
+
   return (
     <div className="space-y-3">
-      {events.map((event) => (
+      {/* Sort controls */}
+      <div className="flex items-center gap-2 mb-1">
+        <ArrowUpDown size={13} className="text-gray-400 flex-shrink-0" />
+        <div className="flex gap-1.5 flex-wrap">
+          {SORT_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              onClick={() => setSortBy(opt.value)}
+              className={`text-xs px-2.5 py-1 rounded-lg border transition-default ${
+                sortBy === opt.value
+                  ? "bg-black dark:bg-white text-white dark:text-black border-transparent font-medium"
+                  : "border-black/10 dark:border-white/10 text-gray-400 hover:border-black/20 dark:hover:border-white/20 hover:text-black dark:hover:text-white"
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {sortedEvents.map((event) => (
         <EventCard
           key={event.id}
           event={event}

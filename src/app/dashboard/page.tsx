@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Header from "@/components/Header";
@@ -58,6 +58,7 @@ function SortableListItem({
   onSaveEdit,
   onCancelEdit,
   onDelete,
+  count = 0,
 }: {
   list: ListType;
   isActive: boolean;
@@ -69,6 +70,7 @@ function SortableListItem({
   onSaveEdit: () => void;
   onCancelEdit: () => void;
   onDelete: () => void;
+  count?: number;
 }) {
   const {
     attributes,
@@ -135,7 +137,14 @@ function SortableListItem({
             }`}
           >
             <List size={14} />
-            <span className="truncate">{list.name}</span>
+            <span className="truncate flex-1">{list.name}</span>
+            {count > 0 && (
+              <span className={`text-xs font-medium tabular-nums flex-shrink-0 ${
+                isActive ? "text-white/60 dark:text-black/60" : "text-gray-400"
+              }`}>
+                {count}
+              </span>
+            )}
           </button>
           <div className="flex items-center gap-0.5 pr-1.5 opacity-0 group-hover:opacity-100 transition-default">
             <button
@@ -447,24 +456,37 @@ export default function DashboardPage() {
 
   const activeList = lists.find((l) => l.id === activeListId);
 
-  // Quick filter: Today / This Week (plain computation, not a hook)
-  let visibleTodos = todos;
+  // Per-list active task counts for sidebar badges
+  const listTaskCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const t of todos) {
+      if (!t.completed && t.list_id) {
+        counts[t.list_id] = (counts[t.list_id] ?? 0) + 1;
+      }
+    }
+    return counts;
+  }, [todos]);
+
+  // Build visible todos: start with list filter, then apply quick/date filters
+  let visibleTodos = activeListId
+    ? todos.filter((t) => t.list_id === activeListId)
+    : todos;
+
   if (quickFilter === "today") {
     const today = getToday();
-    visibleTodos = todos.filter((t) => t.due_date === today);
+    visibleTodos = visibleTodos.filter((t) => t.due_date === today);
   } else if (quickFilter === "thisWeek") {
-    const now = new Date();
-    const dayOfWeek = now.getDay();
-    const start = new Date(now);
-    start.setDate(now.getDate() - dayOfWeek);
-    start.setHours(0, 0, 0, 0);
-    const end = new Date(start);
-    end.setDate(start.getDate() + 6);
+    // Next 7 days from today + any overdue incomplete tasks
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const end = new Date(today);
+    end.setDate(today.getDate() + 6);
     end.setHours(23, 59, 59, 999);
-    visibleTodos = todos.filter((t) => {
+    visibleTodos = visibleTodos.filter((t) => {
       if (!t.due_date) return false;
       const d = new Date(t.due_date + "T00:00:00");
-      return d >= start && d <= end;
+      if (d < today && !t.completed) return true; // overdue & not done
+      return d >= today && d <= end;
     });
   }
 
@@ -577,6 +599,7 @@ export default function DashboardPage() {
                             deleteList(list.id);
                             if (activeListId === list.id) setActiveListId(null);
                           }}
+                          count={listTaskCounts[list.id] ?? 0}
                         />
                       ))}
                     </div>

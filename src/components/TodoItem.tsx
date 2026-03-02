@@ -68,6 +68,27 @@ const PRIORITY_CONFIG: Record<
   none: { label: "None", color: "text-gray-400", dot: "bg-gray-300" },
 };
 
+function renderWithLinks(text: string) {
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  const parts = text.split(urlRegex);
+  return parts.map((part, i) =>
+    urlRegex.test(part) ? (
+      <a
+        key={i}
+        href={part}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-blue-500 dark:text-blue-400 underline hover:opacity-80 transition-default"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {part}
+      </a>
+    ) : (
+      <span key={i}>{part}</span>
+    )
+  );
+}
+
 function formatDueDate(dateStr: string): { text: string; overdue: boolean } {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -619,7 +640,7 @@ export default function TodoItem({
             ) : (
               todo.notes ? (
                 <p className="text-sm text-gray-500 dark:text-gray-400 whitespace-pre-wrap">
-                  {todo.notes}
+                  {renderWithLinks(todo.notes)}
                 </p>
               ) : (
                 <p className="text-sm text-gray-300 dark:text-gray-600 italic">No notes</p>

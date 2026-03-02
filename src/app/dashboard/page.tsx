@@ -309,6 +309,14 @@ export default function DashboardPage() {
     [updateEvent, refetchTodos]
   );
 
+  // Open event detail from any view (list, today, this-week…)
+  const [openEventDetailId, setOpenEventDetailId] = useState<string | null>(null);
+
+  const handleOpenEventDetail = useCallback((eventId: string) => {
+    switchToEvents();
+    setOpenEventDetailId(eventId);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Delete event — show confirm dialog first
   const [deleteEventId, setDeleteEventId] = useState<string | null>(null);
   const deleteEventTitle = deleteEventId
@@ -922,6 +930,8 @@ export default function DashboardPage() {
               onDeleteSubtask={deleteSubtask}
               onAssignEvent={handleAssignTodoToEvent}
               onRefetchEvents={refetchEvents}
+              defaultSelectedEventId={openEventDetailId}
+              onDefaultEventHandled={() => setOpenEventDetailId(null)}
             />
           ) : habitsView ? (
             <HabitList
@@ -951,6 +961,7 @@ export default function DashboardPage() {
               events={events}
               onAssignEvent={handleAssignTodoToEvent}
               onDeleteEvent={handleDeleteEvent}
+              onOpenEventDetail={handleOpenEventDetail}
             />
           )}
         </main>

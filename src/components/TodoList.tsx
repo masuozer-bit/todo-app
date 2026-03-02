@@ -16,7 +16,7 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { Search, X, Filter, CheckSquare, Trash2 } from "lucide-react";
+import { Search, X, Filter, CheckSquare, Trash2, Maximize2 } from "lucide-react";
 import type { Todo, Tag, Priority, List, Event } from "@/lib/types";
 import SortableItem from "./SortableItem";
 import TodoItem from "./TodoItem";
@@ -122,6 +122,7 @@ interface TodoListProps {
   events?: Event[];
   onAssignEvent?: (todoId: string, eventId: string | null) => void;
   onDeleteEvent?: (eventId: string) => void;
+  onOpenEventDetail?: (eventId: string) => void;
 }
 
 export default function TodoList({
@@ -142,6 +143,7 @@ export default function TodoList({
   events = [],
   onAssignEvent,
   onDeleteEvent,
+  onOpenEventDetail,
 }: TodoListProps) {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -336,16 +338,28 @@ export default function TodoList({
                 )}
               </div>
             </div>
-            {onDeleteEvent && (
-              <button
-                onClick={() => onDeleteEvent(event.id)}
-                className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 transition-default p-1 flex-shrink-0"
-                aria-label="Delete event"
-                title="Delete event"
-              >
-                <Trash2 size={14} />
-              </button>
-            )}
+            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-default flex-shrink-0">
+              {onOpenEventDetail && (
+                <button
+                  onClick={() => onOpenEventDetail(event.id)}
+                  className="text-gray-400 hover:text-black dark:hover:text-white transition-default p-1"
+                  aria-label="Open event detail"
+                  title="Open detail view"
+                >
+                  <Maximize2 size={13} />
+                </button>
+              )}
+              {onDeleteEvent && (
+                <button
+                  onClick={() => onDeleteEvent(event.id)}
+                  className="text-gray-400 hover:text-red-500 transition-default p-1"
+                  aria-label="Delete event"
+                  title="Delete event"
+                >
+                  <Trash2 size={14} />
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Progress bar */}

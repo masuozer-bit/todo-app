@@ -49,6 +49,8 @@ interface SharedEventCardProps {
 
 interface EventListProps extends SharedEventCardProps {
   loading: boolean;
+  defaultSelectedEventId?: string | null;
+  onDefaultEventHandled?: () => void;
 }
 
 type SortMode = "manual" | "list";
@@ -102,10 +104,21 @@ export default function EventList({
   onDeleteSubtask,
   onAssignEvent,
   onRefetchEvents,
+  defaultSelectedEventId,
+  onDefaultEventHandled,
 }: EventListProps) {
   const [sortMode, setSortMode] = useState<SortMode>("manual");
   const [manualOrder, setManualOrder] = useState<string[]>(() => events.map(e => e.id));
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+
+  // Open a specific event detail when triggered from outside (e.g. list view)
+  useEffect(() => {
+    if (defaultSelectedEventId) {
+      setSelectedEventId(defaultSelectedEventId);
+      onDefaultEventHandled?.();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [defaultSelectedEventId]);
 
   // Keep manual order in sync when events are added or removed
   useEffect(() => {

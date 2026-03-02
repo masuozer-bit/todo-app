@@ -19,18 +19,22 @@ ALTER TABLE todos ADD COLUMN IF NOT EXISTS event_id UUID REFERENCES events(id) O
 -- RLS policies for events
 ALTER TABLE events ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view their own events" ON events;
 CREATE POLICY "Users can view their own events"
   ON events FOR SELECT
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert their own events" ON events;
 CREATE POLICY "Users can insert their own events"
   ON events FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update their own events" ON events;
 CREATE POLICY "Users can update their own events"
   ON events FOR UPDATE
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can delete their own events" ON events;
 CREATE POLICY "Users can delete their own events"
   ON events FOR DELETE
   USING (auth.uid() = user_id);

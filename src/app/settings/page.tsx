@@ -419,7 +419,7 @@ export default function SettingsPage() {
               </h3>
             </div>
             <p className="text-xs text-gray-400 mb-4">
-              Type these shortcuts directly in the task input field to quickly set dates, times, priorities, tags, and recurrence.
+              Type these shortcuts directly in the task input field to quickly set dates, times, priorities, and tags.
             </p>
             <CommandReference />
           </section>

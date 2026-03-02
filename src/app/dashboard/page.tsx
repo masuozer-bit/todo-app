@@ -13,11 +13,14 @@ import HabitList from "@/components/HabitList";
 import ToastContainer, { type ToastData } from "@/components/Toast";
 import KeyboardShortcutsOverlay from "@/components/KeyboardShortcutsOverlay";
 import ProductivityStats from "@/components/ProductivityStats";
+import EventInput from "@/components/EventInput";
+import EventList from "@/components/EventList";
 import MobileSidebar from "@/components/MobileSidebar";
 import { useTodos } from "@/hooks/useTodos";
 import { useTags } from "@/hooks/useTags";
 import { useLists } from "@/hooks/useLists";
 import { useHabits } from "@/hooks/useHabits";
+import { useEvents } from "@/hooks/useEvents";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useNotifications } from "@/hooks/useNotifications";
 import { useTheme } from "@/components/ThemeProvider";
@@ -38,7 +41,7 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Plus, List, Inbox, Trash2, Edit2, Check, X, Calendar, Repeat, Bell, Menu, Sun, CalendarDays } from "lucide-react";
+import { Plus, List, Inbox, Trash2, Edit2, Check, X, Calendar, Repeat, Bell, Menu, Sun, CalendarDays, CalendarRange } from "lucide-react";
 import { getToday } from "@/lib/date-helpers";
 import type { User } from "@supabase/supabase-js";
 import type { List as ListType } from "@/lib/types";
@@ -178,6 +181,7 @@ export default function DashboardPage() {
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [quickFilter, setQuickFilter] = useState<"today" | "thisWeek" | null>(null);
+  const [eventsView, setEventsView] = useState(false);
   const router = useRouter();
   const supabase = createClient();
   const { toggleTheme } = useTheme();
@@ -237,6 +241,16 @@ export default function DashboardPage() {
     toggleSubtask,
     deleteSubtask,
   } = useTodos(user?.id, tags, activeListId, lists);
+
+  const {
+    events,
+    loading: eventsLoading,
+    addEvent,
+    updateEvent,
+    deleteEvent,
+    addTaskToEvent,
+    removeTaskFromEvent,
+  } = useEvents(user?.id, tags);
 
   // Browser notifications for upcoming tasks
   const { permission: notifPermission, requestPermission } = useNotifications(todos);
@@ -308,6 +322,16 @@ export default function DashboardPage() {
 
   function switchToHabits() {
     setHabitsView(true);
+    setEventsView(false);
+    setActiveListId(null);
+    setShowCalendar(false);
+    setCalendarDate(null);
+    setQuickFilter(null);
+  }
+
+  function switchToEvents() {
+    setEventsView(true);
+    setHabitsView(false);
     setActiveListId(null);
     setShowCalendar(false);
     setCalendarDate(null);
@@ -316,12 +340,14 @@ export default function DashboardPage() {
 
   function switchToAllTasks() {
     setHabitsView(false);
+    setEventsView(false);
     setActiveListId(null);
     setQuickFilter(null);
   }
 
   function switchToList(listId: string) {
     setHabitsView(false);
+    setEventsView(false);
     setActiveListId(listId);
     setQuickFilter(null);
   }
@@ -333,6 +359,7 @@ export default function DashboardPage() {
 
   function switchToToday() {
     setHabitsView(false);
+    setEventsView(false);
     setActiveListId(null);
     setQuickFilter("today");
     setCalendarDate(null);
@@ -340,6 +367,7 @@ export default function DashboardPage() {
 
   function switchToThisWeek() {
     setHabitsView(false);
+    setEventsView(false);
     setActiveListId(null);
     setQuickFilter("thisWeek");
     setCalendarDate(null);
@@ -389,7 +417,7 @@ export default function DashboardPage() {
             <button
               onClick={switchToAllTasks}
               className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm transition-default mb-1 ${
-                !activeListId && !habitsView && !quickFilter
+                !activeListId && !habitsView && !eventsView && !quickFilter
                   ? "bg-black dark:bg-white text-white dark:text-black font-medium"
                   : "text-gray-500 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/10"
               }`}
@@ -422,6 +450,19 @@ export default function DashboardPage() {
             >
               <CalendarDays size={15} />
               This Week
+            </button>
+
+            {/* Events */}
+            <button
+              onClick={switchToEvents}
+              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm transition-default mb-1 ${
+                eventsView
+                  ? "bg-black dark:bg-white text-white dark:text-black font-medium"
+                  : "text-gray-500 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/10"
+              }`}
+            >
+              <CalendarRange size={15} />
+              Events
             </button>
 
             {/* Habits */}
@@ -549,18 +590,22 @@ export default function DashboardPage() {
 
               <div className="flex items-baseline gap-4">
                 <h2 className="text-2xl md:text-3xl font-bold text-black dark:text-white">
-                  {habitsView
-                    ? "Habits"
-                    : quickFilter === "today"
-                      ? "Today"
-                      : quickFilter === "thisWeek"
-                        ? "This Week"
-                        : activeList
-                          ? activeList.name
-                          : "All Tasks"}
+                  {eventsView
+                    ? "Events"
+                    : habitsView
+                      ? "Habits"
+                      : quickFilter === "today"
+                        ? "Today"
+                        : quickFilter === "thisWeek"
+                          ? "This Week"
+                          : activeList
+                            ? activeList.name
+                            : "All Tasks"}
                 </h2>
                 <div className="flex items-center gap-3 text-sm text-gray-400">
-                  {habitsView ? (
+                  {eventsView ? (
+                    <span>{events.length} event{events.length !== 1 ? "s" : ""}</span>
+                  ) : habitsView ? (
                     <span>
                       {todaysHabits.filter((h) => h.completedToday).length}/
                       {todaysHabits.length} today
@@ -579,7 +624,7 @@ export default function DashboardPage() {
 
             <div className="flex items-center gap-2">
               {/* Notification bell */}
-              {!habitsView && notifPermission !== "granted" && (
+              {!habitsView && !eventsView && notifPermission !== "granted" && (
                 <button
                   onClick={requestPermission}
                   className="hidden md:flex w-10 h-10 rounded-xl glass-card-subtle items-center justify-center text-gray-400 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-default"
@@ -589,7 +634,7 @@ export default function DashboardPage() {
                   <Bell size={18} />
                 </button>
               )}
-              {!habitsView && notifPermission === "granted" && (
+              {!habitsView && !eventsView && notifPermission === "granted" && (
                 <div
                   className="hidden md:flex w-10 h-10 rounded-xl glass-card-subtle items-center justify-center text-green-500 dark:text-green-400"
                   title="Notifications enabled"
@@ -599,7 +644,7 @@ export default function DashboardPage() {
               )}
 
               {/* Calendar toggle */}
-              {!habitsView && (
+              {!habitsView && !eventsView && (
                 <button
                   onClick={() => {
                     setShowCalendar(!showCalendar);
@@ -619,7 +664,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Quick filter indicator */}
-          {!habitsView && quickFilter && (
+          {!habitsView && !eventsView && quickFilter && (
             <div className="mb-4 flex items-center gap-2 text-sm text-gray-400">
               {quickFilter === "today" ? <Sun size={14} /> : <CalendarDays size={14} />}
               <span>
@@ -641,7 +686,7 @@ export default function DashboardPage() {
           )}
 
           {/* Calendar date filter indicator */}
-          {!habitsView && calendarDate && (
+          {!habitsView && !eventsView && calendarDate && (
             <div className="mb-4 flex items-center gap-2 text-sm text-gray-400">
               <Calendar size={14} />
               <span>
@@ -664,7 +709,9 @@ export default function DashboardPage() {
 
           {/* Input */}
           <div className="mb-4">
-            {habitsView ? (
+            {eventsView ? (
+              <EventInput onAdd={addEvent} lists={lists} />
+            ) : habitsView ? (
               <HabitInput onAdd={addHabit} />
             ) : (
               <TodoInput
@@ -681,7 +728,7 @@ export default function DashboardPage() {
             <button
               onClick={switchToAllTasks}
               className={`flex-shrink-0 text-sm px-4 py-2 rounded-full font-medium transition-default ${
-                !activeListId && !habitsView && !quickFilter
+                !activeListId && !habitsView && !eventsView && !quickFilter
                   ? "bg-black dark:bg-white text-white dark:text-black"
                   : "text-gray-500 dark:text-gray-400 border border-black/15 dark:border-white/15"
               }`}
@@ -709,6 +756,16 @@ export default function DashboardPage() {
               This Week
             </button>
             <button
+              onClick={switchToEvents}
+              className={`flex-shrink-0 text-sm px-4 py-2 rounded-full font-medium transition-default ${
+                eventsView
+                  ? "bg-black dark:bg-white text-white dark:text-black"
+                  : "text-gray-500 dark:text-gray-400 border border-black/15 dark:border-white/15"
+              }`}
+            >
+              Events
+            </button>
+            <button
               onClick={switchToHabits}
               className={`flex-shrink-0 text-sm px-4 py-2 rounded-full font-medium transition-default ${
                 habitsView
@@ -734,7 +791,18 @@ export default function DashboardPage() {
           </div>
 
           {/* Content */}
-          {habitsView ? (
+          {eventsView ? (
+            <EventList
+              events={events}
+              lists={lists}
+              loading={eventsLoading}
+              onUpdate={updateEvent}
+              onDelete={deleteEvent}
+              onAddTask={addTaskToEvent}
+              onRemoveTask={removeTaskFromEvent}
+              onToggleTodo={toggleTodo}
+            />
+          ) : habitsView ? (
             <HabitList
               habits={todaysHabits}
               onToggle={toggleCompletion}
@@ -764,7 +832,7 @@ export default function DashboardPage() {
         </main>
 
         {/* Calendar panel — desktop only */}
-        {!habitsView && showCalendar && (
+        {!habitsView && !eventsView && showCalendar && (
           <aside className="hidden md:block w-80 flex-shrink-0 pt-4">
             <div className="sticky top-4">
               <CalendarPanel
@@ -786,8 +854,10 @@ export default function DashboardPage() {
         lists={lists}
         activeListId={activeListId}
         habitsView={habitsView}
+        eventsView={eventsView}
         quickFilter={quickFilter}
         onSwitchToAll={switchToAllTasks}
+        onSwitchToEvents={switchToEvents}
         onSwitchToHabits={switchToHabits}
         onSwitchToList={switchToList}
         onSwitchToToday={switchToToday}

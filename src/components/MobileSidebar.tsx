@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { X, Inbox, Repeat, List, Plus, Sun, CalendarDays } from "lucide-react";
+import { X, Inbox, Repeat, List, Plus, Sun, CalendarDays, CalendarRange } from "lucide-react";
 import type { List as ListType, Todo } from "@/lib/types";
 import TagManager from "./TagManager";
 import ProductivityStats from "./ProductivityStats";
@@ -13,8 +13,10 @@ interface MobileSidebarProps {
   lists: ListType[];
   activeListId: string | null;
   habitsView: boolean;
+  eventsView?: boolean;
   quickFilter?: "today" | "thisWeek" | null;
   onSwitchToAll: () => void;
+  onSwitchToEvents?: () => void;
   onSwitchToHabits: () => void;
   onSwitchToList: (listId: string) => void;
   onSwitchToToday?: () => void;
@@ -32,8 +34,10 @@ export default function MobileSidebar({
   lists,
   activeListId,
   habitsView,
+  eventsView,
   quickFilter,
   onSwitchToAll,
+  onSwitchToEvents,
   onSwitchToHabits,
   onSwitchToList,
   onSwitchToToday,
@@ -111,7 +115,7 @@ export default function MobileSidebar({
             <button
               onClick={() => handleNav(onSwitchToAll)}
               className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition-default ${
-                !activeListId && !habitsView && !quickFilter
+                !activeListId && !habitsView && !eventsView && !quickFilter
                   ? "bg-black dark:bg-white text-white dark:text-black font-medium"
                   : "text-gray-500 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/10"
               }`}
@@ -147,6 +151,21 @@ export default function MobileSidebar({
               >
                 <CalendarDays size={16} />
                 This Week
+              </button>
+            )}
+
+            {/* Events */}
+            {onSwitchToEvents && (
+              <button
+                onClick={() => handleNav(onSwitchToEvents)}
+                className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition-default ${
+                  eventsView
+                    ? "bg-black dark:bg-white text-white dark:text-black font-medium"
+                    : "text-gray-500 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/10"
+                }`}
+              >
+                <CalendarRange size={16} />
+                Events
               </button>
             )}
 

@@ -52,21 +52,6 @@ function getPriorityColor(priority: Priority): string {
   return colors[priority];
 }
 
-function getRecurrenceLabel(
-  type: string | null | undefined,
-  interval: number | null | undefined
-): string | null {
-  if (!type) return null;
-  const n = interval ?? 1;
-  const labels: Record<string, string> = {
-    daily: n === 1 ? "Every day" : `Every ${n} days`,
-    weekly: n === 1 ? "Every week" : `Every ${n} weeks`,
-    monthly: n === 1 ? "Every month" : `Every ${n} months`,
-    yearly: n === 1 ? "Every year" : `Every ${n} years`,
-  };
-  return labels[type] ?? null;
-}
-
 function groupByPriority(todos: Todo[]): Record<Priority, Todo[]> {
   const groups: Record<Priority, Todo[]> = {
     high: [],
@@ -84,7 +69,6 @@ function renderTodoItem(todo: Todo): string {
   const completedSubtasks = todo.subtasks?.filter((s) => s.completed).length ?? 0;
   const totalSubtasks = todo.subtasks?.length ?? 0;
   const priorityColor = getPriorityColor(todo.priority);
-  const recurrence = getRecurrenceLabel(todo.recurrence_type, todo.recurrence_interval);
 
   let timeRange = "";
   if (todo.start_time) {
@@ -115,7 +99,6 @@ function renderTodoItem(todo: Todo): string {
       <div class="todo-meta">
         ${todo.due_date ? `<span class="meta-item"><span class="meta-icon">📅</span> ${formatDate(todo.due_date)}</span>` : ""}
         ${timeRange ? `<span class="meta-item"><span class="meta-icon">🕐</span> ${timeRange}</span>` : ""}
-        ${recurrence ? `<span class="meta-item"><span class="meta-icon">🔁</span> ${recurrence}</span>` : ""}
         ${totalSubtasks > 0 ? `<span class="meta-item"><span class="meta-icon">☑</span> ${completedSubtasks}/${totalSubtasks} subtasks</span>` : ""}
       </div>
       ${

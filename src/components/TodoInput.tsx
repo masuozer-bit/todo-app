@@ -9,11 +9,10 @@ import {
   Clock,
   Flag,
   Hash,
-  Repeat,
   List as ListIcon,
   X,
 } from "lucide-react";
-import type { Tag, Priority, List, RecurrenceType } from "@/lib/types";
+import type { Tag, Priority, List } from "@/lib/types";
 import {
   getToday,
   getTomorrow,
@@ -35,8 +34,6 @@ interface TodoInputProps {
       priority?: Priority;
       notes?: string | null;
       list_id?: string | null;
-      recurrence_type?: RecurrenceType | null;
-      recurrence_interval?: number | null;
     }
   ) => void;
   tags: Tag[];
@@ -49,17 +46,6 @@ const PRIORITY_OPTIONS: { value: Priority; label: string }[] = [
   { value: "high", label: "High" },
   { value: "medium", label: "Medium" },
   { value: "low", label: "Low" },
-];
-
-const RECURRENCE_OPTIONS: {
-  value: RecurrenceType | "none";
-  label: string;
-}[] = [
-  { value: "none", label: "No repeat" },
-  { value: "daily", label: "Daily" },
-  { value: "weekly", label: "Weekly" },
-  { value: "monthly", label: "Monthly" },
-  { value: "yearly", label: "Yearly" },
 ];
 
 const PRIORITY_COLORS: Record<Priority, string> = {
@@ -139,21 +125,6 @@ function buildSuggestions(
     }
   }
 
-  // Recurrence suggestions
-  if ("every".startsWith(lastWord) && lastWord.length >= 2 && lastWord !== "every") {
-    suggestions.push(
-      { trigger: lastWord, display: "every day", insert: "every day" },
-      { trigger: lastWord, display: "every week", insert: "every week" }
-    );
-  }
-  if (lastWord === "every") {
-    suggestions.push(
-      { trigger: lastWord, display: "every day", insert: "every day" },
-      { trigger: lastWord, display: "every week", insert: "every week" },
-      { trigger: lastWord, display: "every month", insert: "every month" }
-    );
-  }
-
   // Time suggestions
   if (lastWord === "at") {
     suggestions.push(
@@ -197,10 +168,6 @@ export default function TodoInput({
   const [endTime, setEndTime] = useState("");
   const [priority, setPriority] = useState<Priority>("none");
   const [notes, setNotes] = useState("");
-  const [recurrenceType, setRecurrenceType] = useState<
-    RecurrenceType | "none"
-  >("none");
-  const [recurrenceInterval, setRecurrenceInterval] = useState(1);
   const [listId, setListId] = useState<string | null>(activeListId ?? null);
   const [selectedSuggestion, setSelectedSuggestion] = useState(0);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -220,8 +187,7 @@ export default function TodoInput({
       p.due_date ||
       p.start_time ||
       (p.priority && p.priority !== "none") ||
-      (p.tagNames && p.tagNames.length > 0) ||
-      p.recurrence_type
+      (p.tagNames && p.tagNames.length > 0)
     ) {
       return p;
     }
@@ -286,10 +252,6 @@ export default function TodoInput({
     let finalEndTime = endTime || null;
     let finalPriority = priority;
     let finalTagIds = [...selectedTagIds];
-    let finalRecurrenceType: RecurrenceType | null =
-      recurrenceType === "none" ? null : recurrenceType;
-    let finalRecurrenceInterval: number | null =
-      recurrenceType === "none" ? null : recurrenceInterval;
 
     if (!showOptions) {
       const p = parseNaturalLanguage(trimmed);
@@ -297,10 +259,6 @@ export default function TodoInput({
       if (p.due_date) finalDueDate = p.due_date;
       if (p.start_time) finalStartTime = p.start_time;
       if (p.priority && p.priority !== "none") finalPriority = p.priority;
-      if (p.recurrence_type) {
-        finalRecurrenceType = p.recurrence_type;
-        finalRecurrenceInterval = p.recurrence_interval ?? 1;
-      }
       if (p.tagNames && p.tagNames.length > 0) {
         for (const name of p.tagNames) {
           const tag = tags.find(
@@ -320,8 +278,6 @@ export default function TodoInput({
       priority: finalPriority,
       notes: notes.trim() || null,
       list_id: listId ?? activeListId ?? null,
-      recurrence_type: finalRecurrenceType,
-      recurrence_interval: finalRecurrenceInterval,
     });
 
     setTitle("");
@@ -331,8 +287,6 @@ export default function TodoInput({
     setEndTime("");
     setPriority("none");
     setNotes("");
-    setRecurrenceType("none");
-    setRecurrenceInterval(1);
     setListId(activeListId ?? null);
     setShowOptions(false);
     setShowSuggestions(false);
@@ -461,14 +415,6 @@ export default function TodoInput({
                 {name}
               </span>
             ))}
-            {/* Recurrence pill */}
-            {parsed.recurrence_type && (
-              <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-md border bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 border-purple-200 dark:border-purple-800/40">
-                <Repeat size={10} />
-                {parsed.recurrence_type.charAt(0).toUpperCase() +
-                  parsed.recurrence_type.slice(1)}
-              </span>
-            )}
           </div>
         )}
 
@@ -538,27 +484,6 @@ export default function TodoInput({
                 </div>
               )}
 
-              {/* Recurrence */}
-              <div className="flex flex-col gap-1">
-                <label className="text-xs text-gray-400 font-medium">
-                  Repeat
-                </label>
-                <select
-                  value={recurrenceType}
-                  onChange={(e) =>
-                    setRecurrenceType(
-                      e.target.value as RecurrenceType | "none"
-                    )
-                  }
-                  className="text-xs bg-white dark:bg-black border border-black/10 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-black dark:text-white focus:outline-none focus:border-black/30 dark:focus:border-white/30 transition-default cursor-pointer"
-                >
-                  {RECURRENCE_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
             </div>
 
             {/* Quick-pick date buttons */}

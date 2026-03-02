@@ -75,21 +75,6 @@ const CATEGORIES: CommandCategory[] = [
       { syntax: "#work #personal", description: "Multiple tags at once", example: "Review slides #work #urgent" },
     ],
   },
-  {
-    name: "Recurrence",
-    commands: [
-      { syntax: "every day", description: "Repeat daily", example: "Take vitamins every day" },
-      { syntax: "every week", description: "Repeat weekly", example: "Team sync every week" },
-      { syntax: "every month", description: "Repeat monthly", example: "Pay rent every month" },
-      { syntax: "every year", description: "Repeat yearly", example: "Renew subscription every year" },
-      { syntax: "every 2 days", description: "Custom day interval", example: "Water plants every 2 days" },
-      { syntax: "every 3 weeks", description: "Custom week interval", example: "Haircut every 3 weeks" },
-      { syntax: "daily", description: "Short for every day", example: "Daily standup daily" },
-      { syntax: "weekly", description: "Short for every week", example: "Weekly report weekly" },
-      { syntax: "monthly", description: "Short for every month", example: "Monthly review monthly" },
-      { syntax: "yearly", description: "Short for every year", example: "Birthday yearly" },
-    ],
-  },
 ];
 
 const EXAMPLES: { input: string; parsed: string }[] = [
@@ -102,24 +87,12 @@ const EXAMPLES: { input: string; parsed: string }[] = [
     parsed: "Due next Friday, medium priority, tagged work",
   },
   {
-    input: "Take vitamins every day at 9am !low",
-    parsed: "Recurring daily at 9:00 AM, low priority",
-  },
-  {
-    input: "Team standup daily at 9:30am #work",
-    parsed: "Recurring daily at 9:30 AM, tagged work",
-  },
-  {
     input: "Review PR in 2 days #dev",
     parsed: "Due in 2 days, tagged dev",
   },
   {
     input: "Client presentation March 15 at 2pm !p1 #work",
     parsed: "Due March 15 at 2:00 PM, high priority, tagged work",
-  },
-  {
-    input: "Pay electricity eom every month",
-    parsed: "Due end of month, recurring monthly",
   },
 ];
 

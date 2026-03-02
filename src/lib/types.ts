@@ -1,5 +1,4 @@
 export type Priority = "high" | "medium" | "low" | "none";
-export type RecurrenceType = "daily" | "weekly" | "monthly" | "yearly";
 
 export interface Subtask {
   id: string;
@@ -23,8 +22,7 @@ export interface Todo {
   priority: Priority;
   notes?: string | null;
   list_id?: string | null;
-  recurrence_type?: RecurrenceType | null;
-  recurrence_interval?: number | null; // every N days/weeks/months/years
+  event_id?: string | null;
   created_at: string;
   updated_at: string;
   tags?: Tag[];
@@ -49,6 +47,18 @@ export interface List {
   name: string;
   sort_order: number;
   created_at: string;
+}
+
+export interface Event {
+  id: string;
+  user_id: string;
+  title: string;
+  description?: string | null;
+  list_id?: string | null;
+  color?: string | null;
+  created_at: string;
+  updated_at: string;
+  todos?: Todo[];
 }
 
 export interface Profile {

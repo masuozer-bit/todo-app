@@ -17,7 +17,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { Search, X, Filter, CheckSquare } from "lucide-react";
-import type { Todo, Tag, Priority, List, RecurrenceType } from "@/lib/types";
+import type { Todo, Tag, Priority, List } from "@/lib/types";
 import SortableItem from "./SortableItem";
 import TodoItem from "./TodoItem";
 import ConfirmDialog from "./ConfirmDialog";
@@ -108,7 +108,7 @@ interface TodoListProps {
   todos: Todo[];
   allTags: Tag[];
   onToggle: (id: string, completed: boolean) => void;
-  onUpdate: (id: string, updates: { title?: string; due_date?: string | null; start_time?: string | null; end_time?: string | null; priority?: Priority; notes?: string | null; list_id?: string | null; recurrence_type?: RecurrenceType | null; recurrence_interval?: number | null }) => void;
+  onUpdate: (id: string, updates: { title?: string; due_date?: string | null; start_time?: string | null; end_time?: string | null; priority?: Priority; notes?: string | null; list_id?: string | null }) => void;
   onDelete: (id: string) => void;
   onTagToggle: (todoId: string, tagId: string, add: boolean) => void;
   onReorder: (reordered: Todo[]) => void;

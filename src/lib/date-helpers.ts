@@ -1,4 +1,4 @@
-import type { Priority, RecurrenceType } from "./types";
+import type { Priority } from "./types";
 
 // ── Date formatting helpers ───────────────────────────────────────────
 export function toDateStr(d: Date): string {
@@ -40,50 +40,6 @@ export function getEndOfWeek(): string {
   return toDateStr(d);
 }
 
-// ── Recurrence: compute next due date ─────────────────────────────────
-export function getNextDueDate(
-  currentDueDate: string,
-  recurrenceType: RecurrenceType,
-  interval: number = 1
-): string {
-  const d = new Date(currentDueDate + "T00:00:00");
-
-  switch (recurrenceType) {
-    case "daily":
-      d.setDate(d.getDate() + interval);
-      break;
-    case "weekly":
-      d.setDate(d.getDate() + 7 * interval);
-      break;
-    case "monthly":
-      d.setMonth(d.getMonth() + interval);
-      break;
-    case "yearly":
-      d.setFullYear(d.getFullYear() + interval);
-      break;
-  }
-
-  return toDateStr(d);
-}
-
-export function formatRecurrence(
-  type: RecurrenceType | null | undefined,
-  interval: number | null | undefined
-): string {
-  if (!type) return "";
-  const n = interval ?? 1;
-  switch (type) {
-    case "daily":
-      return n === 1 ? "Daily" : `Every ${n} days`;
-    case "weekly":
-      return n === 1 ? "Weekly" : `Every ${n} weeks`;
-    case "monthly":
-      return n === 1 ? "Monthly" : `Every ${n} months`;
-    case "yearly":
-      return n === 1 ? "Yearly" : `Every ${n} years`;
-  }
-}
-
 // ── Natural Language Parser ───────────────────────────────────────────
 export interface ParsedTask {
   title: string;
@@ -92,8 +48,6 @@ export interface ParsedTask {
   end_time?: string | null;
   priority?: Priority;
   tagNames?: string[];
-  recurrence_type?: RecurrenceType | null;
-  recurrence_interval?: number | null;
 }
 
 const DAY_NAMES: Record<string, number> = {
@@ -161,8 +115,6 @@ export function parseNaturalLanguage(input: string): ParsedTask {
   let start_time: string | null = null;
   let priority: Priority = "none";
   const tagNames: string[] = [];
-  let recurrence_type: RecurrenceType | null = null;
-  let recurrence_interval: number | null = null;
 
   // Extract tags: #tagname
   remaining = remaining.replace(/#(\w+)/g, (_, tag) => {
@@ -176,41 +128,6 @@ export function parseNaturalLanguage(input: string): ParsedTask {
     if (pl === "high" || pl === "urgent" || pl === "important" || pl === "p1") priority = "high";
     else if (pl === "med" || pl === "medium" || pl === "p2") priority = "medium";
     else if (pl === "low" || pl === "p3") priority = "low";
-    return "";
-  });
-
-  // Extract recurrence: "every day", "every week", "every month", "every year"
-  // Also: "daily", "weekly", "monthly", "yearly"
-  remaining = remaining.replace(/\bevery\s+(day|week|month|year)\b/gi, (_, unit) => {
-    const u = unit.toLowerCase();
-    if (u === "day") recurrence_type = "daily";
-    else if (u === "week") recurrence_type = "weekly";
-    else if (u === "month") recurrence_type = "monthly";
-    else if (u === "year") recurrence_type = "yearly";
-    recurrence_interval = 1;
-    return "";
-  });
-
-  // "every N days/weeks/months/years"
-  remaining = remaining.replace(/\bevery\s+(\d+)\s+(days?|weeks?|months?|years?)\b/gi, (_, n, unit) => {
-    const num = parseInt(n, 10);
-    const u = unit.toLowerCase().replace(/s$/, "");
-    if (u === "day") recurrence_type = "daily";
-    else if (u === "week") recurrence_type = "weekly";
-    else if (u === "month") recurrence_type = "monthly";
-    else if (u === "year") recurrence_type = "yearly";
-    recurrence_interval = num;
-    return "";
-  });
-
-  // Standalone: "daily", "weekly", "monthly", "yearly"
-  remaining = remaining.replace(/\b(daily|weekly|monthly|yearly)\b/gi, (_, r) => {
-    const rl = r.toLowerCase();
-    if (rl === "daily") recurrence_type = "daily";
-    else if (rl === "weekly") recurrence_type = "weekly";
-    else if (rl === "monthly") recurrence_type = "monthly";
-    else if (rl === "yearly") recurrence_type = "yearly";
-    recurrence_interval = 1;
     return "";
   });
 
@@ -379,11 +296,6 @@ export function parseNaturalLanguage(input: string): ParsedTask {
     return "";
   });
 
-  // If recurrence is set but no date, default to today
-  if (recurrence_type && !due_date) {
-    due_date = getToday();
-  }
-
   // If time is set but no date, default to today
   if (start_time && !due_date) {
     due_date = getToday();
@@ -398,7 +310,5 @@ export function parseNaturalLanguage(input: string): ParsedTask {
     start_time,
     priority,
     tagNames,
-    recurrence_type,
-    recurrence_interval: recurrence_type ? (recurrence_interval ?? 1) : null,
   };
 }

@@ -2,14 +2,14 @@
 
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import type { Todo, Tag, Priority, List, RecurrenceType } from "@/lib/types";
+import type { Todo, Tag, Priority, List } from "@/lib/types";
 import TodoItem from "./TodoItem";
 
 interface SortableItemProps {
   todo: Todo;
   allTags: Tag[];
   onToggle: (id: string, completed: boolean) => void;
-  onUpdate: (id: string, updates: { title?: string; due_date?: string | null; start_time?: string | null; end_time?: string | null; priority?: Priority; notes?: string | null; list_id?: string | null; recurrence_type?: RecurrenceType | null; recurrence_interval?: number | null }) => void;
+  onUpdate: (id: string, updates: { title?: string; due_date?: string | null; start_time?: string | null; end_time?: string | null; priority?: Priority; notes?: string | null; list_id?: string | null }) => void;
   onDelete: (id: string) => void;
   onTagToggle: (todoId: string, tagId: string, add: boolean) => void;
   onAddSubtask: (todoId: string, title: string) => void;

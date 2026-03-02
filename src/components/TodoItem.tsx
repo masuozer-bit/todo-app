@@ -110,6 +110,7 @@ export default function TodoItem({
   const [newSubtask, setNewSubtask] = useState("");
   const [showSubtaskInput, setShowSubtaskInput] = useState(false);
   const [blockedMsg, setBlockedMsg] = useState(false);
+  const [subtasksExpanded, setSubtasksExpanded] = useState(false);
   const editRef = useRef<HTMLInputElement>(null);
   const subtaskRef = useRef<HTMLInputElement>(null);
   const cancelledRef = useRef(false);
@@ -277,7 +278,7 @@ export default function TodoItem({
             </div>
           )}
 
-          {/* Meta: priority, due date, notes, list */}
+          {/* Meta: priority, due date, subtasks toggle, notes, list */}
           <div className="flex flex-wrap items-center gap-2 mt-1.5">
             {todo.priority && todo.priority !== "none" && (
               <span
@@ -305,6 +306,32 @@ export default function TodoItem({
                   </span>
                 )}
               </span>
+            )}
+            {/* Subtasks standalone toggle — click to expand/collapse */}
+            {subtasks.length > 0 && (
+              <button
+                onClick={() => setSubtasksExpanded((v) => !v)}
+                className={`flex items-center gap-1.5 text-xs font-medium transition-default rounded px-1 -mx-1 ${
+                  allSubtasksDone
+                    ? "text-green-500 dark:text-green-400"
+                    : "text-gray-400 hover:text-black dark:hover:text-white"
+                }`}
+                aria-label={subtasksExpanded ? "Collapse subtasks" : "Expand subtasks"}
+              >
+                {/* Mini progress bar */}
+                <span className="w-10 h-1 bg-black/5 dark:bg-white/10 rounded-full overflow-hidden flex-shrink-0">
+                  <span
+                    className={`block h-full rounded-full transition-all duration-300 ${
+                      allSubtasksDone ? "bg-green-500 dark:bg-green-400" : "bg-black/40 dark:bg-white/40"
+                    }`}
+                    style={{ width: `${(completedSubtasks / subtasks.length) * 100}%` }}
+                  />
+                </span>
+                <span className="tabular-nums">{completedSubtasks}/{subtasks.length}</span>
+                {subtasksExpanded
+                  ? <ChevronUp size={11} />
+                  : <ChevronDown size={11} />}
+              </button>
             )}
             {todo.notes && (
               <span className="text-xs text-gray-400 flex items-center gap-0.5">
@@ -338,30 +365,9 @@ export default function TodoItem({
             </div>
           )}
 
-          {/* ── Inline subtasks (always visible when they exist) ── */}
-          {subtasks.length > 0 && (
-            <div className="mt-3 pl-1 border-l-2 border-black/10 dark:border-white/10 ml-0.5">
-              {/* Progress bar + fraction */}
-              <div className="flex items-center gap-2 mb-2">
-                <div className="flex-1 h-1 bg-black/5 dark:bg-white/10 rounded-full overflow-hidden">
-                  <div
-                    className={`h-full rounded-full transition-all duration-500 ${
-                      allSubtasksDone
-                        ? "bg-green-500 dark:bg-green-400"
-                        : "bg-black/40 dark:bg-white/40"
-                    }`}
-                    style={{
-                      width: `${(completedSubtasks / subtasks.length) * 100}%`,
-                    }}
-                  />
-                </div>
-                <span className={`text-xs flex-shrink-0 font-medium tabular-nums ${
-                  allSubtasksDone ? "text-green-500 dark:text-green-400" : "text-gray-400"
-                }`}>
-                  {completedSubtasks}/{subtasks.length}
-                </span>
-              </div>
-
+          {/* ── Inline subtasks — expands via meta toggle ── */}
+          {subtasks.length > 0 && subtasksExpanded && (
+            <div className="mt-2 pl-1 border-l-2 border-black/10 dark:border-white/10 ml-0.5">
               {/* Subtask rows */}
               <div className="space-y-1.5">
                 {subtasks.map((subtask) => (
@@ -401,7 +407,7 @@ export default function TodoItem({
               </div>
 
               {/* Quick add subtask link */}
-              {!todo.completed && !showSubtaskInput && !expanded && (
+              {!todo.completed && !showSubtaskInput && (
                 <button
                   onClick={() => {
                     setExpanded(true);

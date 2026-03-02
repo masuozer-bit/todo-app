@@ -291,6 +291,17 @@ export default function DashboardPage() {
     [addTaskToEvent, refetchTodos]
   );
 
+  // Update event — when list changes, propagate to tasks and refresh todos state
+  const handleUpdateEvent = useCallback(
+    async (id: string, updates: Parameters<typeof updateEvent>[1]) => {
+      await updateEvent(id, updates);
+      if ("list_id" in updates) {
+        refetchTodos();
+      }
+    },
+    [updateEvent, refetchTodos]
+  );
+
   // Delete event — show confirm dialog first
   const [deleteEventId, setDeleteEventId] = useState<string | null>(null);
   const deleteEventTitle = deleteEventId
@@ -850,7 +861,7 @@ export default function DashboardPage() {
               lists={lists}
               allTags={tags}
               loading={eventsLoading}
-              onUpdate={updateEvent}
+              onUpdate={handleUpdateEvent}
               onDelete={handleDeleteEvent}
               onAddTask={handleAddTaskToEvent}
               onRemoveTask={removeTaskFromEvent}

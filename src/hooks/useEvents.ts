@@ -126,6 +126,14 @@ export function useEvents(userId: string | undefined, allTags: Tag[]) {
         setEvents((prev) =>
           prev.map((e) => (e.id === id ? { ...e, ...updates } : e))
         );
+
+        // When the event's list changes, apply it to all tasks in the event too
+        if ("list_id" in updates) {
+          await supabase
+            .from("todos")
+            .update({ list_id: updates.list_id })
+            .eq("event_id", id);
+        }
       }
     },
     []

@@ -241,6 +241,7 @@ export default function DashboardPage() {
     toggleSubtask,
     deleteSubtask,
     assignTodoToEvent,
+    refetchTodos,
   } = useTodos(user?.id, tags, activeListId, lists);
 
   const {
@@ -257,13 +258,36 @@ export default function DashboardPage() {
   // Browser notifications for upcoming tasks
   const { permission: notifPermission, requestPermission } = useNotifications(todos);
 
-  // Assign todo to event and refetch so events update immediately
+  // Assign todo to event — inherit event's list_id, then sync both hooks
   const handleAssignTodoToEvent = useCallback(
     async (todoId: string, eventId: string | null) => {
-      await assignTodoToEvent(todoId, eventId);
+      // When assigning to an event, apply the event's list_id to the task too
+      const targetEvent = eventId ? events.find((e) => e.id === eventId) : null;
+      // Only pass listId (to overwrite) when assigning TO an event; leave undefined when removing
+      const listId = targetEvent ? targetEvent.list_id : undefined;
+      await assignTodoToEvent(todoId, eventId, listId);
       refetchEvents();
+      refetchTodos();
     },
-    [assignTodoToEvent, refetchEvents]
+    [assignTodoToEvent, refetchEvents, refetchTodos, events]
+  );
+
+  // Add task directly to an event — refetch todos so it appears in list/all-tasks views
+  const handleAddTaskToEvent = useCallback(
+    async (
+      eventId: string,
+      title: string,
+      options?: {
+        due_date?: string | null;
+        start_time?: string | null;
+        priority?: string;
+        list_id?: string | null;
+      }
+    ) => {
+      await addTaskToEvent(eventId, title, options);
+      refetchTodos();
+    },
+    [addTaskToEvent, refetchTodos]
   );
 
   // Wrapped delete that shows undo toast
@@ -810,7 +834,7 @@ export default function DashboardPage() {
               loading={eventsLoading}
               onUpdate={updateEvent}
               onDelete={deleteEvent}
-              onAddTask={addTaskToEvent}
+              onAddTask={handleAddTaskToEvent}
               onRemoveTask={removeTaskFromEvent}
               onToggleTodo={toggleTodo}
               onUpdateTodo={updateTodo}

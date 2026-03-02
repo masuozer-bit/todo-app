@@ -558,16 +558,22 @@ export function useTodos(
   }
 
   const assignTodoToEvent = useCallback(
-    async (todoId: string, eventId: string | null) => {
+    async (todoId: string, eventId: string | null, listId?: string | null) => {
+      // Build update object — always update event_id, optionally update list_id
+      const updates: Record<string, unknown> = { event_id: eventId };
+      if (listId !== undefined) updates.list_id = listId;
+
       const { error } = await supabase
         .from("todos")
-        .update({ event_id: eventId })
+        .update(updates)
         .eq("id", todoId);
 
       if (!error) {
         setTodos((prev) =>
           prev.map((t) =>
-            t.id === todoId ? { ...t, event_id: eventId } : t
+            t.id === todoId
+              ? { ...t, event_id: eventId, ...(listId !== undefined ? { list_id: listId } : {}) }
+              : t
           )
         );
       }
@@ -590,5 +596,6 @@ export function useTodos(
     clearCompleted,
     exportTodos,
     assignTodoToEvent,
+    refetchTodos: fetchTodos,
   };
 }

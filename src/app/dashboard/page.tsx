@@ -139,7 +139,7 @@ function SortableListItem({
             <List size={14} />
             <span className="truncate flex-1">{list.name}</span>
             {count > 0 && (
-              <span className="flex-shrink-0 min-w-[18px] h-[18px] rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center px-1 tabular-nums leading-none">
+              <span className="flex-shrink-0 min-w-[18px] h-[18px] rounded-full bg-red-500/15 dark:bg-red-400/15 text-red-500 dark:text-red-400 text-[10px] font-semibold flex items-center justify-center px-1 tabular-nums leading-none shadow-[0_0_6px_rgba(239,68,68,0.3)]">
                 {count}
               </span>
             )}
@@ -521,7 +521,7 @@ export default function DashboardPage() {
               <Inbox size={15} />
               <span className="flex-1 text-left">All Tasks</span>
               {taskCounts.total > 0 && (
-                <span className="flex-shrink-0 min-w-[18px] h-[18px] rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center px-1 tabular-nums leading-none">
+                <span className="flex-shrink-0 min-w-[18px] h-[18px] rounded-full bg-red-500/15 dark:bg-red-400/15 text-red-500 dark:text-red-400 text-[10px] font-semibold flex items-center justify-center px-1 tabular-nums leading-none shadow-[0_0_6px_rgba(239,68,68,0.3)]">
                   {taskCounts.total}
                 </span>
               )}
@@ -539,7 +539,7 @@ export default function DashboardPage() {
               <Sun size={15} />
               <span className="flex-1 text-left">Today</span>
               {taskCounts.today > 0 && (
-                <span className="flex-shrink-0 min-w-[18px] h-[18px] rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center px-1 tabular-nums leading-none">
+                <span className="flex-shrink-0 min-w-[18px] h-[18px] rounded-full bg-red-500/15 dark:bg-red-400/15 text-red-500 dark:text-red-400 text-[10px] font-semibold flex items-center justify-center px-1 tabular-nums leading-none shadow-[0_0_6px_rgba(239,68,68,0.3)]">
                   {taskCounts.today}
                 </span>
               )}
@@ -557,7 +557,7 @@ export default function DashboardPage() {
               <CalendarDays size={15} />
               <span className="flex-1 text-left">This Week</span>
               {taskCounts.thisWeek > 0 && (
-                <span className="flex-shrink-0 min-w-[18px] h-[18px] rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center px-1 tabular-nums leading-none">
+                <span className="flex-shrink-0 min-w-[18px] h-[18px] rounded-full bg-red-500/15 dark:bg-red-400/15 text-red-500 dark:text-red-400 text-[10px] font-semibold flex items-center justify-center px-1 tabular-nums leading-none shadow-[0_0_6px_rgba(239,68,68,0.3)]">
                   {taskCounts.thisWeek}
                 </span>
               )}

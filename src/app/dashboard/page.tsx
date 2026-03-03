@@ -59,6 +59,7 @@ function SortableListItem({
   onCancelEdit,
   onDelete,
   count = 0,
+  urgency = "normal",
 }: {
   list: ListType;
   isActive: boolean;
@@ -71,6 +72,7 @@ function SortableListItem({
   onCancelEdit: () => void;
   onDelete: () => void;
   count?: number;
+  urgency?: "overdue" | "today" | "soon" | "normal";
 }) {
   const {
     attributes,
@@ -139,7 +141,18 @@ function SortableListItem({
             <List size={14} />
             <span className="truncate flex-1">{list.name}</span>
             {count > 0 && (
-              <span className="flex-shrink-0 min-w-[18px] h-[18px] rounded-full bg-red-500/15 dark:bg-red-400/15 text-red-500 dark:text-red-400 text-[10px] font-semibold flex items-center justify-center px-1 tabular-nums leading-none shadow-[0_0_6px_rgba(239,68,68,0.3)]">
+              <span
+                className="flex-shrink-0 min-w-[18px] h-[18px] rounded-full text-[10px] font-semibold flex items-center justify-center px-1 tabular-nums leading-none"
+                style={
+                  urgency === "overdue"
+                    ? { backgroundColor: "rgba(239,68,68,0.15)", color: "#f87171", boxShadow: "0 0 6px rgba(239,68,68,0.3)" }
+                    : urgency === "today"
+                    ? { backgroundColor: "rgba(249,115,22,0.15)", color: "#fb923c", boxShadow: "0 0 6px rgba(249,115,22,0.3)" }
+                    : urgency === "soon"
+                    ? { backgroundColor: "rgba(234,179,8,0.15)", color: "#facc15", boxShadow: "0 0 6px rgba(234,179,8,0.25)" }
+                    : { backgroundColor: "rgba(255,255,255,0.1)", color: "#9ca3af" }
+                }
+              >
                 {count}
               </span>
             )}
@@ -260,6 +273,7 @@ export default function DashboardPage() {
     deleteEvent,
     addTaskToEvent,
     removeTaskFromEvent,
+    reorderEvents,
     refetchEvents,
   } = useEvents(user?.id, tags);
 
@@ -462,17 +476,37 @@ export default function DashboardPage() {
     weekEnd.setHours(23, 59, 59, 999);
     let total = 0, today = 0, thisWeek = 0;
     const lists: Record<string, number> = {};
+    // urgency per list: "overdue" > "today" > "soon" > "normal"
+    const listUrgency: Record<string, "overdue" | "today" | "soon" | "normal"> = {};
+    const urgencyRank = { overdue: 3, today: 2, soon: 1, normal: 0 } as const;
     for (const t of todos) {
       if (t.completed) continue;
       total++;
-      if (t.list_id) lists[t.list_id] = (lists[t.list_id] ?? 0) + 1;
+      if (t.list_id) {
+        lists[t.list_id] = (lists[t.list_id] ?? 0) + 1;
+        // Compute this task's urgency
+        let u: "overdue" | "today" | "soon" | "normal" = "normal";
+        if (t.due_date) {
+          if (t.due_date < todayStr) u = "overdue";
+          else if (t.due_date === todayStr) u = "today";
+          else {
+            const d = new Date(t.due_date + "T00:00:00");
+            if (d <= weekEnd) u = "soon";
+          }
+        }
+        // Keep the highest urgency seen for this list
+        const prev = listUrgency[t.list_id];
+        if (!prev || urgencyRank[u] > urgencyRank[prev]) {
+          listUrgency[t.list_id] = u;
+        }
+      }
       if (t.due_date === todayStr) today++;
       if (t.due_date) {
         const d = new Date(t.due_date + "T00:00:00");
-        if (d <= weekEnd) thisWeek++; // overdue or within next 7 days
+        if (d <= weekEnd) thisWeek++;
       }
     }
-    return { total, today, thisWeek, lists };
+    return { total, today, thisWeek, lists, listUrgency };
   }, [todos]);
 
   if (authLoading) {
@@ -633,6 +667,7 @@ export default function DashboardPage() {
                             if (activeListId === list.id) setActiveListId(null);
                           }}
                           count={taskCounts.lists[list.id] ?? 0}
+                          urgency={taskCounts.listUrgency[list.id] ?? "normal"}
                         />
                       ))}
                     </div>
@@ -930,6 +965,7 @@ export default function DashboardPage() {
               onDeleteSubtask={deleteSubtask}
               onAssignEvent={handleAssignTodoToEvent}
               onRefetchEvents={refetchEvents}
+              onReorderEvents={reorderEvents}
               defaultSelectedEventId={openEventDetailId}
               onDefaultEventHandled={() => setOpenEventDetailId(null)}
             />

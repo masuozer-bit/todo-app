@@ -16,6 +16,7 @@ export function useEvents(userId: string | undefined, allTags: Tag[]) {
       .from("events")
       .select("*")
       .eq("user_id", userId)
+      .order("sort_order", { ascending: true })
       .order("created_at", { ascending: false });
 
     if (error || !eventsData) {
@@ -225,6 +226,32 @@ export function useEvents(userId: string | undefined, allTags: Tag[]) {
     []
   );
 
+  const reorderEvents = useCallback(
+    async (orderedIds: string[]) => {
+      // Optimistic update
+      setEvents(prev => {
+        const map = new Map(prev.map(e => [e.id, e]));
+        return orderedIds
+          .map((id, i) => {
+            const e = map.get(id);
+            return e ? { ...e, sort_order: i * 10 } : null;
+          })
+          .filter((e): e is Event => e !== null);
+      });
+      // Persist to DB
+      const results = await Promise.all(
+        orderedIds.map((id, i) =>
+          supabase.from("events").update({ sort_order: i * 10 }).eq("id", id)
+        )
+      );
+      const failed = results.filter(r => r.error);
+      if (failed.length > 0) {
+        console.error("[reorderEvents] DB update failed:", failed.map(r => r.error));
+      }
+    },
+    []
+  );
+
   return {
     events,
     loading,
@@ -233,6 +260,7 @@ export function useEvents(userId: string | undefined, allTags: Tag[]) {
     deleteEvent,
     addTaskToEvent,
     removeTaskFromEvent,
+    reorderEvents,
     refetchEvents: fetchEvents,
   };
 }

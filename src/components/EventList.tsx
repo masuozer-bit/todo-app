@@ -51,6 +51,7 @@ interface EventListProps extends SharedEventCardProps {
   loading: boolean;
   defaultSelectedEventId?: string | null;
   onDefaultEventHandled?: () => void;
+  onReorderEvents?: (orderedIds: string[]) => void;
 }
 
 type SortMode = "manual" | "list";
@@ -106,8 +107,12 @@ export default function EventList({
   onRefetchEvents,
   defaultSelectedEventId,
   onDefaultEventHandled,
+  onReorderEvents,
 }: EventListProps) {
-  const [sortMode, setSortMode] = useState<SortMode>("list");
+  const [sortMode, setSortMode] = useState<SortMode>(() => {
+    if (typeof window === "undefined") return "list";
+    return (localStorage.getItem("eventSortMode") as SortMode) ?? "list";
+  });
   const [manualOrder, setManualOrder] = useState<string[]>(() => events.map(e => e.id));
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
 
@@ -120,7 +125,9 @@ export default function EventList({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [defaultSelectedEventId]);
 
-  // Keep manual order in sync when events are added or removed
+  // Keep manual order in sync only when the set of event IDs changes
+  // (add/delete), not on sort_order changes (which would overwrite drag order).
+  const eventIdsKey = events.map(e => e.id).sort().join(",");
   useEffect(() => {
     setManualOrder(prev => {
       const currentIds = events.map(e => e.id);
@@ -128,7 +135,8 @@ export default function EventList({
       const added = currentIds.filter(id => !kept.includes(id));
       return [...kept, ...added];
     });
-  }, [events]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eventIdsKey]);
 
   // Auto-back if the selected event was deleted
   useEffect(() => {
@@ -145,11 +153,12 @@ export default function EventList({
   function handleDragEnd(e: DragEndEvent) {
     const { active, over } = e;
     if (!over || active.id === over.id) return;
-    setManualOrder(prev => {
-      const oldIdx = prev.indexOf(String(active.id));
-      const newIdx = prev.indexOf(String(over.id));
-      return arrayMove(prev, oldIdx, newIdx);
-    });
+    const oldIdx = manualOrder.indexOf(String(active.id));
+    const newIdx = manualOrder.indexOf(String(over.id));
+    if (oldIdx === -1 || newIdx === -1) return;
+    const next = arrayMove(manualOrder, oldIdx, newIdx);
+    setManualOrder(next);
+    onReorderEvents?.(next);
   }
 
   const displayedEvents = useMemo(() => {
@@ -249,7 +258,7 @@ export default function EventList({
       {/* Sort mode toggle */}
       <div className="flex items-center gap-1.5 mb-1">
         <button
-          onClick={() => setSortMode("manual")}
+          onClick={() => { setSortMode("manual"); localStorage.setItem("eventSortMode", "manual"); }}
           className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg border transition-default ${
             sortMode === "manual"
               ? "bg-black dark:bg-white text-white dark:text-black border-transparent font-medium"
@@ -260,7 +269,7 @@ export default function EventList({
           Manual
         </button>
         <button
-          onClick={() => setSortMode("list")}
+          onClick={() => { setSortMode("list"); localStorage.setItem("eventSortMode", "list"); }}
           className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg border transition-default ${
             sortMode === "list"
               ? "bg-black dark:bg-white text-white dark:text-black border-transparent font-medium"

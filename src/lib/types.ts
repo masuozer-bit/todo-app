@@ -59,6 +59,7 @@ export interface Event {
   color?: string | null;
   due_date?: string | null;   // YYYY-MM-DD start/event date
   end_date?: string | null;   // YYYY-MM-DD end date (optional)
+  sort_order: number;
   created_at: string;
   updated_at: string;
   todos?: Todo[];

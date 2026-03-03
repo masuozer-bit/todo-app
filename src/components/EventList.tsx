@@ -107,7 +107,7 @@ export default function EventList({
   defaultSelectedEventId,
   onDefaultEventHandled,
 }: EventListProps) {
-  const [sortMode, setSortMode] = useState<SortMode>("manual");
+  const [sortMode, setSortMode] = useState<SortMode>("list");
   const [manualOrder, setManualOrder] = useState<string[]>(() => events.map(e => e.id));
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
 
@@ -153,19 +153,36 @@ export default function EventList({
   }
 
   const displayedEvents = useMemo(() => {
-    if (sortMode === "list") {
-      return [...events].sort((a, b) => {
-        const aName = lists.find(l => l.id === a.list_id)?.name ?? "";
-        const bName = lists.find(l => l.id === b.list_id)?.name ?? "";
-        if (!aName && !bName) return 0;
-        if (!aName) return 1;
-        if (!bName) return -1;
-        return aName.localeCompare(bName);
-      });
-    }
     const map = new Map(events.map(e => [e.id, e]));
     return manualOrder.map(id => map.get(id)).filter((e): e is Event => e !== undefined);
-  }, [events, sortMode, manualOrder, lists]);
+  }, [events, manualOrder]);
+
+  // Grouped by list for the "by list" view
+  const listGroups = useMemo(() => {
+    if (sortMode !== "list") return [];
+    const groups: { listId: string | null; listName: string; events: Event[] }[] = [];
+    const seen = new Map<string | null, number>();
+
+    for (const event of events) {
+      const key = event.list_id ?? null;
+      const name = key ? (lists.find(l => l.id === key)?.name ?? "Unknown") : "No List";
+      if (!seen.has(key)) {
+        seen.set(key, groups.length);
+        groups.push({ listId: key, listName: name, events: [] });
+      }
+      groups[seen.get(key)!].events.push(event);
+    }
+
+    // Sort groups: named lists alphabetically, "No List" last
+    groups.sort((a, b) => {
+      if (!a.listId && !b.listId) return 0;
+      if (!a.listId) return 1;
+      if (!b.listId) return -1;
+      return a.listName.localeCompare(b.listName);
+    });
+
+    return groups;
+  }, [events, lists, sortMode]);
 
   if (loading) {
     return (
@@ -273,9 +290,27 @@ export default function EventList({
           </SortableContext>
         </DndContext>
       ) : (
-        <div className="space-y-3">
-          {displayedEvents.map(event => (
-            <EventCard key={event.id} event={event} {...sharedProps} />
+        /* ── By List: grouped sections with headers ── */
+        <div className="space-y-6">
+          {listGroups.map(group => (
+            <div key={group.listId ?? "__none__"}>
+              {/* Section header */}
+              <div className="flex items-center gap-2 mb-3">
+                <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+                  {group.listName}
+                </p>
+                <span className="text-xs text-gray-300 dark:text-gray-600">
+                  {group.events.length}
+                </span>
+                <div className="flex-1 h-px bg-black/5 dark:bg-white/5" />
+              </div>
+              {/* Events in this group */}
+              <div className="space-y-3">
+                {group.events.map(event => (
+                  <EventCard key={event.id} event={event} {...sharedProps} />
+                ))}
+              </div>
+            </div>
           ))}
         </div>
       )}

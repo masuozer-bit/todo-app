@@ -16,7 +16,7 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { Search, X, Filter, CheckSquare, Trash2, Maximize2 } from "lucide-react";
+import { Search, X, Filter, CheckSquare, Trash2, Maximize2, ChevronRight, ChevronDown } from "lucide-react";
 import type { Todo, Tag, Priority, List, Event } from "@/lib/types";
 import SortableItem from "./SortableItem";
 import TodoItem from "./TodoItem";
@@ -31,6 +31,13 @@ const PRIORITY_ORDER: Record<Priority, number> = {
   medium: 1,
   low: 2,
   none: 3,
+};
+
+const PRIORITY_DOT: Record<Priority, string> = {
+  high: "bg-red-500",
+  medium: "bg-yellow-500",
+  low: "bg-green-500",
+  none: "bg-gray-300 dark:bg-gray-600",
 };
 
 type TimelineGroup = {
@@ -84,6 +91,33 @@ function groupByTimeline(todos: Todo[]): TimelineGroup[] {
   return TIMELINE_CONFIG
     .filter((c) => groups[c.key]?.length > 0)
     .map((c) => ({ key: c.key, label: c.label, todos: groups[c.key] }));
+}
+
+// Urgency score: lower = more urgent/important
+function getUrgencyScore(
+  priority: Priority | null | undefined,
+  due_date: string | null | undefined
+): number {
+  const pScore = PRIORITY_ORDER[priority ?? "none"] * 100000;
+  if (!due_date) return pScore + 50000; // no date = treat as mid-future
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const due = new Date(due_date + "T00:00:00");
+  const days = Math.round((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  // Map days into 0-49999; overdue (negative) becomes most urgent (lowest)
+  return pScore + Math.max(0, Math.min(49999, days + 1000));
+}
+
+function formatShortDate(dateStr: string): string {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const due = new Date(y, m - 1, d);
+  const diffDays = Math.round((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  if (diffDays < 0) return `${Math.abs(diffDays)}d overdue`;
+  if (diffDays === 0) return "Today";
+  if (diffDays === 1) return "Tomorrow";
+  return due.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
 // ── Skeleton loader ───────────────────────────────────────────────
@@ -151,6 +185,12 @@ export default function TodoList({
   const [filterTagId, setFilterTagId] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<SortBy>("default");
   const [showFilters, setShowFilters] = useState(false);
+
+  // Collapsed state for event containers (default: collapsed = true when not set)
+  const [collapsedEvents, setCollapsedEvents] = useState<Record<string, boolean>>({});
+  const isCollapsed = (id: string) => collapsedEvents[id] !== false;
+  const toggleCollapse = (id: string) =>
+    setCollapsedEvents((prev) => ({ ...prev, [id]: prev[id] !== false ? false : true }));
 
   // Bulk select state
   const [selectMode, setSelectMode] = useState(false);
@@ -243,6 +283,55 @@ export default function TodoList({
   const standaloneActiveTodos = activeTodos.filter((t) => !t.event_id);
   const standaloneCompletedTodos = completedTodos.filter((t) => !t.event_id);
 
+  // Return the most-urgent active task in an event
+  function getEventBestTask(eventId: string): Todo | null {
+    const tasks = eventTodosByEventId[eventId] ?? [];
+    if (tasks.length === 0) return null;
+    return tasks.reduce((best, t) =>
+      getUrgencyScore(t.priority, t.due_date) < getUrgencyScore(best.priority, best.due_date)
+        ? t
+        : best
+    );
+  }
+
+  // Merged list of events + standalone active todos, ordered by urgency
+  type MergedItem =
+    | { kind: "event"; event: Event; score: number }
+    | { kind: "todo"; todo: Todo; score: number };
+
+  const mergedItems = useMemo((): MergedItem[] => {
+    if (sortBy === "timeline") return [];
+
+    const items: MergedItem[] = [];
+
+    for (const event of events) {
+      const tasks = eventTodosByEventId[event.id];
+      if (!tasks?.length) continue;
+      const score = Math.min(
+        ...tasks.map((t) => getUrgencyScore(t.priority, t.due_date))
+      );
+      items.push({ kind: "event", event, score });
+    }
+
+    for (const todo of standaloneActiveTodos) {
+      items.push({
+        kind: "todo",
+        todo,
+        score: getUrgencyScore(todo.priority, todo.due_date),
+      });
+    }
+
+    // For default sort with no events: preserve manual drag order (no sort)
+    const hasEvents = items.some((i) => i.kind === "event");
+    if (hasEvents || sortBy !== "default") {
+      items.sort((a, b) => a.score - b.score);
+    }
+
+    return items;
+  }, [events, eventTodosByEventId, standaloneActiveTodos, sortBy]);
+
+  const hasEventItems = mergedItems.some((i) => i.kind === "event");
+
   // Bulk actions
   const toggleSelect = useCallback((id: string) => {
     setSelectedIds((prev) => {
@@ -306,39 +395,93 @@ export default function TodoList({
     }
   }
 
-  // Render an event container with full TodoItem tasks
+  // Render an event container — collapsed by default
   function renderEventContainer(event: Event) {
     const eventTodos = eventTodosByEventId[event.id] || [];
     if (eventTodos.length === 0) return null;
 
-    const completedCount = eventTodos.filter((t) => t.completed).length;
+    const collapsed = isCollapsed(event.id);
+    const activeCount = eventTodos.filter((t) => !t.completed).length;
+    const doneCount = eventTodos.filter((t) => t.completed).length;
     const listName = event.list_id
       ? lists.find((l) => l.id === event.list_id)?.name
       : null;
+    const bestTask = getEventBestTask(event.id);
 
     return (
       <div key={event.id} className="glass-card-subtle overflow-hidden">
         {/* Color accent bar */}
-        <div className="h-1" style={{ backgroundColor: event.color ?? "#6366f1" }} />
+        <div className="h-0.5" style={{ backgroundColor: event.color ?? "#6366f1" }} />
 
         {/* Header */}
-        <div className="p-3 md:p-4 pb-2">
-          <div className="flex items-center gap-3 group">
+        <div className="p-3 md:p-4">
+          <div className="flex items-start gap-2 group">
+            {/* Expand/collapse toggle */}
+            <button
+              onClick={() => toggleCollapse(event.id)}
+              className="mt-0.5 text-gray-400 hover:text-black dark:hover:text-white transition-default flex-shrink-0"
+              aria-label={collapsed ? "Expand event" : "Collapse event"}
+            >
+              {collapsed ? <ChevronRight size={15} /> : <ChevronDown size={15} />}
+            </button>
+
             <div className="flex-1 min-w-0">
-              <p className="text-base font-medium text-black dark:text-white">
-                {event.title}
-              </p>
-              <div className="flex items-center gap-2 mt-0.5">
-                <span className="text-xs text-gray-400">
-                  {eventTodos.length} task{eventTodos.length !== 1 ? "s" : ""}
-                  {completedCount > 0 && ` · ${completedCount} done`}
-                </span>
+              {/* Title row */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <p className="text-sm font-medium text-black dark:text-white">
+                  {event.title}
+                </p>
+                {/* Active task count badge — same glow style as sidebar */}
+                {activeCount > 0 && (
+                  <span className="flex-shrink-0 min-w-[18px] h-[18px] rounded-full bg-red-500/15 dark:bg-red-400/15 text-red-500 dark:text-red-400 text-[10px] font-semibold flex items-center justify-center px-1 tabular-nums leading-none shadow-[0_0_6px_rgba(239,68,68,0.3)]">
+                    {activeCount}
+                  </span>
+                )}
                 {listName && (
-                  <span className="text-xs text-gray-300 dark:text-gray-600">· {listName}</span>
+                  <span className="text-[11px] text-gray-300 dark:text-gray-600">
+                    {listName}
+                  </span>
                 )}
               </div>
+
+              {/* Best-task preview — only when collapsed */}
+              {collapsed && bestTask && (
+                <div className="flex items-center gap-1.5 mt-1 min-w-0">
+                  {bestTask.priority && bestTask.priority !== "none" && (
+                    <span
+                      className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${PRIORITY_DOT[bestTask.priority]}`}
+                    />
+                  )}
+                  <span className="text-xs text-gray-400 truncate">{bestTask.title}</span>
+                  {bestTask.due_date && (
+                    <span className="text-xs text-gray-300 dark:text-gray-600 flex-shrink-0">
+                      · {formatShortDate(bestTask.due_date)}
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {/* Progress bar */}
+              {!collapsed && eventTodos.length > 0 && (
+                <div className="mt-2 flex items-center gap-2">
+                  <div className="flex-1 h-0.5 bg-black/5 dark:bg-white/10 rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all duration-500"
+                      style={{
+                        width: `${(doneCount / eventTodos.length) * 100}%`,
+                        backgroundColor: event.color ?? "#6366f1",
+                      }}
+                    />
+                  </div>
+                  <span className="text-[10px] text-gray-400 flex-shrink-0">
+                    {doneCount}/{eventTodos.length}
+                  </span>
+                </div>
+              )}
             </div>
-            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-default flex-shrink-0">
+
+            {/* Actions (visible on hover) */}
+            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-default flex-shrink-0 mt-0.5">
               {onOpenEventDetail && (
                 <button
                   onClick={() => onOpenEventDetail(event.id)}
@@ -361,42 +504,31 @@ export default function TodoList({
               )}
             </div>
           </div>
+        </div>
 
-          {/* Progress bar */}
-          {eventTodos.length > 0 && (
-            <div className="mt-2 w-full h-1 bg-black/5 dark:bg-white/10 rounded-full overflow-hidden">
-              <div
-                className="h-full rounded-full transition-all duration-500"
-                style={{
-                  width: `${(completedCount / eventTodos.length) * 100}%`,
-                  backgroundColor: event.color ?? "#6366f1",
-                }}
+        {/* Expanded: full task list */}
+        {!collapsed && (
+          <div className="border-t border-black/5 dark:border-white/5 divide-y divide-black/5 dark:divide-white/5">
+            {eventTodos.map((todo) => (
+              <TodoItem
+                key={todo.id}
+                todo={todo}
+                allTags={allTags}
+                onToggle={onToggle}
+                onUpdate={onUpdate}
+                onDelete={handleDeleteRequest}
+                onTagToggle={onTagToggle}
+                onAddSubtask={onAddSubtask}
+                onToggleSubtask={onToggleSubtask}
+                onDeleteSubtask={onDeleteSubtask}
+                lists={lists}
+                activeListId={activeListId}
+                events={events}
+                onAssignEvent={onAssignEvent}
               />
-            </div>
-          )}
-        </div>
-
-        {/* Full TodoItem for each task */}
-        <div className="border-t border-black/5 dark:border-white/5 divide-y divide-black/5 dark:divide-white/5">
-          {eventTodos.map((todo) => (
-            <TodoItem
-              key={todo.id}
-              todo={todo}
-              allTags={allTags}
-              onToggle={onToggle}
-              onUpdate={onUpdate}
-              onDelete={handleDeleteRequest}
-              onTagToggle={onTagToggle}
-              onAddSubtask={onAddSubtask}
-              onToggleSubtask={onToggleSubtask}
-              onDeleteSubtask={onDeleteSubtask}
-              lists={lists}
-              activeListId={activeListId}
-              events={events}
-              onAssignEvent={onAssignEvent}
-            />
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
     );
   }
@@ -665,17 +797,16 @@ export default function TodoList({
           </button>
         </div>
       ) : sortBy === "timeline" ? (
+        /* ── Timeline view: events (collapsed) first, then timeline groups ── */
         <div className="space-y-5">
-          {/* Events section */}
           {Object.keys(eventTodosByEventId).length > 0 && (
-            <div className="space-y-3">
+            <div className="space-y-2">
               {events
                 .filter((e) => eventTodosByEventId[e.id]?.length > 0)
                 .map((event) => renderEventContainer(event))}
             </div>
           )}
 
-          {/* Timeline groups for standalone todos */}
           {groupByTimeline(standaloneActiveTodos).map((group) => (
             <div key={group.key}>
               <p className={`text-xs font-medium uppercase tracking-wider mb-2 px-1 ${
@@ -711,52 +842,48 @@ export default function TodoList({
           )}
         </div>
       ) : (
-        <div className="space-y-3">
-          {/* Events section */}
-          {Object.keys(eventTodosByEventId).length > 0 && (
-            <div className="space-y-3">
-              {events
-                .filter((e) => eventTodosByEventId[e.id]?.length > 0)
-                .map((event) => renderEventContainer(event))}
-            </div>
+        /* ── Default / Priority view: events + tasks interleaved by urgency ── */
+        <div className="space-y-2">
+          {mergedItems.length > 0 && (
+            /* DnD only for manual sort when there are no events to interleave */
+            !hasEventItems && sortBy === "default" && !selectMode ? (
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+              >
+                <SortableContext
+                  items={standaloneActiveTodos.map((t) => t.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <div className="space-y-2">
+                    {mergedItems.map((item) =>
+                      item.kind === "todo" ? renderTodo(item.todo, true) : null
+                    )}
+                  </div>
+                </SortableContext>
+              </DndContext>
+            ) : (
+              <div className="space-y-2">
+                {mergedItems.map((item) =>
+                  item.kind === "event"
+                    ? renderEventContainer(item.event)
+                    : renderTodo(item.todo, false)
+                )}
+              </div>
+            )
           )}
 
-          {/* Standalone todos */}
-          <div className="space-y-2">
-            {standaloneActiveTodos.length > 0 && (
-              selectMode ? (
-                <div className="space-y-2">
-                  {standaloneActiveTodos.map((todo) => renderTodo(todo, false))}
-                </div>
-              ) : (
-                <DndContext
-                  sensors={sensors}
-                  collisionDetection={closestCenter}
-                  onDragEnd={handleDragEnd}
-                >
-                  <SortableContext
-                    items={standaloneActiveTodos.map((t) => t.id)}
-                    strategy={verticalListSortingStrategy}
-                  >
-                    <div className="space-y-2">
-                      {standaloneActiveTodos.map((todo) => renderTodo(todo, true))}
-                    </div>
-                  </SortableContext>
-                </DndContext>
-              )
-            )}
-
-            {standaloneCompletedTodos.length > 0 && (
-              <div className="pt-4">
-                <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2 px-1">
-                  Completed ({standaloneCompletedTodos.length})
-                </p>
-                <div className="space-y-2">
-                  {standaloneCompletedTodos.map((todo) => renderTodo(todo, false))}
-                </div>
+          {standaloneCompletedTodos.length > 0 && (
+            <div className="pt-4">
+              <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2 px-1">
+                Completed ({standaloneCompletedTodos.length})
+              </p>
+              <div className="space-y-2">
+                {standaloneCompletedTodos.map((todo) => renderTodo(todo, false))}
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       )}
 

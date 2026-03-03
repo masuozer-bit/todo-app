@@ -9,7 +9,7 @@ interface SortableItemProps {
   todo: Todo;
   allTags: Tag[];
   onToggle: (id: string, completed: boolean) => void;
-  onUpdate: (id: string, updates: { title?: string; due_date?: string | null; start_time?: string | null; end_time?: string | null; priority?: Priority; notes?: string | null; list_id?: string | null }) => void;
+  onUpdate: (id: string, updates: { title?: string; due_date?: string | null; start_date?: string | null; start_time?: string | null; end_time?: string | null; priority?: Priority; notes?: string | null; list_id?: string | null }) => void;
   onDelete: (id: string) => void;
   onTagToggle: (todoId: string, tagId: string, add: boolean) => void;
   onAddSubtask: (todoId: string, title: string) => void;

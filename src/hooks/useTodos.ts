@@ -245,6 +245,7 @@ export function useTodos(
       updates: {
         title?: string;
         due_date?: string | null;
+        start_date?: string | null;
         start_time?: string | null;
         end_time?: string | null;
         priority?: Priority;

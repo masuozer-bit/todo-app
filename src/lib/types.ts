@@ -17,6 +17,7 @@ export interface Todo {
   completed: boolean;
   sort_order: number;
   due_date?: string | null;
+  start_date?: string | null; // YYYY-MM-DD — when to begin working on this task
   start_time?: string | null; // "HH:MM" format
   end_time?: string | null;   // "HH:MM" format
   priority: Priority;

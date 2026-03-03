@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import {
   DndContext,
   closestCenter,
@@ -19,6 +19,7 @@ import {
 import { Search, X, Filter, CheckSquare, Trash2, Maximize2, ChevronRight, ChevronDown } from "lucide-react";
 import type { Todo, Tag, Priority, List, Event } from "@/lib/types";
 import SortableItem from "./SortableItem";
+import ManualSortWrapper from "./ManualSortWrapper";
 import TodoItem from "./TodoItem";
 import ConfirmDialog from "./ConfirmDialog";
 import BulkActionBar from "./BulkActionBar";
@@ -44,6 +45,7 @@ type TimelineGroup = {
   key: string;
   label: string;
   todos: Todo[];
+  events: Event[];
 };
 
 function getTimelineGroup(dateStr: string | null | undefined): string {
@@ -72,25 +74,52 @@ const TIMELINE_CONFIG: { key: string; label: string }[] = [
   { key: "someday", label: "Someday" },
 ];
 
-function groupByTimeline(todos: Todo[]): TimelineGroup[] {
-  const groups: Record<string, Todo[]> = {};
+function groupByTimeline(
+  todos: Todo[],
+  events: Event[],
+  eventTodosByEventId: Record<string, Todo[]>
+): TimelineGroup[] {
+  const groups: Record<string, { todos: Todo[]; events: Event[] }> = {};
+
+  // Group standalone todos — use start_date if set, else due_date
   for (const todo of todos) {
-    const key = getTimelineGroup(todo.due_date);
-    if (!groups[key]) groups[key] = [];
-    groups[key].push(todo);
+    const key = getTimelineGroup(todo.start_date ?? todo.due_date);
+    if (!groups[key]) groups[key] = { todos: [], events: [] };
+    groups[key].todos.push(todo);
   }
+
+  // Group events by the earliest start_date ?? due_date among their active tasks
+  for (const event of events) {
+    const tasks = eventTodosByEventId[event.id];
+    if (!tasks?.length) continue;
+    let bestDate: string | null = null;
+    let bestScore = Infinity;
+    for (const t of tasks) {
+      const d = t.start_date ?? t.due_date ?? null;
+      const s = getUrgencyScore(t.priority, d);
+      if (s < bestScore) { bestScore = s; bestDate = d; }
+    }
+    const key = getTimelineGroup(bestDate);
+    if (!groups[key]) groups[key] = { todos: [], events: [] };
+    groups[key].events.push(event);
+  }
+
+  // Sort todos within each group by their effective date
   for (const key of Object.keys(groups)) {
     if (key !== "someday") {
-      groups[key].sort((a, b) => {
-        if (!a.due_date) return 1;
-        if (!b.due_date) return -1;
-        return a.due_date.localeCompare(b.due_date);
+      groups[key].todos.sort((a, b) => {
+        const da = a.start_date ?? a.due_date ?? null;
+        const db = b.start_date ?? b.due_date ?? null;
+        if (!da) return 1;
+        if (!db) return -1;
+        return da.localeCompare(db);
       });
     }
   }
+
   return TIMELINE_CONFIG
-    .filter((c) => groups[c.key]?.length > 0)
-    .map((c) => ({ key: c.key, label: c.label, todos: groups[c.key] }));
+    .filter((c) => (groups[c.key]?.todos?.length ?? 0) > 0 || (groups[c.key]?.events?.length ?? 0) > 0)
+    .map((c) => ({ key: c.key, label: c.label, todos: groups[c.key]?.todos ?? [], events: groups[c.key]?.events ?? [] }));
 }
 
 // Urgency score: lower = more urgent/important
@@ -142,7 +171,7 @@ interface TodoListProps {
   todos: Todo[];
   allTags: Tag[];
   onToggle: (id: string, completed: boolean) => void;
-  onUpdate: (id: string, updates: { title?: string; due_date?: string | null; start_time?: string | null; end_time?: string | null; priority?: Priority; notes?: string | null; list_id?: string | null }) => void;
+  onUpdate: (id: string, updates: { title?: string; due_date?: string | null; start_date?: string | null; start_time?: string | null; end_time?: string | null; priority?: Priority; notes?: string | null; list_id?: string | null }) => void;
   onDelete: (id: string) => void;
   onTagToggle: (todoId: string, tagId: string, add: boolean) => void;
   onReorder: (reordered: Todo[]) => void;
@@ -157,6 +186,10 @@ interface TodoListProps {
   onAssignEvent?: (todoId: string, eventId: string | null) => void;
   onDeleteEvent?: (eventId: string) => void;
   onOpenEventDetail?: (eventId: string) => void;
+  /** Initial sort mode. Falls back to "default" if not provided. */
+  defaultSortBy?: SortBy;
+  /** Key used to persist manual sort order in localStorage (e.g. "list:uuid", "allTasks"). */
+  viewKey?: string;
 }
 
 export default function TodoList({
@@ -178,13 +211,27 @@ export default function TodoList({
   onAssignEvent,
   onDeleteEvent,
   onOpenEventDetail,
+  defaultSortBy = "default",
+  viewKey = "default",
 }: TodoListProps) {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
   const [filterTagId, setFilterTagId] = useState<string | null>(null);
-  const [sortBy, setSortBy] = useState<SortBy>("default");
+  const [sortBy, setSortBy] = useState<SortBy>(defaultSortBy);
   const [showFilters, setShowFilters] = useState(false);
+
+  // ── Manual sort order (mixed events + todos), persisted per view ──────────
+  const lsKey = `manualOrder:${viewKey}`;
+  const [manualOrder, setManualOrder] = useState<string[]>(() => {
+    if (typeof window === "undefined") return [];
+    try { return JSON.parse(localStorage.getItem(lsKey) ?? "[]"); } catch { return []; }
+  });
+
+  function saveManualOrder(order: string[]) {
+    setManualOrder(order);
+    try { localStorage.setItem(lsKey, JSON.stringify(order)); } catch { /* ignore */ }
+  }
 
   // Collapsed state for event containers (default: collapsed = true when not set)
   const [collapsedEvents, setCollapsedEvents] = useState<Record<string, boolean>>({});
@@ -307,8 +354,9 @@ export default function TodoList({
     for (const event of events) {
       const tasks = eventTodosByEventId[event.id];
       if (!tasks?.length) continue;
+      // Use start_date ?? due_date for event urgency score
       const score = Math.min(
-        ...tasks.map((t) => getUrgencyScore(t.priority, t.due_date))
+        ...tasks.map((t) => getUrgencyScore(t.priority, t.start_date ?? t.due_date))
       );
       items.push({ kind: "event", event, score });
     }
@@ -317,13 +365,12 @@ export default function TodoList({
       items.push({
         kind: "todo",
         todo,
-        score: getUrgencyScore(todo.priority, todo.due_date),
+        score: getUrgencyScore(todo.priority, todo.start_date ?? todo.due_date),
       });
     }
 
-    // For default sort with no events: preserve manual drag order (no sort)
-    const hasEvents = items.some((i) => i.kind === "event");
-    if (hasEvents || sortBy !== "default") {
+    // For default sort: order comes from manualOrder (applied below); skip sorting here
+    if (sortBy !== "default") {
       items.sort((a, b) => a.score - b.score);
     }
 
@@ -331,6 +378,33 @@ export default function TodoList({
   }, [events, eventTodosByEventId, standaloneActiveTodos, sortBy]);
 
   const hasEventItems = mergedItems.some((i) => i.kind === "event");
+
+  // Sync new items into manualOrder (append at end, remove gone items)
+  useEffect(() => {
+    if (sortBy !== "default") return;
+    const allIds = mergedItems.map((i) => (i.kind === "event" ? i.event.id : i.todo.id));
+    const cleaned = manualOrder.filter((id) => allIds.includes(id));
+    const missing = allIds.filter((id) => !cleaned.includes(id));
+    if (missing.length > 0 || cleaned.length !== manualOrder.length) {
+      saveManualOrder([...cleaned, ...missing]);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mergedItems, sortBy]);
+
+  // Final display order for default sort: follow manualOrder
+  const sortedMergedItems = useMemo((): MergedItem[] => {
+    if (sortBy !== "default") return mergedItems;
+    return [...mergedItems].sort((a, b) => {
+      const aId = a.kind === "event" ? a.event.id : a.todo.id;
+      const bId = b.kind === "event" ? b.event.id : b.todo.id;
+      const ai = manualOrder.indexOf(aId);
+      const bi = manualOrder.indexOf(bId);
+      if (ai === -1 && bi === -1) return 0;
+      if (ai === -1) return 1;
+      if (bi === -1) return -1;
+      return ai - bi;
+    });
+  }, [mergedItems, manualOrder, sortBy]);
 
   // Bulk actions
   const toggleSelect = useCallback((id: string) => {
@@ -378,10 +452,21 @@ export default function TodoList({
     const { active, over } = event;
     if (!over || active.id === over.id) return;
 
-    const oldIndex = todos.findIndex((t) => t.id === active.id);
-    const newIndex = todos.findIndex((t) => t.id === over.id);
-    const reordered = arrayMove(todos, oldIndex, newIndex);
-    onReorder(reordered);
+    if (hasEventItems) {
+      // Mixed mode: update manualOrder
+      const ids = sortedMergedItems.map((i) => (i.kind === "event" ? i.event.id : i.todo.id));
+      const oldIndex = ids.indexOf(active.id as string);
+      const newIndex = ids.indexOf(over.id as string);
+      if (oldIndex !== -1 && newIndex !== -1) {
+        saveManualOrder(arrayMove(ids, oldIndex, newIndex));
+      }
+    } else {
+      // Standalone-only mode: persist via sort_order to DB
+      const oldIndex = todos.findIndex((t) => t.id === active.id);
+      const newIndex = todos.findIndex((t) => t.id === over.id);
+      const reordered = arrayMove(todos, oldIndex, newIndex);
+      onReorder(reordered);
+    }
   }
 
   function handleDeleteRequest(id: string) {
@@ -797,17 +882,9 @@ export default function TodoList({
           </button>
         </div>
       ) : sortBy === "timeline" ? (
-        /* ── Timeline view: events (collapsed) first, then timeline groups ── */
+        /* ── Timeline view: events interleaved with tasks by start_date/due_date ── */
         <div className="space-y-5">
-          {Object.keys(eventTodosByEventId).length > 0 && (
-            <div className="space-y-2">
-              {events
-                .filter((e) => eventTodosByEventId[e.id]?.length > 0)
-                .map((event) => renderEventContainer(event))}
-            </div>
-          )}
-
-          {groupByTimeline(standaloneActiveTodos).map((group) => (
+          {groupByTimeline(standaloneActiveTodos, events, eventTodosByEventId).map((group) => (
             <div key={group.key}>
               <p className={`text-xs font-medium uppercase tracking-wider mb-2 px-1 ${
                 group.key === "overdue"
@@ -818,10 +895,11 @@ export default function TodoList({
               }`}>
                 {group.label}
                 <span className="ml-1.5 text-gray-300 dark:text-gray-600 font-normal">
-                  {group.todos.length}
+                  {group.todos.length + group.events.length}
                 </span>
               </p>
               <div className="space-y-2">
+                {group.events.map((event) => renderEventContainer(event))}
                 {group.todos.map((todo) => renderTodo(todo, false))}
               </div>
             </div>
@@ -842,30 +920,41 @@ export default function TodoList({
           )}
         </div>
       ) : (
-        /* ── Default / Priority view: events + tasks interleaved by urgency ── */
+        /* ── Default / Priority view: events + tasks interleaved ── */
         <div className="space-y-2">
-          {mergedItems.length > 0 && (
-            /* DnD only for manual sort when there are no events to interleave */
-            !hasEventItems && sortBy === "default" && !selectMode ? (
+          {sortedMergedItems.length > 0 && (
+            sortBy === "default" && !selectMode ? (
+              /* Manual sort: full DnD for both events and standalone tasks */
               <DndContext
                 sensors={sensors}
                 collisionDetection={closestCenter}
                 onDragEnd={handleDragEnd}
               >
                 <SortableContext
-                  items={standaloneActiveTodos.map((t) => t.id)}
+                  items={sortedMergedItems.map((i) =>
+                    i.kind === "event" ? i.event.id : i.todo.id
+                  )}
                   strategy={verticalListSortingStrategy}
                 >
                   <div className="space-y-2">
-                    {mergedItems.map((item) =>
-                      item.kind === "todo" ? renderTodo(item.todo, true) : null
+                    {sortedMergedItems.map((item) =>
+                      item.kind === "event" ? (
+                        <ManualSortWrapper key={item.event.id} id={item.event.id}>
+                          {renderEventContainer(item.event)}
+                        </ManualSortWrapper>
+                      ) : (
+                        <ManualSortWrapper key={item.todo.id} id={item.todo.id}>
+                          {renderTodo(item.todo, false)}
+                        </ManualSortWrapper>
+                      )
                     )}
                   </div>
                 </SortableContext>
               </DndContext>
             ) : (
+              /* Priority sort: urgency order, no DnD */
               <div className="space-y-2">
-                {mergedItems.map((item) =>
+                {sortedMergedItems.map((item) =>
                   item.kind === "event"
                     ? renderEventContainer(item.event)
                     : renderTodo(item.todo, false)

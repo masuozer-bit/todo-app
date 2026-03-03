@@ -962,6 +962,18 @@ export default function DashboardPage() {
               onAssignEvent={handleAssignTodoToEvent}
               onDeleteEvent={handleDeleteEvent}
               onOpenEventDetail={handleOpenEventDetail}
+              defaultSortBy={
+                activeListId ? "default"
+                : quickFilter === "today" ? "timeline"
+                : quickFilter === "thisWeek" ? "timeline"
+                : "timeline"  /* allTasks default */
+              }
+              viewKey={
+                activeListId ? `list:${activeListId}`
+                : quickFilter === "today" ? "today"
+                : quickFilter === "thisWeek" ? "thisWeek"
+                : "allTasks"
+              }
             />
           )}
         </main>

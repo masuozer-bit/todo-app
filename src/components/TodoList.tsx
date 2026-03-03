@@ -137,6 +137,34 @@ function getUrgencyScore(
   return pScore + Math.max(0, Math.min(49999, days + 1000));
 }
 
+type Urgency = "overdue" | "today" | "soon" | "normal";
+const URGENCY_STYLE: Record<Urgency, React.CSSProperties> = {
+  overdue: { backgroundColor: "rgba(239,68,68,0.22)", color: "#ef4444", boxShadow: "0 0 8px rgba(239,68,68,0.45)" },
+  today:   { backgroundColor: "rgba(245,158,11,0.22)", color: "#f59e0b", boxShadow: "0 0 8px rgba(245,158,11,0.4)" },
+  soon:    { backgroundColor: "rgba(59,130,246,0.22)", color: "#3b82f6", boxShadow: "0 0 8px rgba(59,130,246,0.4)" },
+  normal:  { backgroundColor: "rgba(255,255,255,0.1)", color: "#9ca3af" },
+};
+function getEventUrgency(todos: Todo[]): Urgency {
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const weekEnd = new Date();
+  weekEnd.setHours(0, 0, 0, 0);
+  weekEnd.setDate(weekEnd.getDate() + 6);
+  weekEnd.setHours(23, 59, 59, 999);
+  let best: Urgency = "normal";
+  const rank = { overdue: 3, today: 2, soon: 1, normal: 0 };
+  for (const t of todos) {
+    if (t.completed) continue;
+    if (!t.due_date) continue;
+    let u: Urgency = "normal";
+    if (t.due_date < todayStr) u = "overdue";
+    else if (t.due_date === todayStr) u = "today";
+    else { const d = new Date(t.due_date + "T00:00:00"); if (d <= weekEnd) u = "soon"; }
+    if (rank[u] > rank[best]) best = u;
+    if (best === "overdue") break; // can't get worse
+  }
+  return best;
+}
+
 function formatShortDate(dateStr: string): string {
   const [y, m, d] = dateStr.split("-").map(Number);
   const today = new Date();
@@ -516,9 +544,9 @@ export default function TodoList({
                 <p className="text-sm font-medium text-black dark:text-white">
                   {event.title}
                 </p>
-                {/* Active task count badge — same glow style as sidebar */}
+                {/* Active task count badge — color-coded by due-date urgency */}
                 {activeCount > 0 && (
-                  <span className="flex-shrink-0 min-w-[18px] h-[18px] rounded-full bg-red-500/15 dark:bg-red-400/15 text-red-500 dark:text-red-400 text-[10px] font-semibold flex items-center justify-center px-1 tabular-nums leading-none shadow-[0_0_6px_rgba(239,68,68,0.3)]">
+                  <span className="flex-shrink-0 min-w-[18px] h-[18px] rounded-full text-[10px] font-semibold flex items-center justify-center px-1 tabular-nums leading-none" style={URGENCY_STYLE[getEventUrgency(tasks)]}>
                     {activeCount}
                   </span>
                 )}

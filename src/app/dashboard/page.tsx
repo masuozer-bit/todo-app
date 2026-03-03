@@ -47,6 +47,14 @@ import { getToday } from "@/lib/date-helpers";
 import type { User } from "@supabase/supabase-js";
 import type { List as ListType } from "@/lib/types";
 
+type Urgency = "overdue" | "today" | "soon" | "normal";
+const URGENCY_STYLE: Record<Urgency, React.CSSProperties> = {
+  overdue: { backgroundColor: "rgba(239,68,68,0.22)", color: "#ef4444", boxShadow: "0 0 8px rgba(239,68,68,0.45)" },
+  today:   { backgroundColor: "rgba(245,158,11,0.22)", color: "#f59e0b", boxShadow: "0 0 8px rgba(245,158,11,0.4)" },
+  soon:    { backgroundColor: "rgba(59,130,246,0.22)", color: "#3b82f6", boxShadow: "0 0 8px rgba(59,130,246,0.4)" },
+  normal:  { backgroundColor: "rgba(255,255,255,0.1)", color: "#9ca3af" },
+};
+
 function SortableListItem({
   list,
   isActive,
@@ -143,15 +151,7 @@ function SortableListItem({
             {count > 0 && (
               <span
                 className="flex-shrink-0 min-w-[18px] h-[18px] rounded-full text-[10px] font-semibold flex items-center justify-center px-1 tabular-nums leading-none"
-                style={
-                  urgency === "overdue"
-                    ? { backgroundColor: "rgba(239,68,68,0.15)", color: "#f87171", boxShadow: "0 0 6px rgba(239,68,68,0.3)" }
-                    : urgency === "today"
-                    ? { backgroundColor: "rgba(249,115,22,0.15)", color: "#fb923c", boxShadow: "0 0 6px rgba(249,115,22,0.3)" }
-                    : urgency === "soon"
-                    ? { backgroundColor: "rgba(234,179,8,0.15)", color: "#facc15", boxShadow: "0 0 6px rgba(234,179,8,0.25)" }
-                    : { backgroundColor: "rgba(255,255,255,0.1)", color: "#9ca3af" }
-                }
+                style={URGENCY_STYLE[urgency]}
               >
                 {count}
               </span>
@@ -476,25 +476,29 @@ export default function DashboardPage() {
     weekEnd.setHours(23, 59, 59, 999);
     let total = 0, today = 0, thisWeek = 0;
     const lists: Record<string, number> = {};
-    // urgency per list: "overdue" > "today" > "soon" > "normal"
-    const listUrgency: Record<string, "overdue" | "today" | "soon" | "normal"> = {};
+    const listUrgency: Record<string, Urgency> = {};
     const urgencyRank = { overdue: 3, today: 2, soon: 1, normal: 0 } as const;
+    let globalUrgency: Urgency = "normal";
+    let thisWeekUrgency: Urgency = "normal";
+
+    function taskUrgency(due_date: string | null | undefined): Urgency {
+      if (!due_date) return "normal";
+      if (due_date < todayStr) return "overdue";
+      if (due_date === todayStr) return "today";
+      const d = new Date(due_date + "T00:00:00");
+      if (d <= weekEnd) return "soon";
+      return "normal";
+    }
+
     for (const t of todos) {
       if (t.completed) continue;
       total++;
+      const u = taskUrgency(t.due_date);
+      // Global urgency (All Tasks)
+      if (urgencyRank[u] > urgencyRank[globalUrgency]) globalUrgency = u;
+      // Per-list urgency
       if (t.list_id) {
         lists[t.list_id] = (lists[t.list_id] ?? 0) + 1;
-        // Compute this task's urgency
-        let u: "overdue" | "today" | "soon" | "normal" = "normal";
-        if (t.due_date) {
-          if (t.due_date < todayStr) u = "overdue";
-          else if (t.due_date === todayStr) u = "today";
-          else {
-            const d = new Date(t.due_date + "T00:00:00");
-            if (d <= weekEnd) u = "soon";
-          }
-        }
-        // Keep the highest urgency seen for this list
         const prev = listUrgency[t.list_id];
         if (!prev || urgencyRank[u] > urgencyRank[prev]) {
           listUrgency[t.list_id] = u;
@@ -503,10 +507,13 @@ export default function DashboardPage() {
       if (t.due_date === todayStr) today++;
       if (t.due_date) {
         const d = new Date(t.due_date + "T00:00:00");
-        if (d <= weekEnd) thisWeek++;
+        if (d <= weekEnd) {
+          thisWeek++;
+          if (urgencyRank[u] > urgencyRank[thisWeekUrgency]) thisWeekUrgency = u;
+        }
       }
     }
-    return { total, today, thisWeek, lists, listUrgency };
+    return { total, today, thisWeek, lists, listUrgency, globalUrgency, thisWeekUrgency };
   }, [todos]);
 
   if (authLoading) {
@@ -563,7 +570,7 @@ export default function DashboardPage() {
               <Inbox size={15} />
               <span className="flex-1 text-left">All Tasks</span>
               {taskCounts.total > 0 && (
-                <span className="flex-shrink-0 min-w-[18px] h-[18px] rounded-full bg-red-500/15 dark:bg-red-400/15 text-red-500 dark:text-red-400 text-[10px] font-semibold flex items-center justify-center px-1 tabular-nums leading-none shadow-[0_0_6px_rgba(239,68,68,0.3)]">
+                <span className="flex-shrink-0 min-w-[18px] h-[18px] rounded-full text-[10px] font-semibold flex items-center justify-center px-1 tabular-nums leading-none" style={URGENCY_STYLE[taskCounts.globalUrgency]}>
                   {taskCounts.total}
                 </span>
               )}
@@ -581,7 +588,7 @@ export default function DashboardPage() {
               <Sun size={15} />
               <span className="flex-1 text-left">Today</span>
               {taskCounts.today > 0 && (
-                <span className="flex-shrink-0 min-w-[18px] h-[18px] rounded-full bg-red-500/15 dark:bg-red-400/15 text-red-500 dark:text-red-400 text-[10px] font-semibold flex items-center justify-center px-1 tabular-nums leading-none shadow-[0_0_6px_rgba(239,68,68,0.3)]">
+                <span className="flex-shrink-0 min-w-[18px] h-[18px] rounded-full text-[10px] font-semibold flex items-center justify-center px-1 tabular-nums leading-none" style={URGENCY_STYLE["today"]}>
                   {taskCounts.today}
                 </span>
               )}
@@ -599,7 +606,7 @@ export default function DashboardPage() {
               <CalendarDays size={15} />
               <span className="flex-1 text-left">This Week</span>
               {taskCounts.thisWeek > 0 && (
-                <span className="flex-shrink-0 min-w-[18px] h-[18px] rounded-full bg-red-500/15 dark:bg-red-400/15 text-red-500 dark:text-red-400 text-[10px] font-semibold flex items-center justify-center px-1 tabular-nums leading-none shadow-[0_0_6px_rgba(239,68,68,0.3)]">
+                <span className="flex-shrink-0 min-w-[18px] h-[18px] rounded-full text-[10px] font-semibold flex items-center justify-center px-1 tabular-nums leading-none" style={URGENCY_STYLE[taskCounts.thisWeekUrgency]}>
                   {taskCounts.thisWeek}
                 </span>
               )}

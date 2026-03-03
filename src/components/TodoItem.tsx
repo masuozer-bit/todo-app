@@ -249,7 +249,7 @@ export default function TodoItem({
                 onChange={(e) => setEditValue(e.target.value)}
                 onBlur={handleSave}
                 onKeyDown={(e) => { e.stopPropagation(); handleKeyDown(e); }}
-                className="flex-1 bg-transparent text-black dark:text-white focus:outline-none text-base border-b border-black/20 dark:border-white/20 pb-0.5"
+                className="flex-1 bg-transparent text-black dark:text-white focus:outline-none text-sm border-b border-black/20 dark:border-white/20 pb-0.5"
                 aria-label="Edit task title"
               />
               <button
@@ -274,7 +274,7 @@ export default function TodoItem({
             </div>
           ) : (
             <p
-              className={`text-base cursor-pointer transition-default ${
+              className={`text-sm cursor-pointer transition-default ${
                 todo.completed
                   ? "line-through text-gray-400"
                   : "text-black dark:text-white"

@@ -201,7 +201,7 @@ export default function DashboardPage() {
   const [toasts, setToasts] = useState<ToastData[]>([]);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  const [quickFilter, setQuickFilter] = useState<"today" | "thisWeek" | null>(null);
+  const [quickFilter, setQuickFilter] = useState<"today" | "thisWeek" | null>("today");
   const [eventsView, setEventsView] = useState(false);
   const router = useRouter();
   const supabase = createClient();

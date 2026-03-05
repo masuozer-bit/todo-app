@@ -42,12 +42,16 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Plus, List, Inbox, Trash2, Edit2, Check, X, Calendar, Repeat, Bell, Menu, Sun, CalendarDays, CalendarRange } from "lucide-react";
+import { Plus, Inbox, Trash2, Edit2, Check, X, Calendar, Repeat, Bell, Menu, Sun, CalendarDays, CalendarRange } from "lucide-react";
 import { getToday } from "@/lib/date-helpers";
 import type { User } from "@supabase/supabase-js";
 import type { List as ListType } from "@/lib/types";
 
 type Urgency = "overdue" | "today" | "soon" | "normal";
+const LIST_DOT_COLORS = [
+  "#6366f1", "#f43f5e", "#10b981", "#f59e0b", "#3b82f6",
+  "#8b5cf6", "#ec4899", "#14b8a6", "#ef4444", "#06b6d4",
+];
 const URGENCY_STYLE: Record<Urgency, React.CSSProperties> = {
   overdue: { backgroundColor: "rgba(239,68,68,0.38)", color: "#fca5a5", boxShadow: "0 0 12px rgba(239,68,68,0.6)", animation: "urgency-pulse 2.5s ease-in-out infinite" },
   today:   { backgroundColor: "rgba(245,158,11,0.38)", color: "#fcd34d", boxShadow: "0 0 12px rgba(245,158,11,0.55)", animation: "urgency-pulse 2.5s ease-in-out infinite" },
@@ -68,6 +72,7 @@ function SortableListItem({
   onDelete,
   count = 0,
   urgency = "normal",
+  dotColor = "#6366f1",
 }: {
   list: ListType;
   isActive: boolean;
@@ -81,6 +86,7 @@ function SortableListItem({
   onDelete: () => void;
   count?: number;
   urgency?: "overdue" | "today" | "soon" | "normal";
+  dotColor?: string;
 }) {
   const {
     attributes,
@@ -146,7 +152,10 @@ function SortableListItem({
                 : "text-gray-500 dark:text-gray-400"
             }`}
           >
-            <List size={14} />
+            <span
+              className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+              style={{ backgroundColor: dotColor }}
+            />
             <span className="truncate flex-1">{list.name}</span>
             {count > 0 && (
               <span
@@ -654,7 +663,7 @@ export default function DashboardPage() {
                     strategy={verticalListSortingStrategy}
                   >
                     <div className="space-y-0.5">
-                      {lists.map((list) => (
+                      {lists.map((list, idx) => (
                         <SortableListItem
                           key={list.id}
                           list={list}
@@ -675,6 +684,7 @@ export default function DashboardPage() {
                           }}
                           count={taskCounts.lists[list.id] ?? 0}
                           urgency={taskCounts.listUrgency[list.id] ?? "normal"}
+                          dotColor={LIST_DOT_COLORS[idx % LIST_DOT_COLORS.length]}
                         />
                       ))}
                     </div>

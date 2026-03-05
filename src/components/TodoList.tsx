@@ -524,7 +524,7 @@ export default function TodoList({
     return (
       <div key={event.id} className="glass-card-subtle overflow-hidden">
         {/* Color accent bar */}
-        <div className="h-0.5" style={{ backgroundColor: event.color ?? "#6366f1" }} />
+        <div className="h-1.5 rounded-t-[1rem]" style={{ backgroundColor: event.color ?? "#6366f1" }} />
 
         {/* Header */}
         <div className="p-3 md:p-4">

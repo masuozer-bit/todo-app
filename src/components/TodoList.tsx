@@ -546,7 +546,7 @@ export default function TodoList({
                 </p>
                 {/* Active task count badge — color-coded by due-date urgency */}
                 {activeCount > 0 && (
-                  <span className="flex-shrink-0 min-w-[18px] h-[18px] rounded-full text-[10px] font-semibold flex items-center justify-center px-1 tabular-nums leading-none" style={URGENCY_STYLE[getEventUrgency(tasks)]}>
+                  <span className="flex-shrink-0 min-w-[18px] h-[18px] rounded-full text-[10px] font-semibold flex items-center justify-center px-1 tabular-nums leading-none" style={URGENCY_STYLE[getEventUrgency(eventTodos)]}>
                     {activeCount}
                   </span>
                 )}

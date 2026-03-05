@@ -49,8 +49,8 @@ import type { List as ListType } from "@/lib/types";
 
 type Urgency = "overdue" | "today" | "soon" | "normal";
 const URGENCY_STYLE: Record<Urgency, React.CSSProperties> = {
-  overdue: { backgroundColor: "rgba(239,68,68,0.22)", color: "#ef4444", boxShadow: "0 0 8px rgba(239,68,68,0.45)" },
-  today:   { backgroundColor: "rgba(245,158,11,0.22)", color: "#f59e0b", boxShadow: "0 0 8px rgba(245,158,11,0.4)" },
+  overdue: { backgroundColor: "rgba(239,68,68,0.22)", color: "#ef4444", boxShadow: "0 0 8px rgba(239,68,68,0.45)", animation: "urgency-pulse 2.5s ease-in-out infinite" },
+  today:   { backgroundColor: "rgba(245,158,11,0.22)", color: "#f59e0b", boxShadow: "0 0 8px rgba(245,158,11,0.4)", animation: "urgency-pulse 2.5s ease-in-out infinite" },
   soon:    { backgroundColor: "rgba(59,130,246,0.22)", color: "#3b82f6", boxShadow: "0 0 8px rgba(59,130,246,0.4)" },
   normal:  { backgroundColor: "rgba(255,255,255,0.1)", color: "#9ca3af" },
 };

@@ -161,9 +161,9 @@
   .transition-default {
     transition: all 200ms ease;
   }
-}
 
-@keyframes urgency-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
+  @keyframes urgency-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
 }

@@ -17,6 +17,7 @@ import EventInput from "@/components/EventInput";
 import EventList from "@/components/EventList";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import MobileSidebar from "@/components/MobileSidebar";
+import FocusModeView from "@/components/FocusModeView";
 import { useTodos } from "@/hooks/useTodos";
 import { useTags } from "@/hooks/useTags";
 import { useLists } from "@/hooks/useLists";
@@ -208,6 +209,13 @@ export default function DashboardPage() {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [quickFilter, setQuickFilter] = useState<"today" | "thisWeek" | null>("today");
   const [eventsView, setEventsView] = useState(false);
+  const [isMobile, setIsMobile] = useState<boolean | null>(null);
+  const [focusMode, setFocusMode] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    const stored = localStorage.getItem("focusModePreference");
+    if (stored !== null) return stored === "true";
+    return window.innerWidth < 768;
+  });
   const router = useRouter();
   const supabase = createClient();
   const { toggleTheme } = useTheme();
@@ -221,6 +229,19 @@ export default function DashboardPage() {
   const dismissToast = useCallback((id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
+
+  // Mobile detection
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
+  // Persist focus mode preference
+  useEffect(() => {
+    try { localStorage.setItem("focusModePreference", String(focusMode)); } catch {}
+  }, [focusMode]);
 
   useEffect(() => {
     supabase.auth
@@ -531,6 +552,18 @@ export default function DashboardPage() {
 
   const activeList = lists.find((l) => l.id === activeListId);
 
+  // Todos for Focus Mode panels
+  const todayStr = getToday();
+  const focusWeekStart = new Date(); focusWeekStart.setHours(0, 0, 0, 0);
+  const focusWeekEnd = new Date(focusWeekStart); focusWeekEnd.setDate(focusWeekStart.getDate() + 6); focusWeekEnd.setHours(23, 59, 59, 999);
+  const todayTodos = todos.filter((t) => t.due_date === todayStr);
+  const thisWeekTodos = todos.filter((t) => {
+    if (!t.due_date) return false;
+    const d = new Date(t.due_date + "T00:00:00");
+    if (d < focusWeekStart && !t.completed) return true;
+    return d >= focusWeekStart && d <= focusWeekEnd;
+  });
+
   // Build visible todos: start with list filter, then apply quick/date filters
   let visibleTodos = activeListId
     ? todos.filter((t) => t.list_id === activeListId)
@@ -557,7 +590,36 @@ export default function DashboardPage() {
   const activeTodoCount = visibleTodos.filter((t) => !t.completed).length;
   const completedTodoCount = visibleTodos.filter((t) => t.completed).length;
 
+  const focusModeHandlers = {
+    onAdd: addTodo,
+    onToggle: toggleTodo,
+    onUpdate: updateTodo,
+    onDelete: deleteTodo,
+    onTagToggle: toggleTodoTag,
+    onReorder: reorderTodos,
+    onAddSubtask: addSubtask,
+    onToggleSubtask: toggleSubtask,
+    onDeleteSubtask: deleteSubtask,
+    onAssignEvent: handleAssignTodoToEvent,
+    onDeleteEvent: handleDeleteEvent,
+    onOpenEventDetail: handleOpenEventDetail,
+  };
+
   return (
+    <>
+    {/* Focus Mode overlay (mobile only) */}
+    {isMobile && focusMode && (
+      <FocusModeView
+        todayTodos={todayTodos}
+        thisWeekTodos={thisWeekTodos}
+        loading={todosLoading}
+        allTags={tags}
+        lists={lists}
+        events={events}
+        onExitFocusMode={() => setFocusMode(false)}
+        {...focusModeHandlers}
+      />
+    )}
     <div className="min-h-screen bg-white dark:bg-black transition-colors">
       <div className={`mx-auto px-4 pt-6 pb-8 flex gap-6 ${showCalendar ? "max-w-6xl" : "max-w-5xl"}`}>
         {/* Sidebar — lists (desktop) */}
@@ -943,6 +1005,12 @@ export default function DashboardPage() {
             >
               Habits
             </button>
+            <button
+              onClick={() => setFocusMode(true)}
+              className="flex-shrink-0 text-sm px-4 py-2 rounded-full font-medium transition-default text-gray-500 dark:text-gray-400 border border-black/15 dark:border-white/15"
+            >
+              Focus
+            </button>
             {lists.map((list) => (
               <button
                 key={list.id}
@@ -1083,5 +1151,6 @@ export default function DashboardPage() {
       {/* Toast notifications */}
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
     </div>
+    </>
   );
 }

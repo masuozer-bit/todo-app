@@ -105,7 +105,7 @@ function SortableListItem({
   return (
     <div
       ref={setNodeRef}
-      style={style}
+      style={{ ...style, borderLeftColor: dotColor, borderLeftStyle: "solid", borderLeftWidth: "2px", opacity: isDragging ? 0.5 : 1 }}
       className={`group flex items-center gap-0.5 rounded-xl transition-default ${
         isDragging ? "opacity-50 z-10" : ""
       } ${
@@ -152,10 +152,6 @@ function SortableListItem({
                 : "text-gray-500 dark:text-gray-400"
             }`}
           >
-            <span
-              className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-              style={{ backgroundColor: dotColor }}
-            />
             <span className="truncate flex-1">{list.name}</span>
             {count > 0 && (
               <span

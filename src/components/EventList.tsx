@@ -187,7 +187,7 @@ export default function EventList({
       if (!a.listId && !b.listId) return 0;
       if (!a.listId) return 1;
       if (!b.listId) return -1;
-      return a.listName.localeCompare(b.listName);
+      return a.listName.localeCompare(b.listName, undefined, { numeric: true, sensitivity: "base" });
     });
 
     // Sort events within each group alphabetically with natural numeric order

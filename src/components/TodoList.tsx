@@ -324,12 +324,14 @@ export default function TodoList({
       );
     }
 
+    const naturalTitle = (a: Todo, b: Todo) =>
+      a.title.localeCompare(b.title, undefined, { numeric: true, sensitivity: "base" });
+
     if (sortBy === "priority") {
-      result = [...result].sort(
-        (a, b) =>
-          PRIORITY_ORDER[a.priority ?? "none"] -
-          PRIORITY_ORDER[b.priority ?? "none"]
-      );
+      result = [...result].sort((a, b) => {
+        const pd = PRIORITY_ORDER[a.priority ?? "none"] - PRIORITY_ORDER[b.priority ?? "none"];
+        return pd !== 0 ? pd : naturalTitle(a, b);
+      });
     } else if (sortBy === "timeline") {
       result = [...result].sort((a, b) => {
         const orderMap: Record<string, number> = {
@@ -340,7 +342,8 @@ export default function TodoList({
         if (ga !== gb) return ga - gb;
         if (!a.due_date) return 1;
         if (!b.due_date) return -1;
-        return a.due_date.localeCompare(b.due_date);
+        const dd = a.due_date.localeCompare(b.due_date);
+        return dd !== 0 ? dd : naturalTitle(a, b);
       });
     }
 

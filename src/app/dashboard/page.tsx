@@ -43,7 +43,7 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Plus, Inbox, Trash2, Edit2, Check, X, Calendar, Repeat, Bell, Menu, Sun, CalendarDays, CalendarRange } from "lucide-react";
+import { Plus, Inbox, Trash2, Edit2, Check, X, Calendar, Repeat, Bell, Menu, Sun, CalendarDays, CalendarRange, Target } from "lucide-react";
 import { getToday } from "@/lib/date-helpers";
 import type { User } from "@supabase/supabase-js";
 import type { List as ListType } from "@/lib/types";
@@ -1155,11 +1155,11 @@ export default function DashboardPage() {
       {isMobile && !focusMode && (
         <button
           onClick={() => setFocusMode(true)}
-          className="md:hidden fixed bottom-6 right-6 z-40 flex items-center justify-center w-14 h-14 rounded-full bg-black dark:bg-white text-white dark:text-black shadow-lg hover:shadow-xl transition-all"
+          className="md:hidden fixed bottom-8 right-6 z-40 flex items-center justify-center w-10 h-10 rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-black/5 dark:hover:bg-white/10 transition-all"
           aria-label="Enter focus mode"
           title="Focus Mode"
         >
-          <span className="text-2xl">🎯</span>
+          <Target size={18} />
         </button>
       )}
     </div>

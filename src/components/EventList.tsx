@@ -190,6 +190,13 @@ export default function EventList({
       return a.listName.localeCompare(b.listName);
     });
 
+    // Sort events within each group alphabetically with natural numeric order
+    groups.forEach(g => {
+      g.events.sort((a, b) =>
+        a.title.localeCompare(b.title, undefined, { numeric: true, sensitivity: "base" })
+      );
+    });
+
     return groups;
   }, [events, lists, sortMode]);
 

@@ -7,6 +7,7 @@ import TodoInput from "./TodoInput";
 import type { Todo, Tag, List, Event, Priority } from "@/lib/types";
 
 interface FocusModeViewProps {
+  overdueTodos: Todo[];
   todayTodos: Todo[];
   thisWeekTodos: Todo[];
   loading: boolean;
@@ -51,9 +52,10 @@ interface FocusModeViewProps {
   onExitFocusMode: () => void;
 }
 
-const SLIDE_LABELS = ["Today", "This Week"] as const;
+const SLIDE_LABELS = ["Overdue", "Today", "This Week"] as const;
 
 export default function FocusModeView({
+  overdueTodos,
   todayTodos,
   thisWeekTodos,
   loading,
@@ -74,7 +76,7 @@ export default function FocusModeView({
   onOpenEventDetail,
   onExitFocusMode,
 }: FocusModeViewProps) {
-  const [slide, setSlide] = useState<0 | 1>(0);
+  const [slide, setSlide] = useState<0 | 1 | 2>(1);
   const [dragOffset, setDragOffset] = useState(0);
   const touchStartX = useRef(0);
   const touchCurrentX = useRef(0);
@@ -98,7 +100,7 @@ export default function FocusModeView({
     touchCurrentX.current = e.touches[0].clientX;
     const delta = touchCurrentX.current - touchStartX.current;
     // Rubber-band at edges
-    if ((slide === 0 && delta > 0) || (slide === 1 && delta < 0)) {
+    if ((slide === 0 && delta > 0) || (slide === 2 && delta < 0)) {
       setDragOffset(delta * 0.2); // heavy resistance at edge
     } else {
       setDragOffset(delta * 0.6); // light resistance mid-swipe
@@ -109,12 +111,12 @@ export default function FocusModeView({
     isDragging.current = false;
     const delta = touchCurrentX.current - touchStartX.current;
     const THRESHOLD = 60;
-    if (delta < -THRESHOLD && slide === 0) setSlide(1);
-    else if (delta > THRESHOLD && slide === 1) setSlide(0);
+    if (delta < -THRESHOLD && slide < 2) setSlide((slide + 1) as 0 | 1 | 2);
+    else if (delta > THRESHOLD && slide > 0) setSlide((slide - 1) as 0 | 1 | 2);
     setDragOffset(0);
   }
 
-  const translateX = `calc(${-slide * 50}% + ${dragOffset * 0.5}px)`;
+  const translateX = `calc(${-slide * 33.33}% + ${dragOffset * 0.5}px)`;
   const isAnimating = dragOffset === 0;
 
   const sharedHandlers = {
@@ -175,16 +177,34 @@ export default function FocusModeView({
         <div
           className="flex h-full"
           style={{
-            width: "200%",
+            width: "300%",
             transform: `translateX(${translateX})`,
             transition: isAnimating ? "transform 300ms ease-out" : "none",
             willChange: "transform",
           }}
         >
-          {/* Panel 0: Today */}
+          {/* Panel 0: Overdue */}
           <div
             className="overflow-y-auto px-4 pb-24"
-            style={{ width: "50%" }}
+            style={{ width: "33.33%" }}
+          >
+            <TodoList
+              todos={overdueTodos}
+              allTags={allTags}
+              loading={loading}
+              lists={lists}
+              events={events}
+              defaultSortBy="timeline"
+              viewKey="focus:overdue"
+              focusMode={true}
+              {...sharedHandlers}
+            />
+          </div>
+
+          {/* Panel 1: Today */}
+          <div
+            className="overflow-y-auto px-4 pb-24"
+            style={{ width: "33.33%" }}
           >
             <TodoList
               todos={todayTodos}
@@ -199,10 +219,10 @@ export default function FocusModeView({
             />
           </div>
 
-          {/* Panel 1: This Week */}
+          {/* Panel 2: This Week */}
           <div
             className="overflow-y-auto px-4 pb-24"
-            style={{ width: "50%" }}
+            style={{ width: "33.33%" }}
           >
             <TodoList
               todos={thisWeekTodos}
@@ -220,7 +240,7 @@ export default function FocusModeView({
 
       {/* ── Page dots ── */}
       <div className="flex-shrink-0 flex justify-center items-center gap-2 pb-8 pt-3">
-        {([0, 1] as const).map((i) => (
+        {([0, 1, 2] as const).map((i) => (
           <button
             key={i}
             onClick={() => setSlide(i)}

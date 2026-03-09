@@ -43,7 +43,7 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Plus, Inbox, Trash2, Edit2, Check, X, Calendar, Repeat, Bell, Menu, Sun, CalendarDays, CalendarRange, Target } from "lucide-react";
+import { Plus, Inbox, Trash2, Edit2, Check, X, Calendar, Repeat, Bell, Menu, Sun, CalendarDays, CalendarRange, Target, AlertCircle } from "lucide-react";
 import { getToday } from "@/lib/date-helpers";
 import type { User } from "@supabase/supabase-js";
 import type { List as ListType } from "@/lib/types";
@@ -207,7 +207,7 @@ export default function DashboardPage() {
   const [toasts, setToasts] = useState<ToastData[]>([]);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  const [quickFilter, setQuickFilter] = useState<"today" | "thisWeek" | null>("today");
+  const [quickFilter, setQuickFilter] = useState<"overdue" | "today" | "thisWeek" | null>("today");
   const [eventsView, setEventsView] = useState(false);
   const [isMobile, setIsMobile] = useState<boolean | null>(null);
   const [focusMode, setFocusMode] = useState<boolean>(() => {
@@ -492,6 +492,14 @@ export default function DashboardPage() {
     setCalendarDate(null);
   }
 
+  function switchToOverdue() {
+    setHabitsView(false);
+    setEventsView(false);
+    setActiveListId(null);
+    setQuickFilter("overdue");
+    setCalendarDate(null);
+  }
+
   // Task counts for sidebar badges — computed before early returns (Rules of Hooks)
   const taskCounts = useMemo(() => {
     const todayStr = getToday();
@@ -500,7 +508,7 @@ export default function DashboardPage() {
     const weekEnd = new Date(now);
     weekEnd.setDate(now.getDate() + 6);
     weekEnd.setHours(23, 59, 59, 999);
-    let total = 0, today = 0, thisWeek = 0;
+    let total = 0, today = 0, thisWeek = 0, overdue = 0;
     const lists: Record<string, number> = {};
     const listUrgency: Record<string, Urgency> = {};
     const urgencyRank = { overdue: 3, today: 2, soon: 1, normal: 0 } as const;
@@ -531,6 +539,7 @@ export default function DashboardPage() {
         }
       }
       if (t.due_date === todayStr) today++;
+      if (t.due_date && t.due_date < todayStr) overdue++;
       if (t.due_date) {
         const d = new Date(t.due_date + "T00:00:00");
         if (d <= weekEnd) {
@@ -539,7 +548,7 @@ export default function DashboardPage() {
         }
       }
     }
-    return { total, today, thisWeek, lists, listUrgency, globalUrgency, thisWeekUrgency };
+    return { total, today, thisWeek, overdue, lists, listUrgency, globalUrgency, thisWeekUrgency };
   }, [todos]);
 
   if (authLoading) {
@@ -556,6 +565,7 @@ export default function DashboardPage() {
   const todayStr = getToday();
   const focusWeekStart = new Date(); focusWeekStart.setHours(0, 0, 0, 0);
   const focusWeekEnd = new Date(focusWeekStart); focusWeekEnd.setDate(focusWeekStart.getDate() + 6); focusWeekEnd.setHours(23, 59, 59, 999);
+  const overdueTodos = todos.filter((t) => t.due_date && t.due_date < todayStr && !t.completed);
   const todayTodos = todos.filter((t) => t.due_date === todayStr);
   const thisWeekTodos = todos.filter((t) => {
     if (!t.due_date) return false;
@@ -569,7 +579,10 @@ export default function DashboardPage() {
     ? todos.filter((t) => t.list_id === activeListId)
     : todos;
 
-  if (quickFilter === "today") {
+  if (quickFilter === "overdue") {
+    const today = getToday();
+    visibleTodos = visibleTodos.filter((t) => t.due_date && t.due_date < today && !t.completed);
+  } else if (quickFilter === "today") {
     const today = getToday();
     visibleTodos = visibleTodos.filter((t) => t.due_date === today);
   } else if (quickFilter === "thisWeek") {
@@ -610,6 +623,7 @@ export default function DashboardPage() {
     {/* Focus Mode overlay (mobile only) */}
     {isMobile && focusMode && (
       <FocusModeView
+        overdueTodos={overdueTodos}
         todayTodos={todayTodos}
         thisWeekTodos={thisWeekTodos}
         loading={todosLoading}
@@ -639,6 +653,24 @@ export default function DashboardPage() {
               {taskCounts.total > 0 && (
                 <span className="flex-shrink-0 min-w-[18px] h-[18px] rounded-full text-[10px] font-semibold flex items-center justify-center px-1 tabular-nums leading-none" style={URGENCY_STYLE[taskCounts.globalUrgency]}>
                   {taskCounts.total}
+                </span>
+              )}
+            </button>
+
+            {/* Overdue */}
+            <button
+              onClick={switchToOverdue}
+              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm transition-default mb-1 ${
+                quickFilter === "overdue"
+                  ? "bg-black dark:bg-white text-white dark:text-black font-medium"
+                  : "text-gray-500 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/10"
+              }`}
+            >
+              <AlertCircle size={15} />
+              <span className="flex-1 text-left">Overdue</span>
+              {taskCounts.overdue > 0 && (
+                <span className="flex-shrink-0 min-w-[18px] h-[18px] rounded-full text-[10px] font-semibold flex items-center justify-center px-1 tabular-nums leading-none" style={URGENCY_STYLE["overdue"]}>
+                  {taskCounts.overdue}
                 </span>
               )}
             </button>
@@ -964,6 +996,16 @@ export default function DashboardPage() {
               }`}
             >
               All
+            </button>
+            <button
+              onClick={switchToOverdue}
+              className={`flex-shrink-0 text-sm px-4 py-2 rounded-full font-medium transition-default ${
+                quickFilter === "overdue"
+                  ? "bg-black dark:bg-white text-white dark:text-black"
+                  : "text-gray-500 dark:text-gray-400 border border-black/15 dark:border-white/15"
+              }`}
+            >
+              Overdue
             </button>
             <button
               onClick={switchToToday}

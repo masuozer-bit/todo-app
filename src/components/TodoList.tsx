@@ -419,7 +419,13 @@ export default function TodoList({
 
     // For default sort: order comes from manualOrder (applied below); skip sorting here
     if (sortBy !== "default") {
-      items.sort((a, b) => a.score - b.score);
+      items.sort((a, b) => {
+        const sd = a.score - b.score;
+        if (sd !== 0) return sd;
+        const titleA = a.kind === "todo" ? a.todo.title : a.event.title;
+        const titleB = b.kind === "todo" ? b.todo.title : b.event.title;
+        return titleA.localeCompare(titleB, undefined, { numeric: true, sensitivity: "base" });
+      });
     }
 
     return items;

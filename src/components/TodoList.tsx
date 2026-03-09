@@ -16,7 +16,7 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { Search, X, Filter, CheckSquare, Trash2, Maximize2, ChevronRight, ChevronDown } from "lucide-react";
+import { Search, X, Filter, CheckSquare, Trash2, Maximize2, ChevronRight, ChevronDown, PanelTopClose } from "lucide-react";
 import type { Todo, Tag, Priority, List, Event } from "@/lib/types";
 import SortableItem from "./SortableItem";
 import ManualSortWrapper from "./ManualSortWrapper";
@@ -251,6 +251,29 @@ export default function TodoList({
   const [filterTagId, setFilterTagId] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<SortBy>(defaultSortBy);
   const [showFilters, setShowFilters] = useState(false);
+  const [showBar, setShowBar] = useState(() => {
+    if (typeof window === "undefined") return true;
+    try { return localStorage.getItem("showTaskBar") !== "false"; } catch { return true; }
+  });
+
+  // Toggle showBar with keyboard shortcut "p" (PC only, not in focus mode)
+  useEffect(() => {
+    if (focusMode) return;
+    function handleKey(e: KeyboardEvent) {
+      const target = e.target as HTMLElement;
+      const isTyping = target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable;
+      if (e.key === "p" && !isTyping && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault();
+        setShowBar((prev) => {
+          const next = !prev;
+          try { localStorage.setItem("showTaskBar", String(next)); } catch {}
+          return next;
+        });
+      }
+    }
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [focusMode]);
 
   // ── Manual sort order (mixed events + todos), persisted per view ──────────
   const lsKey = `manualOrder:${viewKey}`;
@@ -716,8 +739,25 @@ export default function TodoList({
 
   return (
     <>
-      {/* Progress bar */}
-      {totalCount > 0 && (
+      {/* Toggle bar button (PC only, not in focus mode) */}
+      {!focusMode && (
+        <div className="flex justify-end mb-1 -mt-1">
+          <button
+            onClick={() => setShowBar((prev) => {
+              const next = !prev;
+              try { localStorage.setItem("showTaskBar", String(next)); } catch {}
+              return next;
+            })}
+            title={`${showBar ? "Hide" : "Show"} progress & search (P)`}
+            className="p-1 rounded-lg text-gray-300 dark:text-gray-600 hover:text-gray-500 dark:hover:text-gray-400 transition-default opacity-40 hover:opacity-100"
+          >
+            <PanelTopClose size={13} style={{ transform: showBar ? "none" : "rotate(180deg)", transition: "transform 200ms ease" }} />
+          </button>
+        </div>
+      )}
+
+      {/* Progress bar (hidden in focus mode, toggleable in PC mode) */}
+      {!focusMode && showBar && totalCount > 0 && (
         <div className="mb-4">
           <div className="flex items-center justify-between mb-1.5">
             <span className="text-xs text-gray-400">
@@ -736,8 +776,25 @@ export default function TodoList({
         </div>
       )}
 
-      {/* Search + Filter + Select bar (hidden in focus mode) */}
-      {!focusMode && <div className="mb-4 space-y-2">
+      {/* Search bar — always visible in focus mode; full bar shown in PC mode when showBar */}
+      {focusMode ? (
+        <div className="mb-4 flex items-center gap-2 glass-card-subtle px-3 py-2">
+          <Search size={14} className="text-gray-400 flex-shrink-0" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search tasks..."
+            className="flex-1 bg-transparent text-sm text-black dark:text-white placeholder:text-gray-400 focus:outline-none"
+            aria-label="Search tasks"
+          />
+          {search && (
+            <button onClick={() => setSearch("")} className="text-gray-400 hover:text-black dark:hover:text-white transition-default">
+              <X size={14} />
+            </button>
+          )}
+        </div>
+      ) : showBar && <div className="mb-4 space-y-2">
         <div className="flex items-center gap-2">
           <div className="flex-1 flex items-center gap-2 glass-card-subtle px-3 py-2">
             <Search size={14} className="text-gray-400 flex-shrink-0" />

@@ -216,6 +216,10 @@ export default function DashboardPage() {
     if (stored !== null) return stored === "true";
     return window.innerWidth < 768;
   });
+  const [showBar, setShowBar] = useState<boolean>(() => {
+    if (typeof window === "undefined") return true;
+    try { return localStorage.getItem("showTaskBar") !== "false"; } catch { return true; }
+  });
   const router = useRouter();
   const supabase = createClient();
   const { toggleTheme } = useTheme();
@@ -406,6 +410,11 @@ export default function DashboardPage() {
     },
     onToggleTheme: toggleTheme,
     onShowShortcuts: () => setShowShortcuts((prev) => !prev),
+    onToggleBar: () => setShowBar((prev) => {
+      const next = !prev;
+      try { localStorage.setItem("showTaskBar", String(next)); } catch {}
+      return next;
+    }),
   });
 
   // Sensors for list drag & drop
@@ -970,20 +979,22 @@ export default function DashboardPage() {
           )}
 
           {/* Input */}
-          <div className="mb-4">
-            {eventsView ? (
-              <EventInput onAdd={addEvent} lists={lists} />
-            ) : habitsView ? (
-              <HabitInput onAdd={addHabit} />
-            ) : (
-              <TodoInput
-                onAdd={addTodo}
-                tags={tags}
-                lists={lists}
-                activeListId={activeListId}
-              />
-            )}
-          </div>
+          {(eventsView || habitsView || showBar) && (
+            <div className="mb-4">
+              {eventsView ? (
+                <EventInput onAdd={addEvent} lists={lists} />
+              ) : habitsView ? (
+                <HabitInput onAdd={addHabit} />
+              ) : (
+                <TodoInput
+                  onAdd={addTodo}
+                  tags={tags}
+                  lists={lists}
+                  activeListId={activeListId}
+                />
+              )}
+            </div>
+          )}
 
           {/* Mobile: list selector (below input, above tasks) */}
           <div className="md:hidden mb-4 flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
@@ -1133,6 +1144,12 @@ export default function DashboardPage() {
                 : quickFilter === "thisWeek" ? "thisWeek"
                 : "allTasks"
               }
+              showBar={showBar}
+              onToggleBar={() => setShowBar((prev) => {
+                const next = !prev;
+                try { localStorage.setItem("showTaskBar", String(next)); } catch {}
+                return next;
+              })}
             />
           )}
         </main>

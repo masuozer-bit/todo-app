@@ -220,6 +220,10 @@ interface TodoListProps {
   viewKey?: string;
   /** Focus mode: hide search bar, filters, and non-essential UI */
   focusMode?: boolean;
+  /** Whether the progress/search bar section is visible (controlled externally) */
+  showBar?: boolean;
+  /** Callback to toggle showBar from outside */
+  onToggleBar?: () => void;
 }
 
 export default function TodoList({
@@ -244,6 +248,8 @@ export default function TodoList({
   defaultSortBy = "default",
   viewKey = "default",
   focusMode = false,
+  showBar = true,
+  onToggleBar,
 }: TodoListProps) {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -251,29 +257,6 @@ export default function TodoList({
   const [filterTagId, setFilterTagId] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<SortBy>(defaultSortBy);
   const [showFilters, setShowFilters] = useState(false);
-  const [showBar, setShowBar] = useState(() => {
-    if (typeof window === "undefined") return true;
-    try { return localStorage.getItem("showTaskBar") !== "false"; } catch { return true; }
-  });
-
-  // Toggle showBar with keyboard shortcut "p" (PC only, not in focus mode)
-  useEffect(() => {
-    if (focusMode) return;
-    function handleKey(e: KeyboardEvent) {
-      const target = e.target as HTMLElement;
-      const isTyping = target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable;
-      if (e.key === "p" && !isTyping && !e.metaKey && !e.ctrlKey) {
-        e.preventDefault();
-        setShowBar((prev) => {
-          const next = !prev;
-          try { localStorage.setItem("showTaskBar", String(next)); } catch {}
-          return next;
-        });
-      }
-    }
-    window.addEventListener("keydown", handleKey);
-    return () => window.removeEventListener("keydown", handleKey);
-  }, [focusMode]);
 
   // ── Manual sort order (mixed events + todos), persisted per view ──────────
   const lsKey = `manualOrder:${viewKey}`;
@@ -740,15 +723,11 @@ export default function TodoList({
   return (
     <>
       {/* Toggle bar button (PC only, not in focus mode) */}
-      {!focusMode && (
+      {!focusMode && onToggleBar && (
         <div className="flex justify-end mb-1 -mt-1">
           <button
-            onClick={() => setShowBar((prev) => {
-              const next = !prev;
-              try { localStorage.setItem("showTaskBar", String(next)); } catch {}
-              return next;
-            })}
-            title={`${showBar ? "Hide" : "Show"} progress & search (P)`}
+            onClick={onToggleBar}
+            title={`${showBar ? "Hide" : "Show"} task bar (P)`}
             className="p-1 rounded-lg text-gray-300 dark:text-gray-600 hover:text-gray-500 dark:hover:text-gray-400 transition-default opacity-40 hover:opacity-100"
           >
             <PanelTopClose size={13} style={{ transform: showBar ? "none" : "rotate(180deg)", transition: "transform 200ms ease" }} />

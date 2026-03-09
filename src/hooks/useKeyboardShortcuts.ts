@@ -7,6 +7,7 @@ interface ShortcutHandlers {
   onSearch?: () => void;
   onToggleTheme?: () => void;
   onShowShortcuts?: () => void;
+  onToggleBar?: () => void;
 }
 
 export function useKeyboardShortcuts({
@@ -14,6 +15,7 @@ export function useKeyboardShortcuts({
   onSearch,
   onToggleTheme,
   onShowShortcuts,
+  onToggleBar,
 }: ShortcutHandlers) {
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -55,6 +57,13 @@ export function useKeyboardShortcuts({
         return;
       }
 
+      // P → toggle task bar (input + progress + search)
+      if (e.key === "p" && !isTyping && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault();
+        onToggleBar?.();
+        return;
+      }
+
       // Escape → blur active element (close panels)
       if (e.key === "Escape" && document.activeElement instanceof HTMLElement) {
         document.activeElement.blur();
@@ -63,5 +72,5 @@ export function useKeyboardShortcuts({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onNewTask, onSearch, onToggleTheme, onShowShortcuts]);
+  }, [onNewTask, onSearch, onToggleTheme, onShowShortcuts, onToggleBar]);
 }

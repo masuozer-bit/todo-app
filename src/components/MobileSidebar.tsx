@@ -14,7 +14,7 @@ interface MobileSidebarProps {
   activeListId: string | null;
   habitsView: boolean;
   eventsView?: boolean;
-  quickFilter?: "today" | "thisWeek" | null;
+  quickFilter?: "overdue" | "today" | "thisWeek" | null;
   onSwitchToAll: () => void;
   onSwitchToEvents?: () => void;
   onSwitchToHabits: () => void;

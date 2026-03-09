@@ -1150,6 +1150,18 @@ export default function DashboardPage() {
 
       {/* Toast notifications */}
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+
+      {/* Floating Focus button (mobile only, when not in focus mode) */}
+      {isMobile && !focusMode && (
+        <button
+          onClick={() => setFocusMode(true)}
+          className="md:hidden fixed bottom-6 right-6 z-40 flex items-center justify-center w-14 h-14 rounded-full bg-black dark:bg-white text-white dark:text-black shadow-lg hover:shadow-xl transition-all"
+          aria-label="Enter focus mode"
+          title="Focus Mode"
+        >
+          <span className="text-2xl">🎯</span>
+        </button>
+      )}
     </div>
     </>
   );

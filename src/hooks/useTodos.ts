@@ -104,6 +104,7 @@ export function useTodos(
       tagIds: string[],
       options?: {
         due_date?: string | null;
+        start_date?: string | null;
         start_time?: string | null;
         end_time?: string | null;
         priority?: Priority;
@@ -126,6 +127,7 @@ export function useTodos(
           title,
           sort_order: maxOrder + 1,
           due_date: options?.due_date ?? null,
+          start_date: options?.start_date ?? null,
           start_time: options?.start_time ?? null,
           end_time: options?.end_time ?? null,
           priority: options?.priority ?? "none",
@@ -144,6 +146,7 @@ export function useTodos(
             title,
             sort_order: maxOrder + 1,
             due_date: options?.due_date ?? null,
+            start_date: options?.start_date ?? null,
             start_time: options?.start_time ?? null,
             end_time: options?.end_time ?? null,
             priority: options?.priority ?? "none",
@@ -185,6 +188,7 @@ export function useTodos(
         syncTodoToCalendar("create", todoData.id, {
           title,
           due_date: options.due_date,
+          start_date: options.start_date,
           start_time: options.start_time,
           end_time: options.end_time,
           priority: options.priority,
@@ -220,6 +224,7 @@ export function useTodos(
           syncTodoToCalendar("complete", id, {
             title: todo.title,
             due_date: todo.due_date,
+            start_date: todo.start_date,
             start_time: todo.start_time,
             end_time: todo.end_time,
             priority: todo.priority,
@@ -286,6 +291,7 @@ export function useTodos(
           syncTodoToCalendar("update", id, {
             title: merged.title,
             due_date: merged.due_date,
+            start_date: merged.start_date,
             start_time: merged.start_time,
             end_time: merged.end_time,
             priority: merged.priority,
@@ -413,6 +419,26 @@ export function useTodos(
             : t
         )
       );
+
+      // Calendar sync — update parent event to reflect new subtask
+      const parentTodo = todosRef.current.find((t) => t.id === todoId);
+      if (parentTodo?.due_date) {
+        const updatedSubtasks = [...(parentTodo.subtasks ?? []), data];
+        syncTodoToCalendar("update", todoId, {
+          title: parentTodo.title,
+          due_date: parentTodo.due_date,
+          start_date: parentTodo.start_date,
+          start_time: parentTodo.start_time,
+          end_time: parentTodo.end_time,
+          priority: parentTodo.priority,
+          notes: parentTodo.notes,
+          completed: parentTodo.completed,
+          subtasks: updatedSubtasks.map((s) => ({ title: s.title, completed: s.completed })),
+          tag_names: (parentTodo.tags ?? []).map((t) => t.name),
+          list_id: parentTodo.list_id,
+          list_name: getListName(parentTodo.list_id),
+        });
+      }
     },
     [userId, todos]
   );
@@ -437,6 +463,28 @@ export function useTodos(
               : t
           )
         );
+
+        // Calendar sync — update parent event to reflect toggled subtask
+        const parentTodo = todosRef.current.find((t) => t.id === todoId);
+        if (parentTodo?.due_date) {
+          const updatedSubtasks = (parentTodo.subtasks ?? []).map((s) =>
+            s.id === subtaskId ? { ...s, completed } : s
+          );
+          syncTodoToCalendar("update", todoId, {
+            title: parentTodo.title,
+            due_date: parentTodo.due_date,
+            start_date: parentTodo.start_date,
+            start_time: parentTodo.start_time,
+            end_time: parentTodo.end_time,
+            priority: parentTodo.priority,
+            notes: parentTodo.notes,
+            completed: parentTodo.completed,
+            subtasks: updatedSubtasks.map((s) => ({ title: s.title, completed: s.completed })),
+            tag_names: (parentTodo.tags ?? []).map((t) => t.name),
+            list_id: parentTodo.list_id,
+            list_name: getListName(parentTodo.list_id),
+          });
+        }
       }
     },
     []
@@ -462,6 +510,28 @@ export function useTodos(
               : t
           )
         );
+
+        // Calendar sync — update parent event to reflect removed subtask
+        const parentTodo = todosRef.current.find((t) => t.id === todoId);
+        if (parentTodo?.due_date) {
+          const updatedSubtasks = (parentTodo.subtasks ?? []).filter(
+            (s) => s.id !== subtaskId
+          );
+          syncTodoToCalendar("update", todoId, {
+            title: parentTodo.title,
+            due_date: parentTodo.due_date,
+            start_date: parentTodo.start_date,
+            start_time: parentTodo.start_time,
+            end_time: parentTodo.end_time,
+            priority: parentTodo.priority,
+            notes: parentTodo.notes,
+            completed: parentTodo.completed,
+            subtasks: updatedSubtasks.map((s) => ({ title: s.title, completed: s.completed })),
+            tag_names: (parentTodo.tags ?? []).map((t) => t.name),
+            list_id: parentTodo.list_id,
+            list_name: getListName(parentTodo.list_id),
+          });
+        }
       }
     },
     []

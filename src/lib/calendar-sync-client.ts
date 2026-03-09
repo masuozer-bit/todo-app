@@ -3,6 +3,7 @@ type SyncAction = "create" | "update" | "delete" | "complete";
 interface TodoSyncData {
   title: string;
   due_date?: string | null;
+  start_date?: string | null;
   start_time?: string | null;
   end_time?: string | null;
   priority?: string;
@@ -129,6 +130,21 @@ export async function bulkSyncCalendar(): Promise<{
     return response.json();
   } catch {
     return { success: false, error: "Network error" };
+  }
+}
+
+export async function renameCalendar(
+  googleCalendarId: string,
+  newName: string
+): Promise<void> {
+  try {
+    await fetch("/api/calendar/rename-calendar", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ google_calendar_id: googleCalendarId, new_name: newName }),
+    });
+  } catch {
+    // fire-and-forget
   }
 }
 

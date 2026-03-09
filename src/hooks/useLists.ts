@@ -1,13 +1,16 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { List } from "@/lib/types";
+import { renameCalendar } from "@/lib/calendar-sync-client";
 
 export function useLists(userId: string | undefined) {
   const [lists, setLists] = useState<List[]>([]);
   const [loading, setLoading] = useState(true);
   const supabase = createClient();
+  const listsRef = useRef(lists);
+  listsRef.current = lists;
 
   const fetchLists = useCallback(async () => {
     if (!userId) return;
@@ -35,6 +38,12 @@ export function useLists(userId: string | undefined) {
   const updateList = useCallback(async (id: string, name: string) => {
     await supabase.from("lists").update({ name }).eq("id", id);
     setLists(prev => prev.map(l => l.id === id ? { ...l, name } : l));
+
+    // Rename the linked Google Calendar (fire-and-forget)
+    const list = listsRef.current.find((l) => l.id === id);
+    if (list?.google_calendar_id) {
+      renameCalendar(list.google_calendar_id, name);
+    }
   }, []);
 
   const deleteList = useCallback(async (id: string) => {

@@ -47,6 +47,7 @@ export interface List {
   user_id: string;
   name: string;
   sort_order: number;
+  google_calendar_id?: string | null;
   created_at: string;
 }
 
@@ -106,6 +107,8 @@ export interface GoogleTokens {
   refresh_token: string | null;
   expires_at: string;
   scopes: string | null;
+  calendar_id?: string | null;
+  habits_calendar_id?: string | null;
   created_at: string;
   updated_at: string;
 }

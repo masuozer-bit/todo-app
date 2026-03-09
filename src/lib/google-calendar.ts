@@ -226,6 +226,7 @@ function determineColorId(
 export function todoToCalendarEvent(todo: {
   title: string;
   due_date: string;
+  start_date?: string | null;
   start_time?: string | null;
   end_time?: string | null;
   priority?: string;
@@ -240,21 +241,27 @@ export function todoToCalendarEvent(todo: {
   const colorId = determineColorId(todo.priority, todo.list_name, todo.tag_names);
   const tz = todo.timeZone || "UTC";
 
+  // Effective start date: use start_date if it's before due_date, otherwise due_date
+  const effectiveStartDate =
+    todo.start_date && todo.start_date < todo.due_date
+      ? todo.start_date
+      : todo.due_date;
+
   let start: CalendarEvent["start"];
   let end: CalendarEvent["end"];
   let reminders: CalendarEvent["reminders"];
 
   if (todo.start_time) {
-    // Time-based event
-    start = { dateTime: `${todo.due_date}T${todo.start_time}:00`, timeZone: tz };
+    // Timed event: start on effectiveStartDate, end on due_date
+    start = { dateTime: `${effectiveStartDate}T${todo.start_time}:00`, timeZone: tz };
     if (todo.end_time) {
       end = { dateTime: `${todo.due_date}T${todo.end_time}:00`, timeZone: tz };
     } else {
-      // Default 1 hour duration
+      // Default 1 hour from start
       const [h, m] = todo.start_time.split(":").map(Number);
       const endH = (h + 1) % 24;
       const endTime = `${String(endH).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
-      end = { dateTime: `${todo.due_date}T${endTime}:00`, timeZone: tz };
+      end = { dateTime: `${effectiveStartDate}T${endTime}:00`, timeZone: tz };
     }
     reminders = {
       useDefault: false,
@@ -264,12 +271,11 @@ export function todoToCalendarEvent(todo: {
       ],
     };
   } else {
-    // All-day event
-    const startDate = todo.due_date;
-    const endDateObj = new Date(startDate + "T00:00:00");
+    // All-day event: start on effectiveStartDate, end day after due_date (GCal end is exclusive)
+    const endDateObj = new Date(todo.due_date + "T00:00:00");
     endDateObj.setDate(endDateObj.getDate() + 1);
     const endDate = endDateObj.toISOString().split("T")[0];
-    start = { date: startDate };
+    start = { date: effectiveStartDate };
     end = { date: endDate };
     reminders = {
       useDefault: false,
@@ -277,7 +283,6 @@ export function todoToCalendarEvent(todo: {
     };
   }
 
-  // Completed todos get checkmark prefix + cancelled status
   const summary = todo.completed ? `✓ ${todo.title}` : todo.title;
 
   return {
@@ -395,6 +400,26 @@ export async function deleteCalendarEvent(
 
   // 204 No Content = success, 410 Gone = already deleted
   return response.ok || response.status === 410;
+}
+
+export async function renameGoogleCalendar(
+  accessToken: string,
+  calendarId: string,
+  newName: string
+): Promise<boolean> {
+  if (!calendarId || calendarId === "primary") return false;
+  const response = await fetch(
+    `${CALENDAR_API_BASE}/calendars/${encodeURIComponent(calendarId)}`,
+    {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ summary: newName }),
+    }
+  );
+  return response.ok;
 }
 
 export async function deleteGoogleCalendar(

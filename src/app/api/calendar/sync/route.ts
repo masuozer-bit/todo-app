@@ -200,19 +200,29 @@ export async function POST(request: NextRequest) {
       }
 
       case "complete": {
-        if (syncRecord && todo_data) {
-          const calendarId = syncRecord.google_calendar_id || await resolveCalendarId(todo_data.list_id);
-          const event = todoToCalendarEvent({
-            ...todo_data,
-            completed: true,
-            timeZone,
-          });
+        if (!todo_data?.due_date) break;
+        const calendarId = await resolveCalendarId(todo_data.list_id);
+        const event = todoToCalendarEvent({ ...todo_data, timeZone });
+
+        if (syncRecord) {
+          const eventCalendarId = syncRecord.google_calendar_id || calendarId;
           await updateCalendarEvent(
             accessToken,
             syncRecord.google_event_id,
             event,
-            calendarId
+            eventCalendarId
           );
+        } else {
+          // No sync record yet — create the event
+          const created = await createCalendarEvent(accessToken, event, calendarId);
+          if (created) {
+            await supabase.from("calendar_sync").insert({
+              todo_id,
+              user_id: user.id,
+              google_event_id: created.id,
+              google_calendar_id: calendarId,
+            });
+          }
         }
         break;
       }

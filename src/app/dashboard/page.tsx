@@ -141,22 +141,22 @@ function SortableListItem({
             onClick={onSelect}
             {...attributes}
             {...listeners}
-            className={`min-w-0 flex-1 flex items-center gap-2.5 px-3 py-2 text-sm text-left transition-default touch-none ${
+            className={`min-w-0 flex-1 flex items-center gap-2 px-3 py-2 text-sm text-left transition-default touch-none ${
               isActive
                 ? "text-white dark:text-black font-medium"
                 : "text-gray-500 dark:text-gray-400"
             }`}
           >
             <span className="truncate">{list.name}</span>
+            {count > 0 && (
+              <span
+                className="flex-shrink-0 min-w-[18px] h-[18px] rounded-full text-[10px] font-semibold flex items-center justify-center px-1 tabular-nums leading-none"
+                style={URGENCY_STYLE[urgency]}
+              >
+                {count}
+              </span>
+            )}
           </button>
-          {count > 0 && (
-            <span
-              className="flex-shrink-0 min-w-[18px] h-[18px] rounded-full text-[10px] font-semibold flex items-center justify-center px-1 tabular-nums leading-none"
-              style={URGENCY_STYLE[urgency]}
-            >
-              {count}
-            </span>
-          )}
           <div className="flex items-center gap-0.5 pr-1.5 opacity-0 group-hover:opacity-100 transition-default">
             <button
               onClick={onStartEdit}

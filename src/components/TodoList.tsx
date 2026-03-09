@@ -104,15 +104,22 @@ function groupByTimeline(
     groups[key].events.push(event);
   }
 
-  // Sort todos within each group by their effective date
+  const naturalTitle = (a: Todo, b: Todo) =>
+    a.title.localeCompare(b.title, undefined, { numeric: true, sensitivity: "base" });
+
+  // Sort todos within each group by their effective date; someday by title
   for (const key of Object.keys(groups)) {
-    if (key !== "someday") {
+    if (key === "someday") {
+      groups[key].todos.sort(naturalTitle);
+    } else {
       groups[key].todos.sort((a, b) => {
         const da = a.start_date ?? a.due_date ?? null;
         const db = b.start_date ?? b.due_date ?? null;
+        if (!da && !db) return naturalTitle(a, b);
         if (!da) return 1;
         if (!db) return -1;
-        return da.localeCompare(db);
+        const dd = da.localeCompare(db);
+        return dd !== 0 ? dd : naturalTitle(a, b);
       });
     }
   }
@@ -340,6 +347,7 @@ export default function TodoList({
         const ga = orderMap[getTimelineGroup(a.due_date)] ?? 6;
         const gb = orderMap[getTimelineGroup(b.due_date)] ?? 6;
         if (ga !== gb) return ga - gb;
+        if (!a.due_date && !b.due_date) return naturalTitle(a, b);
         if (!a.due_date) return 1;
         if (!b.due_date) return -1;
         const dd = a.due_date.localeCompare(b.due_date);

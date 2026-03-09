@@ -49,15 +49,11 @@ import type { User } from "@supabase/supabase-js";
 import type { List as ListType } from "@/lib/types";
 
 type Urgency = "overdue" | "today" | "soon" | "normal";
-const LIST_DOT_COLORS = [
-  "#6366f1", "#f43f5e", "#10b981", "#f59e0b", "#3b82f6",
-  "#8b5cf6", "#ec4899", "#14b8a6", "#ef4444", "#06b6d4",
-];
 const URGENCY_STYLE: Record<Urgency, React.CSSProperties> = {
-  overdue: { backgroundColor: "rgba(239,68,68,0.38)", color: "#fca5a5", boxShadow: "0 0 12px rgba(239,68,68,0.6)", animation: "urgency-pulse 2.5s ease-in-out infinite" },
-  today:   { backgroundColor: "rgba(245,158,11,0.38)", color: "#fcd34d", boxShadow: "0 0 12px rgba(245,158,11,0.55)", animation: "urgency-pulse 2.5s ease-in-out infinite" },
-  soon:    { backgroundColor: "rgba(59,130,246,0.35)", color: "#93c5fd", boxShadow: "0 0 10px rgba(59,130,246,0.5)" },
-  normal:  { backgroundColor: "rgba(255,255,255,0.12)", color: "#d1d5db" },
+  overdue: { backgroundColor: "#ef4444", color: "#fff", boxShadow: "0 0 8px rgba(239,68,68,0.45)", animation: "urgency-pulse 2.5s ease-in-out infinite" },
+  today:   { backgroundColor: "#f59e0b", color: "#fff", boxShadow: "0 0 8px rgba(245,158,11,0.45)", animation: "urgency-pulse 2.5s ease-in-out infinite" },
+  soon:    { backgroundColor: "#3b82f6", color: "#fff", boxShadow: "0 0 6px rgba(59,130,246,0.35)" },
+  normal:  { backgroundColor: "rgba(120,120,120,0.18)", color: "currentColor" },
 };
 
 function SortableListItem({
@@ -73,7 +69,6 @@ function SortableListItem({
   onDelete,
   count = 0,
   urgency = "normal",
-  dotColor = "#6366f1",
 }: {
   list: ListType;
   isActive: boolean;
@@ -87,7 +82,6 @@ function SortableListItem({
   onDelete: () => void;
   count?: number;
   urgency?: "overdue" | "today" | "soon" | "normal";
-  dotColor?: string;
 }) {
   const {
     attributes,
@@ -106,8 +100,8 @@ function SortableListItem({
   return (
     <div
       ref={setNodeRef}
-      style={{ ...style, borderLeftColor: dotColor, borderLeftStyle: "solid", borderLeftWidth: "2px", opacity: isDragging ? 0.5 : 1 }}
-      className={`group flex items-center gap-0.5 rounded-xl transition-default ${
+      style={{ ...style, opacity: isDragging ? 0.5 : 1 }}
+      className={`group flex items-center gap-0.5 rounded-xl border-b border-black/[0.05] dark:border-white/[0.06] transition-default ${
         isDragging ? "opacity-50 z-10" : ""
       } ${
         isActive
@@ -762,7 +756,7 @@ export default function DashboardPage() {
                     strategy={verticalListSortingStrategy}
                   >
                     <div className="space-y-0.5">
-                      {lists.map((list, idx) => (
+                      {lists.map((list) => (
                         <SortableListItem
                           key={list.id}
                           list={list}
@@ -783,7 +777,6 @@ export default function DashboardPage() {
                           }}
                           count={taskCounts.lists[list.id] ?? 0}
                           urgency={taskCounts.listUrgency[list.id] ?? "normal"}
-                          dotColor={LIST_DOT_COLORS[idx % LIST_DOT_COLORS.length]}
                         />
                       ))}
                     </div>

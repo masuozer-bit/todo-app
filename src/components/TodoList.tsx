@@ -218,6 +218,8 @@ interface TodoListProps {
   defaultSortBy?: SortBy;
   /** Key used to persist manual sort order in localStorage (e.g. "list:uuid", "allTasks"). */
   viewKey?: string;
+  /** Focus mode: hide search bar, filters, and non-essential UI */
+  focusMode?: boolean;
 }
 
 export default function TodoList({
@@ -241,6 +243,7 @@ export default function TodoList({
   onOpenEventDetail,
   defaultSortBy = "default",
   viewKey = "default",
+  focusMode = false,
 }: TodoListProps) {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -733,8 +736,8 @@ export default function TodoList({
         </div>
       )}
 
-      {/* Search + Filter + Select bar */}
-      <div className="mb-4 space-y-2">
+      {/* Search + Filter + Select bar (hidden in focus mode) */}
+      {!focusMode && <div className="mb-4 space-y-2">
         <div className="flex items-center gap-2">
           <div className="flex-1 flex items-center gap-2 glass-card-subtle px-3 py-2">
             <Search size={14} className="text-gray-400 flex-shrink-0" />
@@ -885,7 +888,7 @@ export default function TodoList({
             )}
           </div>
         )}
-      </div>
+      </div>}
 
       {/* Todo items */}
       {todos.length === 0 ? (

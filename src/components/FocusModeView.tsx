@@ -194,6 +194,7 @@ export default function FocusModeView({
               events={events}
               defaultSortBy="timeline"
               viewKey="focus:today"
+              focusMode={true}
               {...sharedHandlers}
             />
           </div>

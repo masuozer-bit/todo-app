@@ -101,7 +101,7 @@ function SortableListItem({
     <div
       ref={setNodeRef}
       style={{ ...style, opacity: isDragging ? 0.5 : 1 }}
-      className={`group flex items-center gap-0.5 rounded-xl border-b border-black/[0.05] dark:border-white/[0.06] transition-default ${
+      className={`group relative rounded-xl border-b border-black/[0.05] dark:border-white/[0.06] transition-default ${
         isDragging ? "opacity-50 z-10" : ""
       } ${
         isActive
@@ -110,7 +110,7 @@ function SortableListItem({
       }`}
     >
       {isEditing ? (
-        <div className="flex-1 flex items-center gap-1 px-2 py-1">
+        <div className="flex items-center gap-1 px-2 py-1">
           <input
             autoFocus
             type="text"
@@ -141,25 +141,25 @@ function SortableListItem({
             onClick={onSelect}
             {...attributes}
             {...listeners}
-            className={`min-w-0 flex-1 flex items-center gap-2 px-3 py-2 text-sm text-left transition-default touch-none ${
+            className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left transition-default touch-none ${
               isActive
                 ? "text-white dark:text-black font-medium"
                 : "text-gray-500 dark:text-gray-400"
             }`}
           >
-            <span className="truncate">{list.name}</span>
+            <span className="flex-1 truncate">{list.name}</span>
             {count > 0 && (
               <span
-                className="flex-shrink-0 min-w-[18px] h-[18px] rounded-full text-[10px] font-semibold flex items-center justify-center px-1 tabular-nums leading-none"
+                className="flex-shrink-0 min-w-[18px] h-[18px] rounded-full text-[10px] font-semibold flex items-center justify-center px-1 tabular-nums leading-none transition-opacity group-hover:opacity-0"
                 style={URGENCY_STYLE[urgency]}
               >
                 {count}
               </span>
             )}
           </button>
-          <div className="flex items-center gap-0.5 pr-1.5 opacity-0 group-hover:opacity-100 transition-default">
+          <div className="absolute right-0 inset-y-0 flex items-center gap-0.5 pr-1.5 opacity-0 group-hover:opacity-100 transition-default pointer-events-none group-hover:pointer-events-auto">
             <button
-              onClick={onStartEdit}
+              onClick={(e) => { e.stopPropagation(); onStartEdit(); }}
               className={`p-1 rounded transition-default ${
                 isActive
                   ? "text-white/60 dark:text-black/60 hover:text-white dark:hover:text-black"
@@ -170,7 +170,7 @@ function SortableListItem({
               <Edit2 size={11} />
             </button>
             <button
-              onClick={onDelete}
+              onClick={(e) => { e.stopPropagation(); onDelete(); }}
               className={`p-1 rounded transition-default ${
                 isActive
                   ? "text-white/60 dark:text-black/60 hover:text-white dark:hover:text-black"

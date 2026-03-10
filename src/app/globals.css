@@ -166,4 +166,15 @@
     0%, 100% { opacity: 1; }
     50% { opacity: 0.4; }
   }
+
+  @keyframes peek-in {
+    0%   { opacity: 0; transform: translateY(3px); }
+    15%  { opacity: 1; transform: translateY(0); }
+    85%  { opacity: 1; transform: translateY(0); }
+    100% { opacity: 0; transform: translateY(-3px); }
+  }
+
+  .peek-ticker {
+    animation: peek-in 2.8s ease-in-out forwards;
+  }
 }

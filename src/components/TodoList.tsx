@@ -187,7 +187,7 @@ function formatShortDate(dateStr: string): string {
 // ── Skeleton loader ───────────────────────────────────────────────
 function TodoSkeleton() {
   return (
-    <div className="glass-card-subtle p-3 md:p-4 animate-pulse">
+    <div className="glass-card-subtle py-2 px-3 animate-pulse">
       <div className="flex items-start gap-3">
         <div className="w-5 h-5 rounded-md bg-black/10 dark:bg-white/10 flex-shrink-0 mt-0.5" />
         <div className="flex-1 space-y-2">
@@ -553,7 +553,7 @@ export default function TodoList({
         <div className="h-1.5 rounded-t-[1rem]" style={{ backgroundColor: event.color ?? "#6366f1" }} />
 
         {/* Header */}
-        <div className="p-3 md:p-4">
+        <div className="py-2 px-3">
           <div className="flex items-start gap-2 group">
             {/* Expand/collapse toggle */}
             <button

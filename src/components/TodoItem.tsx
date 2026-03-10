@@ -223,7 +223,7 @@ export default function TodoItem({
       } ${todo.completed ? "opacity-60" : ""}`}
     >
       {/* Main row */}
-      <div className="flex items-start gap-3 p-3 md:p-4" {...dragHandleProps}>
+      <div className="flex items-start gap-3 py-2 px-3" {...dragHandleProps}>
         {/* Checkbox — blocked when subtasks incomplete */}
         <div className="flex flex-col items-center flex-shrink-0 mt-0.5">
           <input

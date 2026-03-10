@@ -138,7 +138,7 @@ export function useTodos(
         .single();
 
       if (e1) {
-        // Fallback: columns may not exist yet
+        // Fallback: columns may not exist yet — omit newer columns
         const { data: d2, error: e2 } = await supabase
           .from("todos")
           .insert({
@@ -146,7 +146,6 @@ export function useTodos(
             title,
             sort_order: maxOrder + 1,
             due_date: options?.due_date ?? null,
-            start_date: options?.start_date ?? null,
             start_time: options?.start_time ?? null,
             end_time: options?.end_time ?? null,
             priority: options?.priority ?? "none",

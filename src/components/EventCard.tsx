@@ -72,10 +72,19 @@ export default function EventCard({
   const [newTaskDate, setNewTaskDate] = useState("");
   const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(event.title);
+  const [peekIdx, setPeekIdx] = useState(0);
   const editRef = useRef<HTMLInputElement>(null);
   const taskRef = useRef<HTMLInputElement>(null);
   const todos = event.todos ?? [];
   const completedCount = todos.filter((t) => t.completed).length;
+  const incompleteTodos = todos.filter((t) => !t.completed);
+
+  useEffect(() => {
+    if (incompleteTodos.length < 2) return;
+    const t = setInterval(() => setPeekIdx((i) => i + 1), 3000);
+    return () => clearInterval(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [incompleteTodos.length]);
   const listName = event.list_id
     ? lists.find((l) => l.id === event.list_id)?.name
     : null;
@@ -225,6 +234,21 @@ export default function EventCard({
                 backgroundColor: event.color ?? "#6366f1",
               }}
             />
+          </div>
+        )}
+
+        {/* Peek ticker — cycles incomplete tasks when collapsed */}
+        {!expanded && incompleteTodos.length > 0 && (
+          <div className="mt-2 overflow-hidden h-[14px]">
+            <div key={peekIdx} className="peek-ticker flex items-center gap-1.5 min-w-0">
+              <span
+                className="w-1 h-1 rounded-full flex-shrink-0"
+                style={{ backgroundColor: event.color ?? "#6366f1" }}
+              />
+              <span className="text-[10px] text-gray-400 dark:text-gray-500 truncate leading-none">
+                {incompleteTodos[peekIdx % incompleteTodos.length].title}
+              </span>
+            </div>
           </div>
         )}
       </div>

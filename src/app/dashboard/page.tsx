@@ -216,7 +216,6 @@ export default function DashboardPage() {
     if (typeof window === "undefined") return true;
     try { return localStorage.getItem("showTaskBar") !== "false"; } catch { return true; }
   });
-  const [peekIdx, setPeekIdx] = useState(0);
   const router = useRouter();
   const supabase = createClient();
   const { toggleTheme } = useTheme();
@@ -307,11 +306,6 @@ export default function DashboardPage() {
   // Push notifications
   const { permission: notifPermission, isSubscribed: notifSubscribed, subscribe: subscribeNotifications, unsubscribe: unsubscribeNotifications } = usePushNotifications(todos);
 
-  // Sneak peek ticker — cycles task index every 3 s
-  useEffect(() => {
-    const t = setInterval(() => setPeekIdx((i) => i + 1), 3000);
-    return () => clearInterval(t);
-  }, []);
 
   // Assign todo to event — inherit event's list_id, then sync both hooks
   const handleAssignTodoToEvent = useCallback(
@@ -585,8 +579,6 @@ export default function DashboardPage() {
     if (d < focusWeekStart && !t.completed) return true;
     return d >= focusWeekStart && d <= focusWeekEnd;
   });
-  const peekToday = todayTodos.filter((t) => !t.completed);
-  const peekWeek = thisWeekTodos.filter((t) => !t.completed);
 
   // Build visible todos: start with list filter, then apply quick/date filters
   let visibleTodos = activeListId
@@ -688,17 +680,6 @@ export default function DashboardPage() {
                 </span>
               )}
             </button>
-            {overdueTodos.length > 0 && (
-              <div className="px-4 -mt-0.5 mb-1 overflow-hidden h-[14px]">
-                <div key={`od-${peekIdx}`} className="peek-ticker flex items-center gap-1.5 min-w-0">
-                  <span className="w-1 h-1 rounded-full bg-red-500 flex-shrink-0" />
-                  <span className="text-[10px] text-gray-400 dark:text-gray-500 truncate leading-none">
-                    {overdueTodos[peekIdx % overdueTodos.length].title}
-                  </span>
-                </div>
-              </div>
-            )}
-
             {/* Today */}
             <button
               onClick={switchToToday}
@@ -716,17 +697,6 @@ export default function DashboardPage() {
                 </span>
               )}
             </button>
-            {peekToday.length > 0 && (
-              <div className="px-4 -mt-0.5 mb-1 overflow-hidden h-[14px]">
-                <div key={`td-${peekIdx}`} className="peek-ticker flex items-center gap-1.5 min-w-0">
-                  <span className="w-1 h-1 rounded-full bg-amber-500 flex-shrink-0" />
-                  <span className="text-[10px] text-gray-400 dark:text-gray-500 truncate leading-none">
-                    {peekToday[peekIdx % peekToday.length].title}
-                  </span>
-                </div>
-              </div>
-            )}
-
             {/* This Week */}
             <button
               onClick={switchToThisWeek}
@@ -744,17 +714,6 @@ export default function DashboardPage() {
                 </span>
               )}
             </button>
-            {peekWeek.length > 0 && (
-              <div className="px-4 -mt-0.5 mb-1 overflow-hidden h-[14px]">
-                <div key={`wk-${peekIdx}`} className="peek-ticker flex items-center gap-1.5 min-w-0">
-                  <span className="w-1 h-1 rounded-full bg-blue-500 flex-shrink-0" />
-                  <span className="text-[10px] text-gray-400 dark:text-gray-500 truncate leading-none">
-                    {peekWeek[peekIdx % peekWeek.length].title}
-                  </span>
-                </div>
-              </div>
-            )}
-
             {/* Events */}
             <button
               onClick={switchToEvents}
@@ -767,7 +726,6 @@ export default function DashboardPage() {
               <CalendarRange size={15} />
               Events
             </button>
-
             {/* Habits */}
             <button
               onClick={switchToHabits}

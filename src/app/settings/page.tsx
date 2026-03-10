@@ -7,7 +7,7 @@ import Header from "@/components/Header";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { useTodos } from "@/hooks/useTodos";
 import { useTags } from "@/hooks/useTags";
-import { Download, Trash2, User, AlertTriangle, Calendar, FileText, Terminal } from "lucide-react";
+import { Download, Trash2, User, AlertTriangle, Calendar, FileText, Terminal, Bell } from "lucide-react";
 import { exportTodosPDF } from "@/lib/pdf-export";
 import CommandReference from "@/components/CommandReference";
 import {
@@ -15,6 +15,7 @@ import {
   disconnectCalendar,
   bulkSyncCalendar,
 } from "@/lib/calendar-sync-client";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 
 export default function SettingsPage() {
@@ -35,6 +36,7 @@ export default function SettingsPage() {
 
   const { tags } = useTags(user?.id);
   const { todos, clearCompleted, exportTodos } = useTodos(user?.id, tags);
+  const { permission: notifPermission, isSubscribed: notifSubscribed, subscribe: subscribeNotifications, unsubscribe: unsubscribeNotifications } = usePushNotifications();
 
   useEffect(() => {
     supabase.auth
@@ -107,7 +109,8 @@ export default function SettingsPage() {
   async function handleDeleteAccount() {
     if (!user) return;
     setDeleting(true);
-    // Delete calendar sync data
+    // Delete push subscriptions and calendar sync data
+    await supabase.from("push_subscriptions").delete().eq("user_id", user.id);
     await supabase.from("calendar_sync").delete().eq("user_id", user.id);
     await supabase.from("habit_calendar_sync").delete().eq("user_id", user.id);
     await supabase.from("google_tokens").delete().eq("user_id", user.id);
@@ -380,6 +383,60 @@ export default function SettingsPage() {
                     </button>
                   </div>
                 </>
+              )}
+            </div>
+          </section>
+
+          {/* Push Notifications */}
+          <section className="glass-card p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Bell size={16} className="text-gray-400" />
+              <h3 className="font-semibold text-black dark:text-white">
+                Notifications
+              </h3>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-black dark:text-white">
+                    Push notifications
+                  </p>
+                  <p className="text-xs text-gray-400">
+                    {notifPermission === "denied"
+                      ? "Blocked — enable in browser settings"
+                      : notifSubscribed
+                        ? "Active — you'll be notified when tasks are due"
+                        : "Get reminders when tasks are due"}
+                  </p>
+                </div>
+                <button
+                  onClick={notifSubscribed ? unsubscribeNotifications : subscribeNotifications}
+                  disabled={notifPermission === "denied"}
+                  className={`px-3 py-1.5 rounded-lg border text-sm transition-default disabled:opacity-40 disabled:cursor-not-allowed ${
+                    notifSubscribed
+                      ? "border-red-500/30 text-red-500 hover:bg-red-500/10"
+                      : "border-black/10 dark:border-white/10 text-black dark:text-white hover:bg-black/5 dark:hover:bg-white/10"
+                  }`}
+                >
+                  {notifSubscribed ? "Disable" : "Enable"}
+                </button>
+              </div>
+
+              {notifSubscribed && (
+                <div className="border-t border-black/5 dark:border-white/5 pt-4">
+                  <p className="text-xs text-gray-400 font-medium mb-2">
+                    You will be notified when
+                  </p>
+                  <ul className="text-xs text-gray-500 dark:text-gray-400 space-y-1">
+                    <li>A timed task is starting now or in ~15 minutes</li>
+                    <li>All-day tasks are due today (8 AM)</li>
+                    <li>You have overdue tasks (9 AM daily digest)</li>
+                  </ul>
+                  <p className="text-xs text-gray-400 mt-3">
+                    Notification times are based on UTC. Works even when the browser is closed.
+                  </p>
+                </div>
               )}
             </div>
           </section>

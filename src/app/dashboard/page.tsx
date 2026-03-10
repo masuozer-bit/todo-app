@@ -24,7 +24,7 @@ import { useLists } from "@/hooks/useLists";
 import { useHabits } from "@/hooks/useHabits";
 import { useEvents } from "@/hooks/useEvents";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
-import { useNotifications } from "@/hooks/useNotifications";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { useTheme } from "@/components/ThemeProvider";
 import {
   DndContext,
@@ -303,8 +303,8 @@ export default function DashboardPage() {
     refetchEvents,
   } = useEvents(user?.id, tags);
 
-  // Browser notifications for upcoming tasks
-  const { permission: notifPermission, requestPermission } = useNotifications(todos);
+  // Push notifications
+  const { permission: notifPermission, isSubscribed: notifSubscribed, subscribe: subscribeNotifications, unsubscribe: unsubscribeNotifications } = usePushNotifications(todos);
 
   // Assign todo to event — inherit event's list_id, then sync both hooks
   const handleAssignTodoToEvent = useCallback(
@@ -890,23 +890,20 @@ export default function DashboardPage() {
 
             <div className="flex items-center gap-2">
               {/* Notification bell */}
-              {!habitsView && !eventsView && notifPermission !== "granted" && (
+              {!habitsView && !eventsView && (
                 <button
-                  onClick={requestPermission}
-                  className="hidden md:flex w-10 h-10 rounded-xl glass-card-subtle items-center justify-center text-gray-400 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-default"
-                  aria-label="Enable notifications"
-                  title="Enable task reminders"
+                  onClick={notifSubscribed ? unsubscribeNotifications : subscribeNotifications}
+                  className={`hidden md:flex w-10 h-10 rounded-xl glass-card-subtle items-center justify-center transition-default ${
+                    notifSubscribed
+                      ? "text-green-500 dark:text-green-400 hover:text-red-500 dark:hover:text-red-400"
+                      : "text-gray-400 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10"
+                  }`}
+                  aria-label={notifSubscribed ? "Disable notifications" : "Enable notifications"}
+                  title={notifSubscribed ? "Notifications on — click to disable" : "Enable task reminders"}
+                  disabled={notifPermission === "denied"}
                 >
                   <Bell size={18} />
                 </button>
-              )}
-              {!habitsView && !eventsView && notifPermission === "granted" && (
-                <div
-                  className="hidden md:flex w-10 h-10 rounded-xl glass-card-subtle items-center justify-center text-green-500 dark:text-green-400"
-                  title="Notifications enabled"
-                >
-                  <Bell size={18} />
-                </div>
               )}
 
               {/* Calendar toggle */}

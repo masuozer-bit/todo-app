@@ -2,12 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient as createSupabaseAdmin } from "@supabase/supabase-js";
 import webpush from "web-push";
 
-webpush.setVapidDetails(
-  process.env.VAPID_SUBJECT ?? "mailto:admin@example.com",
-  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? "",
-  process.env.VAPID_PRIVATE_KEY ?? ""
-);
-
 // Service-role client bypasses RLS — only used server-side in this cron route
 function getAdminClient() {
   return createSupabaseAdmin(
@@ -25,6 +19,14 @@ export async function POST(request: NextRequest) {
   ) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  // Initialise VAPID inside handler so build-time env vars are not required
+  const subject = process.env.VAPID_SUBJECT ?? "";
+  webpush.setVapidDetails(
+    subject.startsWith("mailto:") || subject.startsWith("https://") ? subject : `mailto:${subject || "admin@example.com"}`,
+    process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? "",
+    process.env.VAPID_PRIVATE_KEY ?? ""
+  );
 
   const supabase = getAdminClient();
 

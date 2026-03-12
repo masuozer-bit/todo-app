@@ -7,7 +7,8 @@ import Header from "@/components/Header";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { useTodos } from "@/hooks/useTodos";
 import { useTags } from "@/hooks/useTags";
-import { Download, Trash2, User, AlertTriangle, Calendar, FileText, Terminal, Bell } from "lucide-react";
+import { Download, Trash2, User, AlertTriangle, Calendar, FileText, Terminal, Bell, Palette } from "lucide-react";
+import { useTheme, TINTS } from "@/components/ThemeProvider";
 import { exportTodosPDF } from "@/lib/pdf-export";
 import CommandReference from "@/components/CommandReference";
 import {
@@ -37,6 +38,7 @@ export default function SettingsPage() {
   const { tags } = useTags(user?.id);
   const { todos, clearCompleted, exportTodos } = useTodos(user?.id, tags);
   const { permission: notifPermission, isSubscribed: notifSubscribed, subscribe: subscribeNotifications, unsubscribe: unsubscribeNotifications } = usePushNotifications();
+  const { tint, setTint } = useTheme();
 
   useEffect(() => {
     supabase.auth
@@ -132,14 +134,14 @@ export default function SettingsPage() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-white dark:bg-black">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="w-6 h-6 border-2 border-gray-400/30 border-t-black dark:border-t-white rounded-full animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-white dark:bg-black transition-colors">
+    <div className="min-h-screen transition-colors">
       <Header email={user?.email} />
 
       <main className="max-w-2xl mx-auto px-4 pb-16">
@@ -438,6 +440,35 @@ export default function SettingsPage() {
                   </p>
                 </div>
               )}
+            </div>
+          </section>
+
+          {/* Appearance */}
+          <section className="glass-card p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Palette size={16} className="text-gray-400" />
+              <h3 className="font-semibold text-black dark:text-white">Appearance</h3>
+            </div>
+            <p className="text-xs text-gray-400 mb-3">Background tint color</p>
+            <div className="flex items-center gap-2 flex-wrap">
+              {TINTS.map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => setTint(t.id)}
+                  className={`flex flex-col items-center gap-1.5 transition-default`}
+                  title={t.label}
+                  aria-label={t.label}
+                  aria-pressed={tint === t.id}
+                >
+                  <span
+                    className={`w-8 h-8 rounded-full transition-default ${tint === t.id ? "ring-2 ring-offset-2 ring-black dark:ring-white dark:ring-offset-transparent scale-110" : "opacity-70 hover:opacity-100"}`}
+                    style={{ background: `linear-gradient(135deg, ${t.light} 0%, ${t.dark} 100%)` }}
+                  />
+                  <span className={`text-[10px] ${tint === t.id ? "text-black dark:text-white font-medium" : "text-gray-400"}`}>
+                    {t.label}
+                  </span>
+                </button>
+              ))}
             </div>
           </section>
 

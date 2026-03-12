@@ -56,7 +56,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 bg-white dark:bg-black transition-colors">
+    <div className="min-h-screen flex items-center justify-center px-4 transition-colors">
       <div className="w-full max-w-md">
         <div className="glass-card p-8 md:p-10">
           <div className="text-center mb-8">

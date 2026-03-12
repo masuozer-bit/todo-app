@@ -134,7 +134,7 @@ export default function FocusModeView({
   };
 
   return (
-    <div className="md:hidden fixed inset-0 z-[80] bg-white dark:bg-black flex flex-col overflow-hidden">
+    <div className="md:hidden fixed inset-0 z-[80] bg-white/80 dark:bg-black/80 backdrop-blur-2xl flex flex-col overflow-hidden">
       {/* ── Header ── */}
       <div className="flex-shrink-0 px-5 pt-12 pb-4">
         <div className="flex items-start justify-between">

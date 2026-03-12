@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { CheckCircle2, TrendingUp, Target, Flame } from "lucide-react";
+import { CheckCircle2, TrendingUp, Target } from "lucide-react";
 import type { Todo } from "@/lib/types";
 
 interface ProductivityStatsProps {
@@ -65,53 +65,38 @@ export default function ProductivityStats({ todos }: ProductivityStatsProps) {
   if (stats.totalActive === 0 && stats.totalCompleted === 0) return null;
 
   return (
-    <div className="space-y-2">
-      <p className="text-xs font-medium text-gray-400 uppercase tracking-wide">
+    <div>
+      <p className="text-[10px] font-semibold text-gray-300 dark:text-gray-700 uppercase tracking-widest mb-2">
         Stats
       </p>
-
-      <div className="grid grid-cols-2 gap-1.5">
-        <div className="rounded-xl bg-black/[0.03] dark:bg-white/[0.05] p-2.5">
-          <div className="flex items-center gap-1.5 mb-1">
+      <div className="space-y-1">
+        <div className="flex items-center justify-between px-1">
+          <span className="flex items-center gap-1.5 text-xs text-gray-400">
             <Target size={11} className="text-green-500" />
-            <span className="text-[10px] text-gray-400 uppercase">Today</span>
-          </div>
-          <p className="text-lg font-semibold text-black dark:text-white leading-none">
+            Done today
+          </span>
+          <span className="text-xs font-semibold text-black dark:text-white tabular-nums">
             {stats.completedToday}
-          </p>
+          </span>
         </div>
-
-        <div className="rounded-xl bg-black/[0.03] dark:bg-white/[0.05] p-2.5">
-          <div className="flex items-center gap-1.5 mb-1">
+        <div className="flex items-center justify-between px-1">
+          <span className="flex items-center gap-1.5 text-xs text-gray-400">
             <TrendingUp size={11} className="text-blue-500" />
-            <span className="text-[10px] text-gray-400 uppercase">Week</span>
-          </div>
-          <p className="text-lg font-semibold text-black dark:text-white leading-none">
+            Done this week
+          </span>
+          <span className="text-xs font-semibold text-black dark:text-white tabular-nums">
             {stats.completedThisWeek}
-          </p>
+          </span>
         </div>
-
-        <div className="rounded-xl bg-black/[0.03] dark:bg-white/[0.05] p-2.5">
-          <div className="flex items-center gap-1.5 mb-1">
+        <div className="flex items-center justify-between px-1">
+          <span className="flex items-center gap-1.5 text-xs text-gray-400">
             <CheckCircle2 size={11} className="text-gray-400" />
-            <span className="text-[10px] text-gray-400 uppercase">Active</span>
-          </div>
-          <p className="text-lg font-semibold text-black dark:text-white leading-none">
+            Active
+          </span>
+          <span className="text-xs font-semibold text-black dark:text-white tabular-nums">
             {stats.totalActive}
-          </p>
+          </span>
         </div>
-
-        {stats.overdue > 0 && (
-          <div className="rounded-xl bg-red-50/50 dark:bg-red-950/20 p-2.5">
-            <div className="flex items-center gap-1.5 mb-1">
-              <Flame size={11} className="text-red-500" />
-              <span className="text-[10px] text-red-500/80 uppercase">Overdue</span>
-            </div>
-            <p className="text-lg font-semibold text-red-600 dark:text-red-400 leading-none">
-              {stats.overdue}
-            </p>
-          </div>
-        )}
       </div>
     </div>
   );

@@ -3,9 +3,7 @@
 import { useEffect, useRef } from "react";
 import { X, Inbox, Repeat, List, Plus, Sun, CalendarDays, CalendarRange } from "lucide-react";
 import type { List as ListType, Todo } from "@/lib/types";
-import TagManager from "./TagManager";
 import ProductivityStats from "./ProductivityStats";
-import type { Tag } from "@/lib/types";
 
 interface MobileSidebarProps {
   open: boolean;
@@ -22,9 +20,6 @@ interface MobileSidebarProps {
   onSwitchToToday?: () => void;
   onSwitchToThisWeek?: () => void;
   onAddList: () => void;
-  tags: Tag[];
-  onAddTag: (name: string) => Promise<void>;
-  onDeleteTag: (id: string) => Promise<void>;
   todos: Todo[];
 }
 
@@ -43,9 +38,6 @@ export default function MobileSidebar({
   onSwitchToToday,
   onSwitchToThisWeek,
   onAddList,
-  tags,
-  onAddTag,
-  onDeleteTag,
   todos,
 }: MobileSidebarProps) {
   const backdropRef = useRef<HTMLDivElement>(null);
@@ -90,7 +82,7 @@ export default function MobileSidebar({
 
       {/* Drawer */}
       <div
-        className={`md:hidden fixed inset-y-0 left-0 z-[95] w-72 bg-white dark:bg-neutral-950 border-r border-black/10 dark:border-white/10 shadow-2xl transform transition-transform duration-300 ease-out ${
+        className={`md:hidden fixed inset-y-0 left-0 z-[95] w-72 border-r border-black/10 dark:border-white/10 transform transition-transform duration-300 ease-out [backdrop-filter:blur(40px)_saturate(2)] [-webkit-backdrop-filter:blur(40px)_saturate(2)] bg-white/85 dark:bg-[rgba(13,12,24,0.92)] shadow-[8px_0_32px_rgba(0,0,0,0.2)] ${
           open ? "translate-x-0" : "-translate-x-full"
         }`}
       >
@@ -216,11 +208,6 @@ export default function MobileSidebar({
               <Plus size={14} />
               New list
             </button>
-
-            {/* Tags */}
-            <div className="mt-5 pt-4 border-t border-black/5 dark:border-white/5">
-              <TagManager tags={tags} onAdd={onAddTag} onDelete={onDeleteTag} />
-            </div>
 
             {/* Stats */}
             <div className="mt-5 pt-4 border-t border-black/5 dark:border-white/5">

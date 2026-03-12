@@ -128,7 +128,10 @@ export function useHabits(userId: string | undefined) {
       title: string,
       scheduleType: ScheduleType,
       scheduleDays: number[],
-      scheduleInterval: number
+      scheduleInterval: number,
+      time?: string | null,
+      notes?: string | null,
+      end_time?: string | null
     ) => {
       if (!userId) return;
       const maxOrder =
@@ -142,6 +145,9 @@ export function useHabits(userId: string | undefined) {
           schedule_days: scheduleDays,
           schedule_interval: scheduleInterval,
           sort_order: maxOrder + 1,
+          time: time || null,
+          end_time: end_time || null,
+          notes: notes || null,
         })
         .select()
         .single();
@@ -169,6 +175,9 @@ export function useHabits(userId: string | undefined) {
         schedule_type?: ScheduleType;
         schedule_days?: number[];
         schedule_interval?: number;
+        time?: string | null;
+        end_time?: string | null;
+        notes?: string | null;
       }
     ) => {
       const { error } = await supabase

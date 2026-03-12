@@ -74,9 +74,20 @@ export function useLists(userId: string | undefined) {
       user_id: l.user_id,
       name: l.name,
       sort_order: i,
+      folder_id: l.folder_id ?? null,
     }));
     await supabase.from("lists").upsert(updates);
   }, []);
 
-  return { lists, loading, addList, updateList, deleteList, reorderLists };
+  const moveListToFolder = useCallback(async (listId: string, folderId: string | null) => {
+    await supabase.from("lists").update({ folder_id: folderId }).eq("id", listId);
+    setLists(prev => prev.map(l => l.id === listId ? { ...l, folder_id: folderId } : l));
+  }, []);
+
+  // Call after a folder is deleted to clear folder_id from affected lists in local state
+  const unassignFolder = useCallback((folderId: string) => {
+    setLists(prev => prev.map(l => l.folder_id === folderId ? { ...l, folder_id: null } : l));
+  }, []);
+
+  return { lists, loading, addList, updateList, deleteList, reorderLists, moveListToFolder, unassignFolder };
 }

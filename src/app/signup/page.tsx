@@ -74,7 +74,7 @@ export default function SignupPage() {
 
   if (success) {
     return (
-      <div className="min-h-screen flex items-center justify-center px-4 bg-white dark:bg-black transition-colors">
+      <div className="min-h-screen flex items-center justify-center px-4 transition-colors">
         <div className="w-full max-w-md">
           <div className="glass-card p-8 md:p-10 text-center">
             <h2 className="text-2xl font-bold text-black dark:text-white mb-3">
@@ -99,7 +99,7 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 bg-white dark:bg-black transition-colors">
+    <div className="min-h-screen flex items-center justify-center px-4 transition-colors">
       <div className="w-full max-w-md">
         <div className="glass-card p-8 md:p-10">
           <div className="text-center mb-8">

@@ -16,8 +16,8 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { Search, X, Filter, CheckSquare, Trash2, Maximize2, ChevronRight, ChevronDown, PanelTopClose } from "lucide-react";
-import type { Todo, Tag, Priority, List, Event } from "@/lib/types";
+import { Search, X, Filter, CheckSquare, Trash2, Maximize2, ChevronRight, ChevronDown, PanelTopClose, Repeat, Flame, Clock } from "lucide-react";
+import type { Todo, Tag, Priority, List, Event, HabitWithStatus } from "@/lib/types";
 import SortableItem from "./SortableItem";
 import ManualSortWrapper from "./ManualSortWrapper";
 import TodoItem from "./TodoItem";
@@ -25,7 +25,7 @@ import ConfirmDialog from "./ConfirmDialog";
 import BulkActionBar from "./BulkActionBar";
 
 type FilterStatus = "all" | "active" | "completed";
-type SortBy = "default" | "priority" | "timeline";
+type SortBy = "default" | "priority" | "timeline" | "alpha";
 
 const PRIORITY_ORDER: Record<Priority, number> = {
   high: 0,
@@ -107,6 +107,9 @@ function groupByTimeline(
   const naturalTitle = (a: Todo, b: Todo) =>
     a.title.localeCompare(b.title, undefined, { numeric: true, sensitivity: "base" });
 
+  const naturalStr = (a: string, b: string) =>
+    a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
+
   // Sort todos within each group by their effective date; someday by title
   for (const key of Object.keys(groups)) {
     if (key === "someday") {
@@ -122,6 +125,8 @@ function groupByTimeline(
         return dd !== 0 ? dd : naturalTitle(a, b);
       });
     }
+    // Sort events within each group A-Z
+    groups[key].events.sort((a, b) => naturalStr(a.title, b.title));
   }
 
   return TIMELINE_CONFIG
@@ -146,10 +151,10 @@ function getUrgencyScore(
 
 type Urgency = "overdue" | "today" | "soon" | "normal";
 const URGENCY_STYLE: Record<Urgency, React.CSSProperties> = {
-  overdue: { backgroundColor: "rgba(239,68,68,0.38)", color: "#fca5a5", boxShadow: "0 0 12px rgba(239,68,68,0.6)", animation: "urgency-pulse 2.5s ease-in-out infinite" },
-  today:   { backgroundColor: "rgba(245,158,11,0.38)", color: "#fcd34d", boxShadow: "0 0 12px rgba(245,158,11,0.55)", animation: "urgency-pulse 2.5s ease-in-out infinite" },
-  soon:    { backgroundColor: "rgba(59,130,246,0.35)", color: "#93c5fd", boxShadow: "0 0 10px rgba(59,130,246,0.5)" },
-  normal:  { backgroundColor: "rgba(255,255,255,0.12)", color: "#d1d5db" },
+  overdue: { backgroundColor: "rgba(239,68,68,0.18)", color: "#f87171", backdropFilter: "blur(8px)", animation: "urgency-pulse 2.5s ease-in-out infinite" },
+  today:   { backgroundColor: "rgba(245,158,11,0.18)", color: "#fbbf24", backdropFilter: "blur(8px)", animation: "urgency-pulse 2.5s ease-in-out infinite" },
+  soon:    { backgroundColor: "rgba(59,130,246,0.16)", color: "#60a5fa", backdropFilter: "blur(8px)" },
+  normal:  { backgroundColor: "rgba(255,255,255,0.08)", color: "rgba(200,200,200,0.75)" },
 };
 function getEventUrgency(todos: Todo[]): Urgency {
   const todayStr = new Date().toISOString().slice(0, 10);
@@ -182,6 +187,51 @@ function formatShortDate(dateStr: string): string {
   if (diffDays === 0) return "Today";
   if (diffDays === 1) return "Tomorrow";
   return due.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+// ── Event peek ticker (cycling animated strip) ────────────────────
+function EventPeekRow({ incompleteTodos, eventColor }: { incompleteTodos: Todo[]; eventColor: string }) {
+  const [idx, setIdx] = useState(0);
+  useEffect(() => {
+    if (incompleteTodos.length === 0) return;
+    const t = setInterval(() => setIdx((i) => i + 1), 3000);
+    return () => clearInterval(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [incompleteTodos.length]);
+
+  if (incompleteTodos.length === 0) return null;
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const todo = incompleteTodos[idx % incompleteTodos.length];
+  let dotColor = eventColor;
+  if (todo.due_date) {
+    if (todo.due_date < todayStr) dotColor = "#ef4444";
+    else if (todo.due_date === todayStr) dotColor = "#f59e0b";
+  }
+  const label = todo.start_time
+    ? todo.start_time.slice(0, 5)
+    : todo.due_date ? formatShortDate(todo.due_date) : null;
+
+  return (
+    <div className="display-inset rounded-md px-2 py-0.5 mt-2 overflow-hidden inline-flex items-center justify-center max-w-full">
+      <div key={idx} className="peek-ticker flex items-center justify-center gap-1.5">
+        <span
+          className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+          style={{ backgroundColor: dotColor, boxShadow: `0 0 6px ${dotColor}cc, 0 0 12px ${dotColor}66` }}
+        />
+        <span className="text-[10px] text-white whitespace-nowrap leading-none tracking-wide font-semibold" style={{ textShadow: "0 1px 8px rgba(0,0,0,0.9), 0 0 16px rgba(0,0,0,0.5)" }}>
+          {todo.title}
+        </span>
+        {label && (
+          <span
+            className="text-[10px] flex-shrink-0 leading-none font-semibold tracking-wide"
+            style={{ color: dotColor, textShadow: `0 1px 4px rgba(0,0,0,0.8), 0 0 10px ${dotColor}cc` }}
+          >
+            · {label}
+          </span>
+        )}
+      </div>
+    </div>
+  );
 }
 
 // ── Skeleton loader ───────────────────────────────────────────────
@@ -231,6 +281,16 @@ interface TodoListProps {
   showBar?: boolean;
   /** Callback to toggle showBar from outside */
   onToggleBar?: () => void;
+  /** Hide the timeline group header whose key matches this value (e.g. "today", "overdue") */
+  suppressGroupKey?: string;
+  /** Today's habits to show inline alongside tasks */
+  habits?: HabitWithStatus[];
+  /** Whether to show habit rows in this task view */
+  showHabits?: boolean;
+  /** Callback to toggle a habit's completion */
+  onToggleHabit?: (habitId: string) => void;
+  /** ID of a todo to highlight (from timeline click) */
+  highlightedTodoId?: string | null;
 }
 
 export default function TodoList({
@@ -257,13 +317,37 @@ export default function TodoList({
   focusMode = false,
   showBar = true,
   onToggleBar,
+  suppressGroupKey,
+  habits = [],
+  showHabits = false,
+  onToggleHabit,
+  highlightedTodoId,
 }: TodoListProps) {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
   const [filterTagId, setFilterTagId] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<SortBy>(defaultSortBy);
+  const [showSomeday, setShowSomeday] = useState(false);
+  const [showDone, setShowDone] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+
+  // M key → toggle filter/sort panel; Escape → close it
+  useEffect(() => {
+    function handleKey(e: KeyboardEvent) {
+      const target = e.target as HTMLElement;
+      const isTyping = target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable;
+      if (e.key === "m" && !isTyping && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault();
+        setShowFilters((prev) => !prev);
+      }
+      if (e.key === "Escape") {
+        setShowFilters(false);
+      }
+    }
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, []);
 
   // ── Manual sort order (mixed events + todos), persisted per view ──────────
   const lsKey = `manualOrder:${viewKey}`;
@@ -334,7 +418,9 @@ export default function TodoList({
     const naturalTitle = (a: Todo, b: Todo) =>
       a.title.localeCompare(b.title, undefined, { numeric: true, sensitivity: "base" });
 
-    if (sortBy === "priority") {
+    if (sortBy === "alpha") {
+      result = [...result].sort(naturalTitle);
+    } else if (sortBy === "priority") {
       result = [...result].sort((a, b) => {
         const pd = PRIORITY_ORDER[a.priority ?? "none"] - PRIORITY_ORDER[b.priority ?? "none"];
         return pd !== 0 ? pd : naturalTitle(a, b);
@@ -361,7 +447,7 @@ export default function TodoList({
   const activeTodos = filtered.filter((t) => !t.completed);
   const completedTodos = filtered.filter((t) => t.completed);
   const hasFilters =
-    search || filterStatus !== "all" || filterTagId || sortBy !== "default";
+    !!search || filterStatus !== "all" || !!filterTagId || sortBy !== "default";
 
   // Separate event-based todos from standalone todos
   const eventTodosByEventId = useMemo(() => {
@@ -377,17 +463,6 @@ export default function TodoList({
 
   const standaloneActiveTodos = activeTodos.filter((t) => !t.event_id);
   const standaloneCompletedTodos = completedTodos.filter((t) => !t.event_id);
-
-  // Return the most-urgent active task in an event
-  function getEventBestTask(eventId: string): Todo | null {
-    const tasks = eventTodosByEventId[eventId] ?? [];
-    if (tasks.length === 0) return null;
-    return tasks.reduce((best, t) =>
-      getUrgencyScore(t.priority, t.due_date) < getUrgencyScore(best.priority, best.due_date)
-        ? t
-        : best
-    );
-  }
 
   // Merged list of events + standalone active todos, ordered by urgency
   type MergedItem =
@@ -417,14 +492,32 @@ export default function TodoList({
       });
     }
 
+    const itemTitle = (item: MergedItem) =>
+      item.kind === "todo" ? item.todo.title : item.event.title;
+    const naturalItem = (a: MergedItem, b: MergedItem) =>
+      itemTitle(a).localeCompare(itemTitle(b), undefined, { numeric: true, sensitivity: "base" });
+
     // For default sort: order comes from manualOrder (applied below); skip sorting here
-    if (sortBy !== "default") {
+    if (sortBy === "alpha") {
+      items.sort(naturalItem);
+    } else if (sortBy === "priority") {
+      // Get the priority rank for an item (events: use best task priority)
+      const prioRank = (item: MergedItem): number => {
+        if (item.kind === "todo") return PRIORITY_ORDER[item.todo.priority ?? "none"];
+        const tasks = eventTodosByEventId[item.event.id] ?? [];
+        return tasks.length
+          ? Math.min(...tasks.map((t) => PRIORITY_ORDER[t.priority ?? "none"]))
+          : PRIORITY_ORDER["none"];
+      };
+      items.sort((a, b) => {
+        const pd = prioRank(a) - prioRank(b);
+        return pd !== 0 ? pd : naturalItem(a, b);
+      });
+    } else if (sortBy !== "default") {
+      // Urgency score sort (used for any other non-default modes)
       items.sort((a, b) => {
         const sd = a.score - b.score;
-        if (sd !== 0) return sd;
-        const titleA = a.kind === "todo" ? a.todo.title : a.event.title;
-        const titleB = b.kind === "todo" ? b.todo.title : b.event.title;
-        return titleA.localeCompare(titleB, undefined, { numeric: true, sensitivity: "base" });
+        return sd !== 0 ? sd : naturalItem(a, b);
       });
     }
 
@@ -534,6 +627,49 @@ export default function TodoList({
     }
   }
 
+  // Render a compact inline habit row
+  function renderHabitRow(habit: HabitWithStatus) {
+    const time12 = habit.time
+      ? (() => {
+          const [h, m] = habit.time!.split(":").map(Number);
+          const ampm = h >= 12 ? "PM" : "AM";
+          return `${h % 12 || 12}:${String(m).padStart(2, "0")} ${ampm}`;
+        })()
+      : null;
+    return (
+      <div
+        key={habit.id}
+        className={`glass-card-subtle flex items-center gap-3 px-3 py-2.5 transition-default ${
+          habit.completedToday ? "opacity-50" : ""
+        }`}
+      >
+        <input
+          type="checkbox"
+          checked={habit.completedToday}
+          onChange={() => onToggleHabit?.(habit.id)}
+          className="custom-checkbox flex-shrink-0"
+          aria-label={`Habit: ${habit.title}`}
+        />
+        <Repeat size={12} className="text-black/30 dark:text-gray-600 flex-shrink-0" />
+        <span className={`flex-1 text-sm min-w-0 truncate ${habit.completedToday ? "line-through text-black/40 dark:text-gray-500" : "text-black dark:text-white"}`}>
+          {habit.title}
+        </span>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {time12 && (
+            <span className="flex items-center gap-1 text-[10px] text-black/40 dark:text-gray-500">
+              <Clock size={9} />{time12}
+            </span>
+          )}
+          {habit.streak > 0 && (
+            <span className="flex items-center gap-0.5 text-[10px] text-orange-500 dark:text-orange-400">
+              <Flame size={9} />{habit.streak}
+            </span>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   // Render an event container — collapsed by default
   function renderEventContainer(event: Event) {
     const eventTodos = eventTodosByEventId[event.id] || [];
@@ -545,8 +681,6 @@ export default function TodoList({
     const listName = event.list_id
       ? lists.find((l) => l.id === event.list_id)?.name
       : null;
-    const bestTask = getEventBestTask(event.id);
-
     return (
       <div key={event.id} className="glass-card-subtle overflow-hidden">
         {/* Color accent bar */}
@@ -583,21 +717,12 @@ export default function TodoList({
                 )}
               </div>
 
-              {/* Best-task preview — only when collapsed */}
-              {collapsed && bestTask && (
-                <div className="flex items-center gap-1.5 mt-1 min-w-0">
-                  {bestTask.priority && bestTask.priority !== "none" && (
-                    <span
-                      className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${PRIORITY_DOT[bestTask.priority]}`}
-                    />
-                  )}
-                  <span className="text-xs text-gray-400 truncate">{bestTask.title}</span>
-                  {bestTask.due_date && (
-                    <span className="text-xs text-gray-300 dark:text-gray-600 flex-shrink-0">
-                      · {formatShortDate(bestTask.due_date)}
-                    </span>
-                  )}
-                </div>
+              {/* Peek ticker — cycles incomplete tasks when collapsed */}
+              {collapsed && (
+                <EventPeekRow
+                  incompleteTodos={eventTodos.filter((t) => !t.completed)}
+                  eventColor={event.color ?? "#6366f1"}
+                />
               )}
 
               {/* Progress bar */}
@@ -707,6 +832,7 @@ export default function TodoList({
         activeListId={activeListId}
         events={events}
         onAssignEvent={onAssignEvent}
+        highlighted={highlightedTodoId === todo.id}
       />
     );
 
@@ -739,40 +865,98 @@ export default function TodoList({
 
   return (
     <>
-      {/* Toggle bar button (PC only, not in focus mode) */}
-      {!focusMode && onToggleBar && (
-        <div className="flex justify-end mb-1 -mt-1">
-          <button
-            onClick={onToggleBar}
-            title={`${showBar ? "Hide" : "Show"} task bar (P)`}
-            className="p-1 rounded-lg text-gray-300 dark:text-gray-600 hover:text-gray-500 dark:hover:text-gray-400 transition-default opacity-40 hover:opacity-100"
-          >
-            <PanelTopClose size={13} style={{ transform: showBar ? "none" : "rotate(180deg)", transition: "transform 200ms ease" }} />
-          </button>
+
+      {/* Filter panel — independent of showBar */}
+      {!focusMode && showFilters && (
+        <div className="mb-4 glass-card-subtle p-3 space-y-3">
+          <div>
+            <p className="text-xs text-black/60 dark:text-gray-400 mb-1.5 font-medium">Status</p>
+            <div className="flex gap-2">
+              {(["all", "active", "completed"] as FilterStatus[]).map((s) => (
+                <button
+                  key={s}
+                  onClick={() => setFilterStatus(s)}
+                  className={`text-xs px-2.5 py-1 rounded-lg border capitalize transition-default ${
+                    filterStatus === s
+                      ? "border-black/30 dark:border-white/30 bg-black/5 dark:bg-white/10 text-black dark:text-white font-medium"
+                      : "border-black/10 dark:border-white/10 text-black/55 dark:text-gray-400 hover:border-black/20 dark:hover:border-white/20"
+                  }`}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <p className="text-xs text-black/60 dark:text-gray-400 mb-1.5 font-medium">Sort by</p>
+            <div className="flex gap-2">
+              {(
+                [
+                  ["default", "Manual"],
+                  ["alpha", "A–Z"],
+                  ["priority", "Priority"],
+                  ["timeline", "Timeline"],
+                ] as [SortBy, string][]
+              ).map(([val, label]) => (
+                <button
+                  key={val}
+                  onClick={() => setSortBy(val)}
+                  className={`text-xs px-2.5 py-1 rounded-lg border transition-default ${
+                    sortBy === val
+                      ? "border-black/30 dark:border-white/30 bg-black/5 dark:bg-white/10 text-black dark:text-white font-medium"
+                      : "border-black/10 dark:border-white/10 text-black/55 dark:text-gray-400 hover:border-black/20 dark:hover:border-white/20"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {allTags.length > 0 && (
+            <div>
+              <p className="text-xs text-black/60 dark:text-gray-400 mb-1.5 font-medium">Tag</p>
+              <div className="flex gap-2 flex-wrap">
+                <button
+                  onClick={() => setFilterTagId(null)}
+                  className={`text-xs px-2.5 py-1 rounded-lg border transition-default ${
+                    !filterTagId
+                      ? "border-black/30 dark:border-white/30 bg-black/5 dark:bg-white/10 text-black dark:text-white font-medium"
+                      : "border-black/10 dark:border-white/10 text-black/55 dark:text-gray-400 hover:border-black/20 dark:hover:border-white/20"
+                  }`}
+                >
+                  All
+                </button>
+                {allTags.map((tag) => (
+                  <button
+                    key={tag.id}
+                    onClick={() => setFilterTagId(filterTagId === tag.id ? null : tag.id)}
+                    className={`text-xs px-2.5 py-1 rounded-lg border transition-default ${
+                      filterTagId === tag.id
+                        ? "border-black/30 dark:border-white/30 bg-black/5 dark:bg-white/10 text-black dark:text-white font-medium"
+                        : "border-black/10 dark:border-white/10 text-black/55 dark:text-gray-400 hover:border-black/20 dark:hover:border-white/20"
+                    }`}
+                  >
+                    {tag.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {hasFilters && (
+            <button
+              onClick={() => { setSearch(""); setFilterStatus("all"); setFilterTagId(null); setSortBy("default"); }}
+              className="text-xs text-gray-400 hover:text-black dark:hover:text-white transition-default"
+            >
+              Clear all filters
+            </button>
+          )}
         </div>
       )}
 
-      {/* Progress bar (hidden in focus mode, toggleable in PC mode) */}
-      {!focusMode && showBar && totalCount > 0 && (
-        <div className="mb-4">
-          <div className="flex items-center justify-between mb-1.5">
-            <span className="text-xs text-gray-400">
-              {completedCount}/{totalCount} completed
-            </span>
-            <span className="text-xs text-gray-400">
-              {Math.round(progressPct)}%
-            </span>
-          </div>
-          <div className="w-full h-1.5 bg-black/5 dark:bg-white/10 rounded-full">
-            <div
-              className="h-full bg-black dark:bg-white rounded-full transition-all duration-500"
-              style={{ width: `${progressPct}%` }}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* Search bar — always visible in focus mode; full bar shown in PC mode when showBar */}
+      {/* Search bar — always visible in focus mode; shown when showBar in PC mode */}
       {focusMode ? (
         <div className="mb-4 flex items-center gap-2 glass-card-subtle px-3 py-2">
           <Search size={14} className="text-gray-400 flex-shrink-0" />
@@ -790,8 +974,8 @@ export default function TodoList({
             </button>
           )}
         </div>
-      ) : showBar && <div className="mb-4 space-y-2">
-        <div className="flex items-center gap-2">
+      ) : showBar && (
+        <div className="mb-4 flex items-center gap-2">
           <div className="flex-1 flex items-center gap-2 glass-card-subtle px-3 py-2">
             <Search size={14} className="text-gray-400 flex-shrink-0" />
             <input
@@ -803,10 +987,7 @@ export default function TodoList({
               aria-label="Search tasks"
             />
             {search && (
-              <button
-                onClick={() => setSearch("")}
-                className="text-gray-400 hover:text-black dark:hover:text-white transition-default"
-              >
+              <button onClick={() => setSearch("")} className="text-gray-400 hover:text-black dark:hover:text-white transition-default">
                 <X size={14} />
               </button>
             )}
@@ -815,14 +996,9 @@ export default function TodoList({
           {/* Bulk select toggle */}
           {totalCount > 0 && (
             <button
-              onClick={() => {
-                if (selectMode) cancelSelect();
-                else setSelectMode(true);
-              }}
+              onClick={() => { if (selectMode) cancelSelect(); else setSelectMode(true); }}
               className={`glass-card-subtle p-2 transition-default ${
-                selectMode
-                  ? "text-black dark:text-white bg-black/5 dark:bg-white/10"
-                  : "text-gray-400 hover:text-black dark:hover:text-white"
+                selectMode ? "text-black dark:text-white bg-black/5 dark:bg-white/10" : "text-gray-400 hover:text-black dark:hover:text-white"
               }`}
               aria-label={selectMode ? "Cancel selection" : "Select multiple"}
               title={selectMode ? "Cancel selection" : "Select multiple"}
@@ -830,118 +1006,24 @@ export default function TodoList({
               <CheckSquare size={14} />
             </button>
           )}
-
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className={`glass-card-subtle p-2 transition-default ${
-              hasFilters && !search
-                ? "text-black dark:text-white"
-                : "text-gray-400 hover:text-black dark:hover:text-white"
-            }`}
-            aria-label="Toggle filters"
-          >
-            <Filter size={14} />
-          </button>
         </div>
+      )}
 
-        {/* Filter panel */}
-        {showFilters && (
-          <div className="glass-card-subtle p-3 space-y-3">
-            <div>
-              <p className="text-xs text-gray-400 mb-1.5 font-medium">Status</p>
-              <div className="flex gap-2">
-                {(["all", "active", "completed"] as FilterStatus[]).map(
-                  (s) => (
-                    <button
-                      key={s}
-                      onClick={() => setFilterStatus(s)}
-                      className={`text-xs px-2.5 py-1 rounded-lg border capitalize transition-default ${
-                        filterStatus === s
-                          ? "border-black/30 dark:border-white/30 bg-black/5 dark:bg-white/10 text-black dark:text-white font-medium"
-                          : "border-black/10 dark:border-white/10 text-gray-400 hover:border-black/20 dark:hover:border-white/20"
-                      }`}
-                    >
-                      {s}
-                    </button>
-                  )
-                )}
-              </div>
-            </div>
-
-            <div>
-              <p className="text-xs text-gray-400 mb-1.5 font-medium">Sort by</p>
-              <div className="flex gap-2">
-                {(
-                  [
-                    ["default", "Manual"],
-                    ["priority", "Priority"],
-                    ["timeline", "Timeline"],
-                  ] as [SortBy, string][]
-                ).map(([val, label]) => (
-                  <button
-                    key={val}
-                    onClick={() => setSortBy(val)}
-                    className={`text-xs px-2.5 py-1 rounded-lg border transition-default ${
-                      sortBy === val
-                        ? "border-black/30 dark:border-white/30 bg-black/5 dark:bg-white/10 text-black dark:text-white font-medium"
-                        : "border-black/10 dark:border-white/10 text-gray-400 hover:border-black/20 dark:hover:border-white/20"
-                    }`}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {allTags.length > 0 && (
-              <div>
-                <p className="text-xs text-gray-400 mb-1.5 font-medium">Tag</p>
-                <div className="flex gap-2 flex-wrap">
-                  <button
-                    onClick={() => setFilterTagId(null)}
-                    className={`text-xs px-2.5 py-1 rounded-lg border transition-default ${
-                      !filterTagId
-                        ? "border-black/30 dark:border-white/30 bg-black/5 dark:bg-white/10 text-black dark:text-white font-medium"
-                        : "border-black/10 dark:border-white/10 text-gray-400 hover:border-black/20 dark:hover:border-white/20"
-                    }`}
-                  >
-                    All
-                  </button>
-                  {allTags.map((tag) => (
-                    <button
-                      key={tag.id}
-                      onClick={() =>
-                        setFilterTagId(filterTagId === tag.id ? null : tag.id)
-                      }
-                      className={`text-xs px-2.5 py-1 rounded-lg border transition-default ${
-                        filterTagId === tag.id
-                          ? "border-black/30 dark:border-white/30 bg-black/5 dark:bg-white/10 text-black dark:text-white font-medium"
-                          : "border-black/10 dark:border-white/10 text-gray-400 hover:border-black/20 dark:hover:border-white/20"
-                      }`}
-                    >
-                      {tag.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {hasFilters && (
-              <button
-                onClick={() => {
-                  setSearch("");
-                  setFilterStatus("all");
-                  setFilterTagId(null);
-                  setSortBy("default");
-                }}
-                className="text-xs text-gray-400 hover:text-black dark:hover:text-white transition-default"
-              >
-                Clear all filters
-              </button>
-            )}
+      {/* Inline habits section — shown when showHabits toggle is on */}
+      {showHabits && habits.length > 0 && (
+        <div className="mb-5">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-black/40 dark:text-gray-500 whitespace-nowrap">Habits</span>
+            <span className="text-[10px] text-black/25 dark:text-gray-600 tabular-nums whitespace-nowrap">
+              {habits.filter((h) => h.completedToday).length}/{habits.length}
+            </span>
+            <div className="flex-1 h-px bg-black/[0.07] dark:bg-white/[0.07]" />
           </div>
-        )}
-      </div>}
+          <div className="space-y-1.5">
+            {habits.map((habit) => renderHabitRow(habit))}
+          </div>
+        </div>
+      )}
 
       {/* Todo items */}
       {todos.length === 0 ? (
@@ -968,38 +1050,77 @@ export default function TodoList({
       ) : sortBy === "timeline" ? (
         /* ── Timeline view: events interleaved with tasks by start_date/due_date ── */
         <div className="space-y-5">
-          {groupByTimeline(standaloneActiveTodos, events, eventTodosByEventId).map((group) => (
+          {groupByTimeline(standaloneActiveTodos, events, eventTodosByEventId).map((group) => {
+            const isSomeday = group.key === "someday";
+            const isSuppressed = group.key === suppressGroupKey;
+            const count = group.todos.length + group.events.length;
+            const isOpen = !isSomeday || showSomeday;
+            return (
             <div key={group.key}>
-              <p className={`text-xs font-medium uppercase tracking-wider mb-2 px-1 ${
-                group.key === "overdue"
-                  ? "text-red-500 dark:text-red-400"
-                  : group.key === "today"
-                  ? "text-black dark:text-white"
-                  : "text-gray-400"
-              }`}>
-                {group.label}
-                <span className="ml-1.5 text-gray-300 dark:text-gray-600 font-normal">
-                  {group.todos.length + group.events.length}
-                </span>
-              </p>
-              <div className="space-y-2">
-                {group.events.map((event) => renderEventContainer(event))}
-                {group.todos.map((todo) => renderTodo(todo, false))}
-              </div>
+              {!isSuppressed && (
+                <button
+                  onClick={() => { if (isSomeday) setShowSomeday((v) => !v); }}
+                  className={`flex items-center gap-2 w-full text-left mb-3 transition-default ${
+                    isSomeday ? "cursor-pointer" : "cursor-default"
+                  }`}
+                >
+                  {isSomeday && (
+                    <ChevronRight
+                      size={10}
+                      className={`flex-shrink-0 text-black/40 dark:text-gray-400 transition-transform duration-200 ${showSomeday ? "rotate-90" : ""}`}
+                    />
+                  )}
+                  <span className={`text-[10px] font-bold uppercase tracking-widest whitespace-nowrap ${
+                    group.key === "overdue"
+                      ? "text-red-500 dark:text-red-400"
+                      : group.key === "today"
+                      ? "text-black dark:text-white"
+                      : "text-black/50 dark:text-gray-500"
+                  }`}>
+                    {group.label}
+                  </span>
+                  <span className="text-[10px] text-black/35 dark:text-gray-600 font-normal tabular-nums whitespace-nowrap">
+                    {count}
+                  </span>
+                  <div className={`flex-1 h-px ${
+                    group.key === "overdue"
+                      ? "bg-red-400/35 dark:bg-red-400/20"
+                      : group.key === "today"
+                      ? "bg-black/20 dark:bg-white/15"
+                      : "bg-black/10 dark:bg-white/[0.07]"
+                  }`} />
+                </button>
+              )}
+              {isOpen && (
+                <div className="space-y-2">
+                  {group.events.map((event) => renderEventContainer(event))}
+                  {group.todos.map((todo) => renderTodo(todo, false))}
+                </div>
+              )}
             </div>
-          ))}
+            );
+          })}
 
           {standaloneCompletedTodos.length > 0 && (
-            <div className="pt-2">
-              <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2 px-1">
-                Done
-                <span className="ml-1.5 text-gray-300 dark:text-gray-600 font-normal">
+            <div className="pt-1">
+              <button
+                onClick={() => setShowDone((v) => !v)}
+                className="flex items-center gap-2 w-full text-left mb-3 cursor-pointer transition-default"
+              >
+                <ChevronRight size={10} className={`flex-shrink-0 text-black/40 dark:text-gray-400 transition-transform duration-200 ${showDone ? "rotate-90" : ""}`} />
+                <span className="text-[10px] font-bold uppercase tracking-widest text-black/50 dark:text-gray-500 whitespace-nowrap">
+                  Done
+                </span>
+                <span className="text-[10px] text-black/35 dark:text-gray-600 font-normal tabular-nums whitespace-nowrap">
                   {standaloneCompletedTodos.length}
                 </span>
-              </p>
-              <div className="space-y-2">
-                {standaloneCompletedTodos.map((todo) => renderTodo(todo, false))}
-              </div>
+                <div className="flex-1 h-px bg-black/10 dark:bg-white/[0.07]" />
+              </button>
+              {showDone && (
+                <div className="space-y-2">
+                  {standaloneCompletedTodos.map((todo) => renderTodo(todo, false))}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -1048,13 +1169,25 @@ export default function TodoList({
           )}
 
           {standaloneCompletedTodos.length > 0 && (
-            <div className="pt-4">
-              <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2 px-1">
-                Completed ({standaloneCompletedTodos.length})
-              </p>
-              <div className="space-y-2">
-                {standaloneCompletedTodos.map((todo) => renderTodo(todo, false))}
-              </div>
+            <div className="pt-2">
+              <button
+                onClick={() => setShowDone((v) => !v)}
+                className="flex items-center gap-2 w-full text-left mb-3 cursor-pointer transition-default"
+              >
+                <ChevronRight size={10} className={`flex-shrink-0 text-black/40 dark:text-gray-400 transition-transform duration-200 ${showDone ? "rotate-90" : ""}`} />
+                <span className="text-[10px] font-bold uppercase tracking-widest text-black/50 dark:text-gray-500 whitespace-nowrap">
+                  Done
+                </span>
+                <span className="text-[10px] text-black/35 dark:text-gray-600 font-normal tabular-nums whitespace-nowrap">
+                  {standaloneCompletedTodos.length}
+                </span>
+                <div className="flex-1 h-px bg-black/10 dark:bg-white/[0.07]" />
+              </button>
+              {showDone && (
+                <div className="space-y-2">
+                  {standaloneCompletedTodos.map((todo) => renderTodo(todo, false))}
+                </div>
+              )}
             </div>
           )}
         </div>

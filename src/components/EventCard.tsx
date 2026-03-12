@@ -46,6 +46,27 @@ function formatEventDate(dateStr: string): string {
   });
 }
 
+function getPeekUrgencyColor(todo: Todo, eventColor: string): string {
+  const today = new Date().toISOString().slice(0, 10);
+  if (!todo.due_date) return eventColor;
+  if (todo.due_date < today) return "#ef4444";
+  if (todo.due_date === today) return "#f59e0b";
+  return eventColor;
+}
+
+function formatPeekLabel(todo: Todo): string | null {
+  if (todo.start_time) return todo.start_time.slice(0, 5);
+  if (!todo.due_date) return null;
+  const [y, m, d] = todo.due_date.split("-").map(Number);
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const due = new Date(y, m - 1, d);
+  const diff = Math.round((due.getTime() - today.getTime()) / 86400000);
+  if (diff < 0) return `${Math.abs(diff)}d ago`;
+  if (diff === 0) return "Today";
+  if (diff === 1) return "Tomorrow";
+  return due.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
 export default function EventCard({
   event,
   lists,
@@ -80,7 +101,7 @@ export default function EventCard({
   const incompleteTodos = todos.filter((t) => !t.completed);
 
   useEffect(() => {
-    if (incompleteTodos.length < 2) return;
+    if (incompleteTodos.length === 0) return;
     const t = setInterval(() => setPeekIdx((i) => i + 1), 3000);
     return () => clearInterval(t);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -127,7 +148,7 @@ export default function EventCard({
       />
 
       {/* Header */}
-      <div className="p-3 md:p-4">
+      <div className={todos.length === 0 ? "py-2 px-3" : "p-3 md:p-4"}>
         <div className="flex items-center gap-3">
           <button
             onClick={() => setExpanded(!expanded)}
@@ -161,7 +182,7 @@ export default function EventCard({
               </div>
             ) : (
               <p
-                className="text-base font-medium text-black dark:text-white cursor-pointer"
+                className={`${todos.length === 0 ? "text-sm" : "text-base"} font-medium text-black dark:text-white cursor-pointer`}
                 onClick={() => setEditing(true)}
               >
                 {event.title}
@@ -238,19 +259,26 @@ export default function EventCard({
         )}
 
         {/* Peek ticker — cycles incomplete tasks when collapsed */}
-        {!expanded && incompleteTodos.length > 0 && (
-          <div className="mt-2 overflow-hidden h-[14px]">
-            <div key={peekIdx} className="peek-ticker flex items-center gap-1.5 min-w-0">
-              <span
-                className="w-1 h-1 rounded-full flex-shrink-0"
-                style={{ backgroundColor: event.color ?? "#6366f1" }}
-              />
-              <span className="text-[10px] text-gray-400 dark:text-gray-500 truncate leading-none">
-                {incompleteTodos[peekIdx % incompleteTodos.length].title}
-              </span>
+        {!expanded && incompleteTodos.length > 0 && (() => {
+          const peekTodo = incompleteTodos[peekIdx % incompleteTodos.length];
+          const dotColor = getPeekUrgencyColor(peekTodo, event.color ?? "#6366f1");
+          const label = formatPeekLabel(peekTodo);
+          return (
+            <div className="mt-2 overflow-hidden h-[14px]">
+              <div key={peekIdx} className="peek-ticker flex items-center gap-1.5 min-w-0">
+                <span className="w-1 h-1 rounded-full flex-shrink-0" style={{ backgroundColor: dotColor }} />
+                <span className="text-[10px] text-gray-400 dark:text-gray-500 truncate leading-none">
+                  {peekTodo.title}
+                </span>
+                {label && (
+                  <span className="text-[10px] flex-shrink-0 leading-none font-medium" style={{ color: dotColor }}>
+                    · {label}
+                  </span>
+                )}
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
       </div>
 
       {/* Expanded: task list */}

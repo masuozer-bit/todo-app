@@ -27,7 +27,7 @@ export default function Header({ email }: HeaderProps) {
     <div className="fixed bottom-4 right-4 z-50 flex flex-col items-end gap-2">
       {/* Expanded controls */}
       {open && (
-        <div className="flex flex-col items-center gap-1 bg-white/90 dark:bg-black/90 backdrop-blur-xl border border-black/10 dark:border-white/10 rounded-2xl p-1.5 shadow-lg">
+        <div className="flex flex-col items-center gap-1 glass-card-raised rounded-2xl p-1.5">
           <button
             onClick={toggleTheme}
             className="p-2.5 rounded-xl text-gray-400 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-default"
@@ -62,10 +62,10 @@ export default function Header({ email }: HeaderProps) {
       {/* Toggle button */}
       <button
         onClick={() => setOpen(!open)}
-        className={`w-9 h-9 rounded-full flex items-center justify-center transition-default ${
+        className={`w-9 h-9 rounded-full flex items-center justify-center transition-default shadow-md ${
           open
             ? "bg-black dark:bg-white text-white dark:text-black"
-            : "bg-black/5 dark:bg-white/10 text-gray-400 hover:text-black dark:hover:text-white"
+            : "glass-card-subtle text-gray-400 hover:text-black dark:hover:text-white"
         }`}
         aria-label={open ? "Close menu" : "Open menu"}
       >

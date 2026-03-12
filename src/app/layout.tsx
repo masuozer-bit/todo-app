@@ -25,13 +25,15 @@ export default function RootLayout({
                   if (theme === 'dark') {
                     document.documentElement.classList.add('dark');
                   }
+                  var tint = localStorage.getItem('tint') || 'lavender';
+                  document.documentElement.classList.add('tint-' + tint);
                 } catch(e) {}
               })();
             `,
           }}
         />
       </head>
-      <body className="bg-white dark:bg-black text-black dark:text-white min-h-screen transition-colors">
+      <body className="text-black dark:text-white min-h-screen transition-colors">
         <ErrorBoundary>
           <ThemeProvider>{children}</ThemeProvider>
         </ErrorBoundary>

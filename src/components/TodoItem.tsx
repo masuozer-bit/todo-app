@@ -46,6 +46,7 @@ interface TodoItemProps {
   activeListId?: string | null;
   events?: Event[];
   onAssignEvent?: (todoId: string, eventId: string | null) => void;
+  highlighted?: boolean;
 }
 
 const PRIORITY_CONFIG: Record<
@@ -124,11 +125,20 @@ export default function TodoItem({
   activeListId,
   events = [],
   onAssignEvent,
+  highlighted = false,
 }: TodoItemProps) {
+  const itemRef = useRef<HTMLDivElement>(null);
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState(todo.title);
   const [expanded, setExpanded] = useState(false);
   const [showNotes, setShowNotes] = useState(false);
+
+  // Scroll into view and flash when highlighted
+  useEffect(() => {
+    if (highlighted && itemRef.current) {
+      itemRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [highlighted]);
   const [notesValue, setNotesValue] = useState(todo.notes ?? "");
   const [newSubtask, setNewSubtask] = useState("");
   const [showSubtaskInput, setShowSubtaskInput] = useState(false);
@@ -218,9 +228,11 @@ export default function TodoItem({
 
   return (
     <div
+      ref={itemRef}
+      data-todo-id={todo.id}
       className={`glass-card-subtle group transition-default ${
         isDragging ? "opacity-50 scale-[1.02] shadow-lg" : ""
-      } ${todo.completed ? "opacity-60" : ""}`}
+      } ${todo.completed ? "opacity-60" : ""} ${highlighted ? "ring-2 ring-blue-500/60 ring-offset-1" : ""}`}
     >
       {/* Main row */}
       <div className="flex items-start gap-3 py-2 px-3" {...dragHandleProps}>
@@ -314,7 +326,7 @@ export default function TodoItem({
               </span>
             )}
             {todo.start_date && !todo.completed && (
-              <span className="flex items-center gap-1 text-xs text-gray-400">
+              <span className="flex items-center gap-1 text-xs text-black/50 dark:text-gray-400">
                 <CalendarClock size={11} />
                 Start {formatDueDate(todo.start_date).text}
               </span>
@@ -324,13 +336,13 @@ export default function TodoItem({
                 className={`flex items-center gap-1 text-xs ${
                   dueInfo.overdue
                     ? "text-red-500 dark:text-red-400 font-medium"
-                    : "text-gray-400"
+                    : "text-black/50 dark:text-gray-400"
                 }`}
               >
                 <Calendar size={11} />
                 {dueInfo.text}
                 {todo.start_time && (
-                  <span className="text-gray-400 ml-0.5">
+                  <span className="text-black/40 dark:text-gray-400 ml-0.5">
                     {todo.start_time}{todo.end_time ? `–${todo.end_time}` : ""}
                   </span>
                 )}
@@ -363,13 +375,13 @@ export default function TodoItem({
               </button>
             )}
             {todo.notes && (
-              <span className="text-xs text-gray-400 flex items-center gap-0.5">
+              <span className="text-xs text-black/50 dark:text-gray-400 flex items-center gap-0.5">
                 <FileText size={11} />
                 Note
               </span>
             )}
             {listName && (
-              <span className="text-xs text-gray-300 dark:text-gray-600 flex items-center gap-1">
+              <span className="text-xs text-black/45 dark:text-gray-500 flex items-center gap-1">
                 <ListIcon size={11} />
                 {listName}
               </span>
@@ -620,7 +632,7 @@ export default function TodoItem({
                 onChange={(e) =>
                   onUpdate(todo.id, { list_id: e.target.value || null })
                 }
-                className="text-xs bg-white dark:bg-black border border-black/10 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-black dark:text-white focus:outline-none focus:border-black/30 dark:focus:border-white/30 transition-default cursor-pointer"
+                className="text-xs bg-white/50 dark:bg-white/[0.07] border border-black/10 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-black dark:text-white focus:outline-none focus:border-black/30 dark:focus:border-white/30 transition-default cursor-pointer backdrop-blur-sm"
               >
                 <option value="">No list</option>
                 {lists.map((list) => (
@@ -777,7 +789,7 @@ export default function TodoItem({
                 onChange={(e) =>
                   onAssignEvent(todo.id, e.target.value || null)
                 }
-                className="text-xs bg-white dark:bg-black border border-black/10 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-black dark:text-white focus:outline-none focus:border-black/30 dark:focus:border-white/30 transition-default cursor-pointer"
+                className="text-xs bg-white/50 dark:bg-white/[0.07] border border-black/10 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-black dark:text-white focus:outline-none focus:border-black/30 dark:focus:border-white/30 transition-default cursor-pointer backdrop-blur-sm"
               >
                 <option value="">No event</option>
                 {events.map((ev) => (

@@ -37,6 +37,8 @@ interface EventDetailProps {
       color?: string;
       due_date?: string | null;
       end_date?: string | null;
+      start_time?: string | null;
+      end_time?: string | null;
     }
   ) => void;
   onDelete: (id: string) => void;
@@ -294,6 +296,46 @@ export default function EventDetail({
                   <button
                     onClick={() =>
                       onUpdate(event.id, { due_date: null, end_date: null })
+                    }
+                    className="text-gray-400 hover:text-red-500 transition-default"
+                  >
+                    <X size={12} />
+                  </button>
+                )}
+              </div>
+
+              {/* Time */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs text-gray-400 font-medium uppercase tracking-wide w-10 flex-shrink-0">
+                  Time
+                </span>
+                <input
+                  type="time"
+                  value={event.start_time ?? ""}
+                  onChange={(e) =>
+                    onUpdate(event.id, { start_time: e.target.value || null })
+                  }
+                  className="text-xs bg-white dark:bg-black border border-black/10 dark:border-white/10 rounded-lg px-2 py-1 text-black dark:text-white focus:outline-none cursor-pointer"
+                  placeholder="Start"
+                />
+                {event.start_time && (
+                  <>
+                    <span className="text-xs text-gray-400">→</span>
+                    <input
+                      type="time"
+                      value={event.end_time ?? ""}
+                      onChange={(e) =>
+                        onUpdate(event.id, { end_time: e.target.value || null })
+                      }
+                      className="text-xs bg-white dark:bg-black border border-black/10 dark:border-white/10 rounded-lg px-2 py-1 text-black dark:text-white focus:outline-none cursor-pointer"
+                      placeholder="End"
+                    />
+                  </>
+                )}
+                {(event.start_time || event.end_time) && (
+                  <button
+                    onClick={() =>
+                      onUpdate(event.id, { start_time: null, end_time: null })
                     }
                     className="text-gray-400 hover:text-red-500 transition-default"
                   >

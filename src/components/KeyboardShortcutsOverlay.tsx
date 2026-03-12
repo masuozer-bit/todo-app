@@ -52,7 +52,7 @@ export default function KeyboardShortcutsOverlay({
       />
 
       {/* Dialog */}
-      <div className="relative bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl border border-black/10 dark:border-white/10 p-6 w-full max-w-sm mx-4 animate-in fade-in zoom-in-95 duration-200">
+      <div className="relative glass-card-raised p-6 w-full max-w-sm mx-4 animate-in fade-in zoom-in-95 duration-200">
         <div className="flex items-center justify-between mb-5">
           <h3 className="text-base font-semibold text-black dark:text-white">
             Keyboard Shortcuts

@@ -6,8 +6,8 @@ import { createClient } from "@/lib/supabase/client";
 import Header from "@/components/Header";
 import TodoInput from "@/components/TodoInput";
 import TodoList from "@/components/TodoList";
-import TagManager from "@/components/TagManager";
 import CalendarPanel from "@/components/CalendarPanel";
+import TimelinePanel from "@/components/TimelinePanel";
 import HabitInput from "@/components/HabitInput";
 import HabitList from "@/components/HabitList";
 import ToastContainer, { type ToastData } from "@/components/Toast";
@@ -21,6 +21,7 @@ import FocusModeView from "@/components/FocusModeView";
 import { useTodos } from "@/hooks/useTodos";
 import { useTags } from "@/hooks/useTags";
 import { useLists } from "@/hooks/useLists";
+import { useFolders } from "@/hooks/useFolders";
 import { useHabits } from "@/hooks/useHabits";
 import { useEvents } from "@/hooks/useEvents";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
@@ -33,6 +34,7 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
+  useDroppable,
   type DragEndEvent,
 } from "@dnd-kit/core";
 import {
@@ -43,17 +45,17 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Plus, Inbox, Trash2, Edit2, Check, X, Calendar, Repeat, Bell, Menu, Sun, CalendarDays, CalendarRange, Target, AlertCircle } from "lucide-react";
+import { Plus, Inbox, Trash2, Edit2, Check, X, Repeat, Menu, Sun, CalendarDays, CalendarRange, Target, AlertCircle, FolderPlus, Folder, ChevronRight } from "lucide-react";
 import { getToday } from "@/lib/date-helpers";
 import type { User } from "@supabase/supabase-js";
-import type { List as ListType } from "@/lib/types";
+import type { List as ListType, Folder as FolderType } from "@/lib/types";
 
 type Urgency = "overdue" | "today" | "soon" | "normal";
 const URGENCY_STYLE: Record<Urgency, React.CSSProperties> = {
-  overdue: { backgroundColor: "#ef4444", color: "#fff", boxShadow: "0 0 8px rgba(239,68,68,0.45)", animation: "urgency-pulse 2.5s ease-in-out infinite" },
-  today:   { backgroundColor: "#f59e0b", color: "#fff", boxShadow: "0 0 8px rgba(245,158,11,0.45)", animation: "urgency-pulse 2.5s ease-in-out infinite" },
-  soon:    { backgroundColor: "#3b82f6", color: "#fff", boxShadow: "0 0 6px rgba(59,130,246,0.35)" },
-  normal:  { backgroundColor: "rgba(120,120,120,0.18)", color: "currentColor" },
+  overdue: { backgroundColor: "rgba(239,68,68,0.18)", color: "#f87171", backdropFilter: "blur(8px)", animation: "urgency-pulse 2.5s ease-in-out infinite" },
+  today:   { backgroundColor: "rgba(245,158,11,0.18)", color: "#fbbf24", backdropFilter: "blur(8px)", animation: "urgency-pulse 2.5s ease-in-out infinite" },
+  soon:    { backgroundColor: "rgba(59,130,246,0.16)", color: "#60a5fa", backdropFilter: "blur(8px)" },
+  normal:  { backgroundColor: "rgba(120,120,120,0.12)", color: "rgba(180,180,180,0.9)" },
 };
 
 function SortableListItem({
@@ -100,17 +102,17 @@ function SortableListItem({
   return (
     <div
       ref={setNodeRef}
-      style={{ ...style, opacity: isDragging ? 0.5 : 1 }}
-      className={`group flex items-center rounded-xl border-b border-black/[0.05] dark:border-white/[0.06] transition-default ${
-        isDragging ? "opacity-50 z-10" : ""
-      } ${
+      {...attributes}
+      {...listeners}
+      style={{ ...style, opacity: isDragging ? 0.4 : 1 }}
+      className={`group flex items-center rounded-xl transition-default touch-none cursor-grab active:cursor-grabbing border ${
         isActive
-          ? "bg-black dark:bg-white"
-          : "hover:bg-black/5 dark:hover:bg-white/10"
+          ? "glass-nav-active font-medium"
+          : "border-transparent text-black dark:text-white glass-nav-hover"
       }`}
     >
       {isEditing ? (
-        <div className="flex-1 flex items-center gap-1 px-2 py-1">
+        <div className="flex-1 flex items-center gap-1 px-2 py-1" onPointerDown={(e) => e.stopPropagation()}>
           <input
             autoFocus
             type="text"
@@ -121,18 +123,18 @@ function SortableListItem({
               if (e.key === "Escape") onCancelEdit();
             }}
             className={`flex-1 text-sm bg-transparent focus:outline-none min-w-0 ${
-              isActive ? "text-white dark:text-black" : "text-black dark:text-white"
+              isActive ? "text-white" : "text-black dark:text-white"
             }`}
           />
           <button
             onClick={onSaveEdit}
-            className={`transition-default ${isActive ? "text-white/60 dark:text-black/60 hover:text-white dark:hover:text-black" : "text-gray-400 hover:text-black dark:hover:text-white"}`}
+            className={`transition-default ${isActive ? "text-white/60 hover:text-white" : "text-gray-400 hover:text-black dark:hover:text-white"}`}
           >
             <Check size={12} />
           </button>
           <button
             onClick={onCancelEdit}
-            className={`transition-default ${isActive ? "text-white/60 dark:text-black/60 hover:text-white dark:hover:text-black" : "text-gray-400 hover:text-black dark:hover:text-white"}`}
+            className={`transition-default ${isActive ? "text-white/60 hover:text-white" : "text-gray-400 hover:text-black dark:hover:text-white"}`}
           >
             <X size={12} />
           </button>
@@ -141,12 +143,10 @@ function SortableListItem({
         <>
           <button
             onClick={onSelect}
-            {...attributes}
-            {...listeners}
-            className={`min-w-0 flex-1 flex items-center gap-2.5 px-3 py-2 text-sm text-left transition-default touch-none ${
+            className={`min-w-0 flex-1 flex items-center gap-2.5 px-3 py-2 text-sm text-left transition-default ${
               isActive
-                ? "text-white dark:text-black font-medium"
-                : "text-gray-500 dark:text-gray-400"
+                ? "text-white font-medium"
+                : "text-black dark:text-white"
             }`}
           >
             <span className="flex-1 truncate">{list.name}</span>
@@ -156,7 +156,7 @@ function SortableListItem({
               onClick={onStartEdit}
               className={`p-1 rounded transition-default ${
                 isActive
-                  ? "text-white/60 dark:text-black/60 hover:text-white dark:hover:text-black"
+                  ? "text-white/60 hover:text-white"
                   : "text-gray-400 hover:text-black dark:hover:text-white"
               }`}
               aria-label="Edit list"
@@ -167,7 +167,7 @@ function SortableListItem({
               onClick={onDelete}
               className={`p-1 rounded transition-default ${
                 isActive
-                  ? "text-white/60 dark:text-black/60 hover:text-white dark:hover:text-black"
+                  ? "text-white/60 hover:text-white"
                   : "text-gray-400 hover:text-black dark:hover:text-white"
               }`}
               aria-label="Delete list"
@@ -189,20 +189,184 @@ function SortableListItem({
   );
 }
 
+function FolderGroup({
+  folder,
+  folderLists,
+  isActive,
+  isCollapsed,
+  onToggleCollapse,
+  onSelect,
+  isEditing,
+  editFolderName,
+  setEditFolderName,
+  onStartEdit,
+  onSaveEdit,
+  onCancelEdit,
+  onDelete,
+  taskCount,
+  urgency = "normal",
+  activeListId,
+  editingListId,
+  editListName,
+  setEditListName,
+  onSelectList,
+  onStartEditList,
+  onSaveEditList,
+  onCancelEditList,
+  onDeleteList,
+  listTaskCounts,
+  listUrgency,
+}: {
+  folder: FolderType;
+  folderLists: ListType[];
+  isActive: boolean;
+  isCollapsed: boolean;
+  onToggleCollapse: () => void;
+  onSelect: () => void;
+  isEditing: boolean;
+  editFolderName: string;
+  setEditFolderName: (v: string) => void;
+  onStartEdit: () => void;
+  onSaveEdit: () => void;
+  onCancelEdit: () => void;
+  onDelete: () => void;
+  taskCount: number;
+  urgency?: "overdue" | "today" | "soon" | "normal";
+  activeListId: string | null;
+  editingListId: string | null;
+  editListName: string;
+  setEditListName: (v: string) => void;
+  onSelectList: (id: string) => void;
+  onStartEditList: (id: string, name: string) => void;
+  onSaveEditList: (id: string) => void;
+  onCancelEditList: () => void;
+  onDeleteList: (id: string) => void;
+  listTaskCounts: Record<string, number>;
+  listUrgency: Record<string, Urgency>;
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id: `folder-drop-${folder.id}` });
+
+  return (
+    <div className="rounded-xl">
+      {/* Folder header — droppable target for assigning lists to this folder */}
+      <div
+        ref={setNodeRef}
+        className={`group flex items-center gap-1 px-1.5 py-1.5 rounded-lg text-sm transition-default border ${
+          isOver ? "ring-1 ring-black/25 dark:ring-white/25" : ""
+        } ${
+          isActive
+            ? "glass-nav-active font-medium"
+            : "border-transparent text-black dark:text-white glass-nav-hover"
+        }`}
+      >
+        <button
+          onClick={onToggleCollapse}
+          className={`flex-shrink-0 transition-default ${isActive ? "text-white/70" : "text-gray-400"}`}
+          aria-label={isCollapsed ? "Expand folder" : "Collapse folder"}
+        >
+          <ChevronRight size={12} className={`transition-transform duration-200 ${isCollapsed ? "" : "rotate-90"}`} />
+        </button>
+        <Folder size={12} className="flex-shrink-0" />
+        {isEditing ? (
+          <input
+            autoFocus
+            type="text"
+            value={editFolderName}
+            onChange={(e) => setEditFolderName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") onSaveEdit();
+              if (e.key === "Escape") onCancelEdit();
+            }}
+            className={`flex-1 text-sm bg-transparent focus:outline-none min-w-0 ${isActive ? "text-white" : "text-black dark:text-white"}`}
+          />
+        ) : (
+          <button onClick={onSelect} className="flex-1 text-left truncate text-sm min-w-0">
+            {folder.name}
+          </button>
+        )}
+        {isEditing ? (
+          <div className="flex items-center gap-0.5">
+            <button onClick={onSaveEdit} className={`p-1 rounded transition-default ${isActive ? "text-white/70 hover:text-white" : "text-gray-400 hover:text-black dark:hover:text-white"}`}><Check size={11} /></button>
+            <button onClick={onCancelEdit} className={`p-1 rounded transition-default ${isActive ? "text-white/70 hover:text-white" : "text-gray-400 hover:text-black dark:hover:text-white"}`}><X size={11} /></button>
+          </div>
+        ) : (
+          <>
+            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-default">
+              <button onClick={onStartEdit} className={`p-1 rounded transition-default ${isActive ? "text-white/70 hover:text-white" : "text-gray-400 hover:text-black dark:hover:text-white"}`} aria-label="Rename folder"><Edit2 size={10} /></button>
+              <button onClick={onDelete} className={`p-1 rounded transition-default ${isActive ? "text-white/70 hover:text-white" : "text-gray-400 hover:text-black dark:hover:text-white"}`} aria-label="Delete folder"><Trash2 size={10} /></button>
+            </div>
+            {taskCount > 0 && (
+              <span className="flex-shrink-0 min-w-[18px] h-[18px] rounded-full text-[10px] font-semibold flex items-center justify-center px-1 tabular-nums leading-none mr-3" style={URGENCY_STYLE[urgency]}>
+                {taskCount}
+              </span>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Lists inside folder */}
+      {!isCollapsed && (
+        <div className="ml-4 mt-0.5 pl-2 border-l border-black/[0.08] dark:border-white/[0.08] space-y-0.5">
+          {folderLists.map((list) => (
+            <SortableListItem
+              key={list.id}
+              list={list}
+              isActive={activeListId === list.id}
+              isEditing={editingListId === list.id}
+              editListName={editListName}
+              setEditListName={setEditListName}
+              onSelect={() => onSelectList(list.id)}
+              onStartEdit={() => onStartEditList(list.id, list.name)}
+              onSaveEdit={() => onSaveEditList(list.id)}
+              onCancelEdit={onCancelEditList}
+              onDelete={() => onDeleteList(list.id)}
+              count={listTaskCounts[list.id] ?? 0}
+              urgency={listUrgency[list.id] ?? "normal"}
+            />
+          ))}
+          {folderLists.length === 0 && (
+            <p className="text-[10px] text-gray-300 dark:text-gray-600 px-1 py-1">Drop lists here</p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function UngroupedDropZone({ children }: { children: React.ReactNode }) {
+  const { setNodeRef, isOver } = useDroppable({ id: "ungrouped-drop" });
+  return (
+    <div ref={setNodeRef} className={`transition-default rounded-lg ${isOver ? "ring-1 ring-black/20 dark:ring-white/20 bg-black/[0.02] dark:bg-white/[0.03]" : ""}`}>
+      {children}
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [activeListId, setActiveListId] = useState<string | null>(null);
+  const [activeFolderId, setActiveFolderId] = useState<string | null>(null);
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [newListName, setNewListName] = useState("");
   const [showNewList, setShowNewList] = useState(false);
   const [editingListId, setEditingListId] = useState<string | null>(null);
   const [editListName, setEditListName] = useState("");
-  const [showCalendar, setShowCalendar] = useState(false);
-  const [calendarDate, setCalendarDate] = useState<string | null>(null);
+  const [showNewFolder, setShowNewFolder] = useState(false);
+  const [newFolderName, setNewFolderName] = useState("");
+  const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
+  const [editFolderName, setEditFolderName] = useState("");
+  const [calendarDates, setCalendarDates] = useState<string[]>([]);
   const [habitsView, setHabitsView] = useState(false);
+  const [showHabitsInTasks, setShowHabitsInTasks] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    try { return localStorage.getItem("showHabitsInTasks") === "true"; } catch { return false; }
+  });
   const [toasts, setToasts] = useState<ToastData[]>([]);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [highlightedTodoId, setHighlightedTodoId] = useState<string | null>(null);
+  const [highlightedHabitId, setHighlightedHabitId] = useState<string | null>(null);
   const [quickFilter, setQuickFilter] = useState<"overdue" | "today" | "thisWeek" | null>("today");
   const [eventsView, setEventsView] = useState(false);
   const [isMobile, setIsMobile] = useState<boolean | null>(null);
@@ -263,8 +427,9 @@ export default function DashboardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const { tags, addTag, deleteTag } = useTags(user?.id);
-  const { lists, addList, updateList, deleteList, reorderLists } = useLists(user?.id);
+  const { tags } = useTags(user?.id);
+  const { lists, addList, updateList, deleteList, reorderLists, moveListToFolder, unassignFolder } = useLists(user?.id);
+  const { folders, addFolder, updateFolder, deleteFolder } = useFolders(user?.id);
   const {
     habits,
     todaysHabits,
@@ -304,7 +469,7 @@ export default function DashboardPage() {
   } = useEvents(user?.id, tags);
 
   // Push notifications
-  const { permission: notifPermission, isSubscribed: notifSubscribed, subscribe: subscribeNotifications, unsubscribe: unsubscribeNotifications } = usePushNotifications(todos);
+  usePushNotifications(todos);
 
 
   // Assign todo to event — inherit event's list_id, then sync both hooks
@@ -394,10 +559,14 @@ export default function DashboardPage() {
   // Keyboard shortcuts
   useKeyboardShortcuts({
     onNewTask: () => {
-      const input = document.querySelector<HTMLInputElement>(
-        'input[aria-label="New task title"]'
-      );
-      input?.focus();
+      setShowBar(true);
+      try { localStorage.setItem("showTaskBar", "true"); } catch {}
+      setTimeout(() => {
+        const input = document.querySelector<HTMLInputElement>(
+          'input[aria-label="New task title"]'
+        );
+        input?.focus();
+      }, 0);
     },
     onSearch: () => {
       const input = document.querySelector<HTMLInputElement>(
@@ -412,6 +581,10 @@ export default function DashboardPage() {
       try { localStorage.setItem("showTaskBar", String(next)); } catch {}
       return next;
     }),
+    onEscape: () => {
+      setShowBar(false);
+      try { localStorage.setItem("showTaskBar", "false"); } catch {}
+    },
   });
 
   // Sensors for list drag & drop
@@ -423,10 +596,42 @@ export default function DashboardPage() {
   function handleListDragEnd(event: DragEndEvent) {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
+    const overId = String(over.id);
+    const activeListItem = lists.find((l) => l.id === String(active.id));
+
+    // Drop onto a folder header — only move if it's a different folder
+    if (overId.startsWith("folder-drop-")) {
+      const targetFolderId = overId.replace("folder-drop-", "");
+      if (activeListItem?.folder_id !== targetFolderId) {
+        moveListToFolder(String(active.id), targetFolderId);
+      }
+      return;
+    }
+    // Drop onto the ungrouped zone
+    if (overId === "ungrouped-drop") {
+      if (activeListItem?.folder_id != null) {
+        moveListToFolder(String(active.id), null);
+      }
+      return;
+    }
+    // Drop onto another list item
+    const overList = lists.find((l) => l.id === overId);
+    const folderChanged = overList && activeListItem &&
+      (overList.folder_id ?? null) !== (activeListItem.folder_id ?? null);
+
+    if (folderChanged) {
+      // Folder assignment changed — only do the folder move, skip reorder
+      // (reorderLists would overwrite the new folder_id with stale state)
+      moveListToFolder(String(active.id), overList!.folder_id ?? null);
+      return;
+    }
+    // Same folder — normal reorder
     const oldIndex = lists.findIndex((l) => l.id === active.id);
     const newIndex = lists.findIndex((l) => l.id === over.id);
-    const reordered = arrayMove(lists, oldIndex, newIndex);
-    reorderLists(reordered);
+    if (oldIndex !== -1 && newIndex !== -1) {
+      const reordered = arrayMove(lists, oldIndex, newIndex);
+      reorderLists(reordered);
+    }
   }
 
   async function handleAddList(e: React.FormEvent) {
@@ -449,8 +654,8 @@ export default function DashboardPage() {
     setHabitsView(true);
     setEventsView(false);
     setActiveListId(null);
-    setShowCalendar(false);
-    setCalendarDate(null);
+    setActiveFolderId(null);
+    setCalendarDates([]);
     setQuickFilter(null);
   }
 
@@ -458,8 +663,8 @@ export default function DashboardPage() {
     setEventsView(true);
     setHabitsView(false);
     setActiveListId(null);
-    setShowCalendar(false);
-    setCalendarDate(null);
+    setActiveFolderId(null);
+    setCalendarDates([]);
     setQuickFilter(null);
   }
 
@@ -467,6 +672,7 @@ export default function DashboardPage() {
     setHabitsView(false);
     setEventsView(false);
     setActiveListId(null);
+    setActiveFolderId(null);
     setQuickFilter(null);
   }
 
@@ -474,36 +680,95 @@ export default function DashboardPage() {
     setHabitsView(false);
     setEventsView(false);
     setActiveListId(listId);
+    setActiveFolderId(null);
     setQuickFilter(null);
   }
 
-  function handleCalendarDateSelect(date: string | null) {
-    setCalendarDate(date);
-    if (date) setQuickFilter(null);
+  function switchToFolder(folderId: string) {
+    setActiveFolderId(folderId);
+    setActiveListId(null);
+    setHabitsView(false);
+    setEventsView(false);
+    setQuickFilter(null);
+    setCalendarDates([]);
+  }
+
+  function handleCalendarDatesChange(dates: string[]) {
+    setCalendarDates(dates);
+    if (dates.length > 0) setQuickFilter(null);
   }
 
   function switchToToday() {
     setHabitsView(false);
     setEventsView(false);
     setActiveListId(null);
+    setActiveFolderId(null);
     setQuickFilter("today");
-    setCalendarDate(null);
+    setCalendarDates([]);
   }
 
   function switchToThisWeek() {
     setHabitsView(false);
     setEventsView(false);
     setActiveListId(null);
+    setActiveFolderId(null);
     setQuickFilter("thisWeek");
-    setCalendarDate(null);
+    setCalendarDates([]);
   }
 
   function switchToOverdue() {
     setHabitsView(false);
     setEventsView(false);
     setActiveListId(null);
+    setActiveFolderId(null);
     setQuickFilter("overdue");
-    setCalendarDate(null);
+    setCalendarDates([]);
+  }
+
+  function handleTimelineTodoClick(todoId: string) {
+    // Switch to "all tasks" view so the todo is visible, then scroll to it
+    setHabitsView(false);
+    setEventsView(false);
+    setActiveListId(null);
+    setActiveFolderId(null);
+    setCalendarDates([]);
+    setQuickFilter(null);
+    setHighlightedTodoId(todoId);
+    // Scroll to the todo after the view updates
+    setTimeout(() => {
+      const el = document.querySelector(`[data-todo-id="${todoId}"]`);
+      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+      // Clear highlight after a moment
+      setTimeout(() => setHighlightedTodoId(null), 2000);
+    }, 150);
+  }
+
+  function handleTimelineHabitClick(habitId: string) {
+    // Switch to habits view and highlight the habit via React state
+    setHabitsView(true);
+    setEventsView(false);
+    setActiveListId(null);
+    setActiveFolderId(null);
+    setCalendarDates([]);
+    setQuickFilter(null);
+    setHighlightedHabitId(habitId);
+    setTimeout(() => setHighlightedHabitId(null), 2200);
+  }
+
+  async function handleAddFolder(e: React.FormEvent) {
+    e.preventDefault();
+    const trimmed = newFolderName.trim();
+    if (!trimmed) return;
+    await addFolder(trimmed);
+    setNewFolderName("");
+    setShowNewFolder(false);
+  }
+
+  async function handleUpdateFolder(id: string) {
+    const trimmed = editFolderName.trim();
+    if (trimmed) await updateFolder(id, trimmed);
+    setEditingFolderId(null);
+    setEditFolderName("");
   }
 
   // Task counts for sidebar badges — computed before early returns (Rules of Hooks)
@@ -515,8 +780,10 @@ export default function DashboardPage() {
     weekEnd.setDate(now.getDate() + 6);
     weekEnd.setHours(23, 59, 59, 999);
     let total = 0, today = 0, thisWeek = 0, overdue = 0;
-    const lists: Record<string, number> = {};
+    const listCounts: Record<string, number> = {};
     const listUrgency: Record<string, Urgency> = {};
+    const folderCount: Record<string, number> = {};
+    const folderUrgency: Record<string, Urgency> = {};
     const urgencyRank = { overdue: 3, today: 2, soon: 1, normal: 0 } as const;
     let globalUrgency: Urgency = "normal";
     let thisWeekUrgency: Urgency = "normal";
@@ -538,7 +805,7 @@ export default function DashboardPage() {
       if (urgencyRank[u] > urgencyRank[globalUrgency]) globalUrgency = u;
       // Per-list urgency
       if (t.list_id) {
-        lists[t.list_id] = (lists[t.list_id] ?? 0) + 1;
+        listCounts[t.list_id] = (listCounts[t.list_id] ?? 0) + 1;
         const prev = listUrgency[t.list_id];
         if (!prev || urgencyRank[u] > urgencyRank[prev]) {
           listUrgency[t.list_id] = u;
@@ -554,12 +821,25 @@ export default function DashboardPage() {
         }
       }
     }
-    return { total, today, thisWeek, overdue, lists, listUrgency, globalUrgency, thisWeekUrgency };
-  }, [todos]);
+
+    // Aggregate per-folder counts from per-list counts
+    for (const list of lists) {
+      if (!list.folder_id) continue;
+      const cnt = listCounts[list.id] ?? 0;
+      folderCount[list.folder_id] = (folderCount[list.folder_id] ?? 0) + cnt;
+      const lu = listUrgency[list.id] ?? "normal";
+      const prev = folderUrgency[list.folder_id];
+      if (!prev || urgencyRank[lu] > urgencyRank[prev]) {
+        folderUrgency[list.folder_id] = lu;
+      }
+    }
+
+    return { total, today, thisWeek, overdue, lists: listCounts, listUrgency, folderCount, folderUrgency, globalUrgency, thisWeekUrgency };
+  }, [todos, lists]);
 
   if (authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-white dark:bg-black">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="w-6 h-6 border-2 border-gray-400/30 border-t-black dark:border-t-white rounded-full animate-spin" />
       </div>
     );
@@ -580,14 +860,28 @@ export default function DashboardPage() {
     return d >= focusWeekStart && d <= focusWeekEnd;
   });
 
-  // Build visible todos: start with list filter, then apply quick/date filters
+  const activeFolder = folders.find((f) => f.id === activeFolderId);
+
+  // Build visible todos: start with list/folder filter, then apply quick/date filters
   let visibleTodos = activeListId
     ? todos.filter((t) => t.list_id === activeListId)
-    : todos;
+    : activeFolderId
+      ? (() => {
+          const folderListIds = new Set(lists.filter((l) => l.folder_id === activeFolderId).map((l) => l.id));
+          return todos.filter((t) => t.list_id && folderListIds.has(t.list_id));
+        })()
+      : todos;
 
-  if (quickFilter === "overdue") {
+  if (calendarDates.length > 0) {
+    // Calendar date selection — filter by selected days (respects active list)
+    visibleTodos = visibleTodos.filter((t) => t.due_date && calendarDates.includes(t.due_date));
+  } else if (quickFilter === "overdue") {
     const today = getToday();
-    visibleTodos = visibleTodos.filter((t) => t.due_date && t.due_date < today && !t.completed);
+    visibleTodos = visibleTodos.filter((t) => {
+      if (t.completed) return false;
+      const effectiveDate = t.due_date ?? t.start_date;
+      return !!(effectiveDate && effectiveDate < today);
+    });
   } else if (quickFilter === "today") {
     const today = getToday();
     visibleTodos = visibleTodos.filter((t) => t.due_date === today);
@@ -608,6 +902,8 @@ export default function DashboardPage() {
 
   const activeTodoCount = visibleTodos.filter((t) => !t.completed).length;
   const completedTodoCount = visibleTodos.filter((t) => t.completed).length;
+  const totalTodoCount = activeTodoCount + completedTodoCount;
+  const progressPct = totalTodoCount > 0 ? (completedTodoCount / totalTodoCount) * 100 : 0;
 
   const focusModeHandlers = {
     onAdd: addTodo,
@@ -640,200 +936,160 @@ export default function DashboardPage() {
         {...focusModeHandlers}
       />
     )}
-    <div className="min-h-screen bg-white dark:bg-black transition-colors">
-      <div className={`mx-auto px-4 pt-6 pb-8 flex gap-6 ${showCalendar ? "max-w-6xl" : "max-w-5xl"}`}>
-        {/* Sidebar — lists (desktop) */}
-        <aside className="hidden md:block w-52 flex-shrink-0 pt-4">
-          <div className="sticky top-4">
-            {/* All Tasks */}
-            <button
-              onClick={switchToAllTasks}
-              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm transition-default mb-1 ${
-                !activeListId && !habitsView && !eventsView && !quickFilter
-                  ? "bg-black dark:bg-white text-white dark:text-black font-medium"
-                  : "text-gray-500 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/10"
-              }`}
-            >
-              <Inbox size={15} />
-              <span className="flex-1 text-left">All Tasks</span>
-              {taskCounts.total > 0 && (
-                <span className="flex-shrink-0 min-w-[18px] h-[18px] rounded-full text-[10px] font-semibold flex items-center justify-center px-1 tabular-nums leading-none" style={URGENCY_STYLE[taskCounts.globalUrgency]}>
-                  {taskCounts.total}
-                </span>
-              )}
-            </button>
+    <div className="min-h-screen transition-colors">
+      <div className={`mx-auto px-4 pt-6 pb-8 flex gap-6 ${!habitsView && !eventsView ? "max-w-[1280px]" : "max-w-5xl"}`}>
+        {/* Sidebar — desktop */}
+        <aside className="hidden md:block w-48 flex-shrink-0 pt-4">
+          <div className="sticky top-4 space-y-2">
 
-            {/* Overdue */}
-            <button
-              onClick={switchToOverdue}
-              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm transition-default mb-1 ${
-                quickFilter === "overdue"
-                  ? "bg-black dark:bg-white text-white dark:text-black font-medium"
-                  : "text-gray-500 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/10"
-              }`}
-            >
-              <AlertCircle size={15} />
-              <span className="flex-1 text-left">Overdue</span>
+            {/* Smart views pill */}
+            <div className="glass-card px-2 py-2 space-y-0.5">
+              <button onClick={switchToAllTasks} className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-sm transition-default ${!activeListId && !habitsView && !eventsView && !quickFilter ? "glass-nav-active font-medium" : "text-black dark:text-white glass-nav-hover border border-transparent"}`}>
+                <Inbox size={14} className="flex-shrink-0" />
+                <span className="flex-1 text-left truncate">All Tasks</span>
+                {taskCounts.total > 0 && <span className="flex-shrink-0 min-w-[18px] h-[18px] rounded-full text-[10px] font-semibold flex items-center justify-center px-1 tabular-nums leading-none" style={URGENCY_STYLE[taskCounts.globalUrgency]}>{taskCounts.total}</span>}
+              </button>
+
+              <button onClick={switchToToday} className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-sm transition-default ${quickFilter === "today" ? "glass-nav-active font-medium" : "text-black dark:text-white glass-nav-hover border border-transparent"}`}>
+                <Sun size={14} className="flex-shrink-0" />
+                <span className="flex-1 text-left truncate">Today</span>
+                {taskCounts.today > 0 && <span className="flex-shrink-0 min-w-[18px] h-[18px] rounded-full text-[10px] font-semibold flex items-center justify-center px-1 tabular-nums leading-none" style={URGENCY_STYLE["today"]}>{taskCounts.today}</span>}
+              </button>
+
+              <button onClick={switchToThisWeek} className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-sm transition-default ${quickFilter === "thisWeek" ? "glass-nav-active font-medium" : "text-black dark:text-white glass-nav-hover border border-transparent"}`}>
+                <CalendarDays size={14} className="flex-shrink-0" />
+                <span className="flex-1 text-left truncate">This Week</span>
+                {taskCounts.thisWeek > 0 && <span className="flex-shrink-0 min-w-[18px] h-[18px] rounded-full text-[10px] font-semibold flex items-center justify-center px-1 tabular-nums leading-none" style={URGENCY_STYLE[taskCounts.thisWeekUrgency]}>{taskCounts.thisWeek}</span>}
+              </button>
+
               {taskCounts.overdue > 0 && (
-                <span className="flex-shrink-0 min-w-[18px] h-[18px] rounded-full text-[10px] font-semibold flex items-center justify-center px-1 tabular-nums leading-none" style={URGENCY_STYLE["overdue"]}>
-                  {taskCounts.overdue}
-                </span>
+                <button onClick={switchToOverdue} className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-sm transition-default ${quickFilter === "overdue" ? "glass-nav-active font-medium" : "text-black dark:text-white glass-nav-hover border border-transparent"}`}>
+                  <AlertCircle size={14} className={`flex-shrink-0 ${quickFilter !== "overdue" ? "text-red-400" : ""}`} />
+                  <span className="flex-1 text-left truncate">Overdue</span>
+                  <span className="flex-shrink-0 min-w-[18px] h-[18px] rounded-full text-[10px] font-semibold flex items-center justify-center px-1 tabular-nums leading-none" style={URGENCY_STYLE["overdue"]}>{taskCounts.overdue}</span>
+                </button>
               )}
-            </button>
-            {/* Today */}
-            <button
-              onClick={switchToToday}
-              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm transition-default mb-1 ${
-                quickFilter === "today"
-                  ? "bg-black dark:bg-white text-white dark:text-black font-medium"
-                  : "text-gray-500 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/10"
-              }`}
-            >
-              <Sun size={15} />
-              <span className="flex-1 text-left">Today</span>
-              {taskCounts.today > 0 && (
-                <span className="flex-shrink-0 min-w-[18px] h-[18px] rounded-full text-[10px] font-semibold flex items-center justify-center px-1 tabular-nums leading-none" style={URGENCY_STYLE["today"]}>
-                  {taskCounts.today}
-                </span>
-              )}
-            </button>
-            {/* This Week */}
-            <button
-              onClick={switchToThisWeek}
-              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm transition-default mb-1 ${
-                quickFilter === "thisWeek"
-                  ? "bg-black dark:bg-white text-white dark:text-black font-medium"
-                  : "text-gray-500 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/10"
-              }`}
-            >
-              <CalendarDays size={15} />
-              <span className="flex-1 text-left">This Week</span>
-              {taskCounts.thisWeek > 0 && (
-                <span className="flex-shrink-0 min-w-[18px] h-[18px] rounded-full text-[10px] font-semibold flex items-center justify-center px-1 tabular-nums leading-none" style={URGENCY_STYLE[taskCounts.thisWeekUrgency]}>
-                  {taskCounts.thisWeek}
-                </span>
-              )}
-            </button>
-            {/* Events */}
-            <button
-              onClick={switchToEvents}
-              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm transition-default mb-1 ${
-                eventsView
-                  ? "bg-black dark:bg-white text-white dark:text-black font-medium"
-                  : "text-gray-500 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/10"
-              }`}
-            >
-              <CalendarRange size={15} />
-              Events
-            </button>
-            {/* Habits */}
-            <button
-              onClick={switchToHabits}
-              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm transition-default mb-1 ${
-                habitsView
-                  ? "bg-black dark:bg-white text-white dark:text-black font-medium"
-                  : "text-gray-500 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/10"
-              }`}
-            >
-              <Repeat size={15} />
-              Habits
-            </button>
+            </div>
 
-            {/* Lists */}
-            {lists.length > 0 && (
-              <div className="mt-3 mb-2">
-                <p className="text-xs font-medium text-gray-400 px-3 mb-1 uppercase tracking-wide">
-                  Lists
-                </p>
-                <DndContext
-                  sensors={listSensors}
-                  collisionDetection={closestCenter}
-                  onDragEnd={handleListDragEnd}
-                >
-                  <SortableContext
-                    items={lists.map((l) => l.id)}
-                    strategy={verticalListSortingStrategy}
-                  >
+            {/* Events & Habits pill */}
+            <div className="glass-card px-2 py-2 space-y-0.5">
+              <button onClick={switchToEvents} className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-sm transition-default ${eventsView ? "glass-nav-active font-medium" : "text-black dark:text-white glass-nav-hover border border-transparent"}`}>
+                <CalendarRange size={14} className="flex-shrink-0" />
+                <span className="flex-1 text-left truncate">Events</span>
+              </button>
+
+              <button onClick={switchToHabits} className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-sm transition-default ${habitsView ? "glass-nav-active font-medium" : "text-black dark:text-white glass-nav-hover border border-transparent"}`}>
+                <Repeat size={14} className="flex-shrink-0" />
+                <span className="flex-1 text-left truncate">Habits</span>
+              </button>
+            </div>
+
+            {/* Lists pill */}
+            <div className="glass-card px-2 py-2 space-y-0.5">
+              <div className="flex items-center justify-between px-2.5 py-1">
+                <span className="text-[10px] text-black/40 dark:text-gray-600 uppercase tracking-wider font-medium">Lists</span>
+                <div className="flex items-center gap-1">
+                  {!showNewFolder && (
+                    <button onClick={() => setShowNewFolder(true)} className="text-gray-400 dark:text-gray-400 hover:text-black dark:hover:text-white transition-default" aria-label="New folder" title="New folder">
+                      <FolderPlus size={13} />
+                    </button>
+                  )}
+                  {!showNewList && (
+                    <button onClick={() => setShowNewList(true)} className="text-gray-400 dark:text-gray-400 hover:text-black dark:hover:text-white transition-default" aria-label="New list" title="New list">
+                      <Plus size={13} />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {showNewFolder && (
+                <form onSubmit={handleAddFolder} className="flex items-center gap-1 px-2.5 pb-1">
+                  <Folder size={11} className="text-gray-400 flex-shrink-0" />
+                  <input autoFocus type="text" value={newFolderName} onChange={(e) => setNewFolderName(e.target.value)} onKeyDown={(e) => { if (e.key === "Escape") setShowNewFolder(false); }} placeholder="Folder name..." className="flex-1 text-sm bg-transparent border-b border-black/20 dark:border-white/20 pb-0.5 text-black dark:text-white placeholder:text-gray-400 focus:outline-none min-w-0" />
+                  <button type="submit" className="text-gray-400 hover:text-black dark:hover:text-white transition-default"><Check size={12} /></button>
+                  <button type="button" onClick={() => setShowNewFolder(false)} className="text-gray-400 hover:text-black dark:hover:text-white transition-default"><X size={12} /></button>
+                </form>
+              )}
+
+              {showNewList && (
+                <form onSubmit={handleAddList} className="flex items-center gap-1 px-2.5 pb-1">
+                  <input autoFocus type="text" value={newListName} onChange={(e) => setNewListName(e.target.value)} onKeyDown={(e) => { if (e.key === "Escape") setShowNewList(false); }} placeholder="List name..." className="flex-1 text-sm bg-transparent border-b border-black/20 dark:border-white/20 pb-0.5 text-black dark:text-white placeholder:text-gray-400 focus:outline-none min-w-0" />
+                  <button type="submit" className="text-gray-400 hover:text-black dark:hover:text-white transition-default"><Check size={12} /></button>
+                  <button type="button" onClick={() => setShowNewList(false)} className="text-gray-400 hover:text-black dark:hover:text-white transition-default"><X size={12} /></button>
+                </form>
+              )}
+
+              <DndContext sensors={listSensors} collisionDetection={closestCenter} onDragEnd={handleListDragEnd}>
+                <SortableContext items={lists.map((l) => l.id)} strategy={verticalListSortingStrategy}>
+                  {/* Ungrouped lists drop zone */}
+                  <UngroupedDropZone>
                     <div className="space-y-0.5">
-                      {lists.map((list) => (
+                      {lists.filter((l) => !l.folder_id).map((list) => (
                         <SortableListItem
-                          key={list.id}
-                          list={list}
+                          key={list.id} list={list}
                           isActive={activeListId === list.id}
                           isEditing={editingListId === list.id}
-                          editListName={editListName}
-                          setEditListName={setEditListName}
+                          editListName={editListName} setEditListName={setEditListName}
                           onSelect={() => switchToList(list.id)}
-                          onStartEdit={() => {
-                            setEditingListId(list.id);
-                            setEditListName(list.name);
-                          }}
+                          onStartEdit={() => { setEditingListId(list.id); setEditListName(list.name); }}
                           onSaveEdit={() => handleUpdateList(list.id)}
                           onCancelEdit={() => setEditingListId(null)}
-                          onDelete={() => {
-                            deleteList(list.id);
-                            if (activeListId === list.id) setActiveListId(null);
-                          }}
+                          onDelete={() => { deleteList(list.id); if (activeListId === list.id) setActiveListId(null); }}
                           count={taskCounts.lists[list.id] ?? 0}
                           urgency={taskCounts.listUrgency[list.id] ?? "normal"}
                         />
                       ))}
                     </div>
-                  </SortableContext>
-                </DndContext>
-              </div>
-            )}
+                  </UngroupedDropZone>
 
-            {/* Add list */}
-            {showNewList ? (
-              <form
-                onSubmit={handleAddList}
-                className="flex items-center gap-1 px-2 mt-2"
-              >
-                <input
-                  autoFocus
-                  type="text"
-                  value={newListName}
-                  onChange={(e) => setNewListName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Escape") setShowNewList(false);
-                  }}
-                  placeholder="List name..."
-                  className="flex-1 text-sm bg-transparent border-b border-black/20 dark:border-white/20 pb-0.5 text-black dark:text-white placeholder:text-gray-400 focus:outline-none min-w-0"
-                />
-                <button
-                  type="submit"
-                  className="text-gray-400 hover:text-black dark:hover:text-white transition-default"
-                >
-                  <Check size={12} />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowNewList(false)}
-                  className="text-gray-400 hover:text-black dark:hover:text-white transition-default"
-                >
-                  <X size={12} />
-                </button>
-              </form>
-            ) : (
-              <button
-                onClick={() => setShowNewList(true)}
-                className="flex items-center gap-2 px-3 py-2 text-xs text-gray-400 hover:text-black dark:hover:text-white transition-default w-full rounded-xl hover:bg-black/5 dark:hover:bg-white/10"
-              >
-                <Plus size={13} />
-                New list
-              </button>
-            )}
-
-            {/* Tag Manager */}
-            <div className="mt-6 pt-4 border-t border-black/5 dark:border-white/5 px-1">
-              <TagManager tags={tags} onAdd={addTag} onDelete={deleteTag} />
+                  {/* Folder groups */}
+                  {folders.map((folder) => (
+                    <FolderGroup
+                      key={folder.id}
+                      folder={folder}
+                      folderLists={lists.filter((l) => l.folder_id === folder.id)}
+                      isActive={activeFolderId === folder.id}
+                      isCollapsed={!expandedFolders.has(folder.id)}
+                      onToggleCollapse={() => setExpandedFolders((prev) => {
+                        const next = new Set(prev);
+                        next.has(folder.id) ? next.delete(folder.id) : next.add(folder.id);
+                        return next;
+                      })}
+                      onSelect={() => switchToFolder(folder.id)}
+                      isEditing={editingFolderId === folder.id}
+                      editFolderName={editFolderName}
+                      setEditFolderName={setEditFolderName}
+                      onStartEdit={() => { setEditingFolderId(folder.id); setEditFolderName(folder.name); }}
+                      onSaveEdit={() => handleUpdateFolder(folder.id)}
+                      onCancelEdit={() => setEditingFolderId(null)}
+                      onDelete={() => {
+                        deleteFolder(folder.id, () => unassignFolder(folder.id));
+                        if (activeFolderId === folder.id) setActiveFolderId(null);
+                      }}
+                      taskCount={taskCounts.folderCount[folder.id] ?? 0}
+                      urgency={taskCounts.folderUrgency[folder.id] ?? "normal"}
+                      activeListId={activeListId}
+                      editingListId={editingListId}
+                      editListName={editListName}
+                      setEditListName={setEditListName}
+                      onSelectList={(id) => switchToList(id)}
+                      onStartEditList={(id, name) => { setEditingListId(id); setEditListName(name); }}
+                      onSaveEditList={(id) => handleUpdateList(id)}
+                      onCancelEditList={() => setEditingListId(null)}
+                      onDeleteList={(id) => { deleteList(id); if (activeListId === id) setActiveListId(null); }}
+                      listTaskCounts={taskCounts.lists}
+                      listUrgency={taskCounts.listUrgency}
+                    />
+                  ))}
+                </SortableContext>
+              </DndContext>
             </div>
 
-            {/* Productivity Stats */}
-            <div className="mt-5 pt-4 border-t border-black/5 dark:border-white/5 px-1">
+            {/* Stats pill */}
+            <div className="glass-card px-2 py-2">
               <ProductivityStats todos={todos} />
             </div>
+
           </div>
         </aside>
 
@@ -851,8 +1107,8 @@ export default function DashboardPage() {
                 <Menu size={20} />
               </button>
 
-              <div className="flex items-baseline gap-4">
-                <h2 className="text-2xl md:text-3xl font-bold text-black dark:text-white">
+              <div className="display-inset inline-flex items-center gap-3 px-4 py-2 rounded-2xl">
+                <h2 className="text-2xl md:text-3xl font-bold text-white" style={{ textShadow: "0 2px 10px rgba(0,0,0,0.85), 0 1px 3px rgba(0,0,0,0.7)" }}>
                   {eventsView
                     ? "Events"
                     : habitsView
@@ -861,11 +1117,15 @@ export default function DashboardPage() {
                         ? "Today"
                         : quickFilter === "thisWeek"
                           ? "This Week"
-                          : activeList
-                            ? activeList.name
-                            : "All Tasks"}
+                          : quickFilter === "overdue"
+                            ? "Overdue"
+                            : activeList
+                              ? activeList.name
+                              : activeFolder
+                                ? activeFolder.name
+                                : "All Tasks"}
                 </h2>
-                <div className="flex items-center gap-3 text-sm text-gray-400">
+                <div className="flex items-center gap-3 text-sm text-black/50 dark:text-gray-400">
                   {eventsView ? (
                     <span>{events.length} event{events.length !== 1 ? "s" : ""}</span>
                   ) : habitsView ? (
@@ -885,87 +1145,49 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              {/* Notification bell */}
-              {!habitsView && !eventsView && (
-                <button
-                  onClick={notifSubscribed ? unsubscribeNotifications : subscribeNotifications}
-                  className={`hidden md:flex w-10 h-10 rounded-xl glass-card-subtle items-center justify-center transition-default ${
-                    notifSubscribed
-                      ? "text-green-500 dark:text-green-400 hover:text-red-500 dark:hover:text-red-400"
-                      : "text-gray-400 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10"
-                  }`}
-                  aria-label={notifSubscribed ? "Disable notifications" : "Enable notifications"}
-                  title={notifSubscribed ? "Notifications on — click to disable" : "Enable task reminders"}
-                  disabled={notifPermission === "denied"}
-                >
-                  <Bell size={18} />
-                </button>
-              )}
-
-              {/* Calendar toggle */}
-              {!habitsView && !eventsView && (
-                <button
-                  onClick={() => {
-                    setShowCalendar(!showCalendar);
-                    if (showCalendar) setCalendarDate(null);
-                  }}
-                  className={`hidden md:flex w-10 h-10 rounded-xl glass-card-subtle items-center justify-center transition-default ${
-                    showCalendar
-                      ? "bg-black dark:bg-white text-white dark:text-black"
-                      : "text-gray-400 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10"
-                  }`}
-                  aria-label={showCalendar ? "Hide calendar" : "Show calendar"}
-                >
-                  <Calendar size={18} />
-                </button>
-              )}
-            </div>
+            {/* Show-habits-in-tasks toggle — only when not in habitsView/eventsView */}
+            {!habitsView && !eventsView && todaysHabits.length > 0 && (
+              <button
+                onClick={() => {
+                  const next = !showHabitsInTasks;
+                  setShowHabitsInTasks(next);
+                  try { localStorage.setItem("showHabitsInTasks", String(next)); } catch {}
+                }}
+                className={`hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-default glass-card-subtle ${
+                  showHabitsInTasks
+                    ? "text-black dark:text-white"
+                    : "text-black/40 dark:text-gray-500 hover:text-black dark:hover:text-white"
+                }`}
+                aria-label={showHabitsInTasks ? "Hide habits in task view" : "Show habits in task view"}
+              >
+                <Repeat size={13} />
+                <span>Habits</span>
+                {showHabitsInTasks && (
+                  <span className="text-black/40 dark:text-gray-500 text-[10px]">
+                    {todaysHabits.filter((h) => h.completedToday).length}/{todaysHabits.length}
+                  </span>
+                )}
+              </button>
+            )}
           </div>
 
-          {/* Quick filter indicator */}
-          {!habitsView && !eventsView && quickFilter && (
-            <div className="mb-4 flex items-center gap-2 text-sm text-gray-400">
-              {quickFilter === "today" ? <Sun size={14} /> : <CalendarDays size={14} />}
-              <span>
-                Showing tasks due{" "}
-                <span className="text-black dark:text-white font-medium">
-                  {quickFilter === "today" ? "today" : "this week"}
-                </span>
-                {visibleTodos.length === 0 && (
-                  <span className="ml-1">— no tasks found</span>
-                )}
-              </span>
-              <button
-                onClick={() => setQuickFilter(null)}
-                className="text-gray-400 hover:text-black dark:hover:text-white transition-default"
-              >
-                <X size={14} />
-              </button>
+
+          {/* Progress bar — always visible beneath the title when tasks exist */}
+          {!habitsView && !eventsView && totalTodoCount > 0 && (
+            <div className="mb-5">
+              <div className="w-full h-1 bg-black/5 dark:bg-white/10 rounded-full">
+                <div
+                  className="h-full bg-black dark:bg-white rounded-full transition-all duration-500"
+                  style={{ width: `${progressPct}%` }}
+                />
+              </div>
+              <div className="flex items-center justify-between mt-1">
+                <span className="text-[11px] text-black/50 dark:text-gray-400">{completedTodoCount}/{totalTodoCount} completed</span>
+                <span className="text-[11px] text-black/50 dark:text-gray-400">{Math.round(progressPct)}%</span>
+              </div>
             </div>
           )}
 
-          {/* Calendar date filter indicator */}
-          {!habitsView && !eventsView && calendarDate && (
-            <div className="mb-4 flex items-center gap-2 text-sm text-gray-400">
-              <Calendar size={14} />
-              <span>
-                Showing tasks due{" "}
-                <span className="text-black dark:text-white font-medium">
-                  {new Date(calendarDate + "T00:00:00").toLocaleDateString(
-                    "en",
-                    { month: "long", day: "numeric" }
-                  )}
-                </span>
-              </span>
-              <button
-                onClick={() => setCalendarDate(null)}
-                className="text-gray-400 hover:text-black dark:hover:text-white transition-default"
-              >
-                <X size={14} />
-              </button>
-            </div>
-          )}
 
           {/* Input */}
           {(eventsView || habitsView || showBar) && (
@@ -977,9 +1199,12 @@ export default function DashboardPage() {
               ) : (
                 <TodoInput
                   onAdd={addTodo}
+                  onAddSubtask={addSubtask}
                   tags={tags}
                   lists={lists}
+                  events={events}
                   activeListId={activeListId}
+                  onRefetchEvents={refetchEvents}
                 />
               )}
             </div>
@@ -991,8 +1216,8 @@ export default function DashboardPage() {
               onClick={switchToAllTasks}
               className={`flex-shrink-0 text-sm px-4 py-2 rounded-full font-medium transition-default ${
                 !activeListId && !habitsView && !eventsView && !quickFilter
-                  ? "bg-black dark:bg-white text-white dark:text-black"
-                  : "text-gray-500 dark:text-gray-400 border border-black/15 dark:border-white/15"
+                  ? "bg-black dark:bg-white text-white"
+                  : "text-black dark:text-white border border-black/15 dark:border-white/15"
               }`}
             >
               All
@@ -1001,8 +1226,8 @@ export default function DashboardPage() {
               onClick={switchToOverdue}
               className={`flex-shrink-0 text-sm px-4 py-2 rounded-full font-medium transition-default ${
                 quickFilter === "overdue"
-                  ? "bg-black dark:bg-white text-white dark:text-black"
-                  : "text-gray-500 dark:text-gray-400 border border-black/15 dark:border-white/15"
+                  ? "bg-black dark:bg-white text-white"
+                  : "text-black dark:text-white border border-black/15 dark:border-white/15"
               }`}
             >
               Overdue
@@ -1011,8 +1236,8 @@ export default function DashboardPage() {
               onClick={switchToToday}
               className={`flex-shrink-0 text-sm px-4 py-2 rounded-full font-medium transition-default ${
                 quickFilter === "today"
-                  ? "bg-black dark:bg-white text-white dark:text-black"
-                  : "text-gray-500 dark:text-gray-400 border border-black/15 dark:border-white/15"
+                  ? "bg-black dark:bg-white text-white"
+                  : "text-black dark:text-white border border-black/15 dark:border-white/15"
               }`}
             >
               Today
@@ -1021,8 +1246,8 @@ export default function DashboardPage() {
               onClick={switchToThisWeek}
               className={`flex-shrink-0 text-sm px-4 py-2 rounded-full font-medium transition-default ${
                 quickFilter === "thisWeek"
-                  ? "bg-black dark:bg-white text-white dark:text-black"
-                  : "text-gray-500 dark:text-gray-400 border border-black/15 dark:border-white/15"
+                  ? "bg-black dark:bg-white text-white"
+                  : "text-black dark:text-white border border-black/15 dark:border-white/15"
               }`}
             >
               This Week
@@ -1031,8 +1256,8 @@ export default function DashboardPage() {
               onClick={switchToEvents}
               className={`flex-shrink-0 text-sm px-4 py-2 rounded-full font-medium transition-default ${
                 eventsView
-                  ? "bg-black dark:bg-white text-white dark:text-black"
-                  : "text-gray-500 dark:text-gray-400 border border-black/15 dark:border-white/15"
+                  ? "bg-black dark:bg-white text-white"
+                  : "text-black dark:text-white border border-black/15 dark:border-white/15"
               }`}
             >
               Events
@@ -1041,15 +1266,15 @@ export default function DashboardPage() {
               onClick={switchToHabits}
               className={`flex-shrink-0 text-sm px-4 py-2 rounded-full font-medium transition-default ${
                 habitsView
-                  ? "bg-black dark:bg-white text-white dark:text-black"
-                  : "text-gray-500 dark:text-gray-400 border border-black/15 dark:border-white/15"
+                  ? "bg-black dark:bg-white text-white"
+                  : "text-black dark:text-white border border-black/15 dark:border-white/15"
               }`}
             >
               Habits
             </button>
             <button
               onClick={() => setFocusMode(true)}
-              className="flex-shrink-0 text-sm px-4 py-2 rounded-full font-medium transition-default text-gray-500 dark:text-gray-400 border border-black/15 dark:border-white/15"
+              className="flex-shrink-0 text-sm px-4 py-2 rounded-full font-medium transition-default text-black dark:text-white border border-black/15 dark:border-white/15"
             >
               Focus
             </button>
@@ -1059,8 +1284,8 @@ export default function DashboardPage() {
                 onClick={() => switchToList(list.id)}
                 className={`flex-shrink-0 text-sm px-4 py-2 rounded-full font-medium transition-default ${
                   activeListId === list.id
-                    ? "bg-black dark:bg-white text-white dark:text-black"
-                    : "text-gray-500 dark:text-gray-400 border border-black/15 dark:border-white/15"
+                    ? "bg-black dark:bg-white text-white"
+                    : "text-black dark:text-white border border-black/15 dark:border-white/15"
                 }`}
               >
                 {list.name}
@@ -1100,6 +1325,7 @@ export default function DashboardPage() {
               onDelete={deleteHabit}
               onReorder={reorderHabits}
               loading={habitsLoading}
+              highlightedHabitId={highlightedHabitId}
             />
           ) : (
             <TodoList
@@ -1114,7 +1340,7 @@ export default function DashboardPage() {
               onToggleSubtask={toggleSubtask}
               onDeleteSubtask={deleteSubtask}
               loading={todosLoading}
-              filterDate={calendarDate}
+              filterDate={null}
               lists={lists}
               activeListId={activeListId}
               events={events}
@@ -1131,6 +1357,7 @@ export default function DashboardPage() {
                 activeListId ? `list:${activeListId}`
                 : quickFilter === "today" ? "today"
                 : quickFilter === "thisWeek" ? "thisWeek"
+                : quickFilter === "overdue" ? "overdue"
                 : "allTasks"
               }
               showBar={showBar}
@@ -1139,18 +1366,33 @@ export default function DashboardPage() {
                 try { localStorage.setItem("showTaskBar", String(next)); } catch {}
                 return next;
               })}
+              suppressGroupKey={
+                quickFilter === "today" ? "today"
+                : quickFilter === "overdue" ? "overdue"
+                : undefined
+              }
+              habits={todaysHabits}
+              showHabits={showHabitsInTasks}
+              onToggleHabit={toggleCompletion}
+              highlightedTodoId={highlightedTodoId}
             />
           )}
         </main>
 
-        {/* Calendar panel — desktop only */}
-        {!habitsView && !eventsView && showCalendar && (
-          <aside className="hidden md:block w-80 flex-shrink-0 pt-4">
-            <div className="sticky top-4">
+        {/* Calendar + Timeline panel — desktop only, always visible */}
+        {!habitsView && !eventsView && (
+          <aside className="hidden md:block w-56 flex-shrink-0 pt-4">
+            <div className="sticky top-4 space-y-2 overflow-y-auto" style={{ maxHeight: "calc(100vh - 2rem)" }}>
               <CalendarPanel
                 todos={todos}
-                selectedDate={calendarDate}
-                onSelectDate={handleCalendarDateSelect}
+                selectedDates={calendarDates}
+                onSelectDates={handleCalendarDatesChange}
+              />
+              <TimelinePanel
+                todos={todos}
+                habits={todaysHabits}
+                onTodoClick={handleTimelineTodoClick}
+                onHabitClick={handleTimelineHabitClick}
               />
             </div>
           </aside>
@@ -1175,9 +1417,6 @@ export default function DashboardPage() {
         onSwitchToToday={switchToToday}
         onSwitchToThisWeek={switchToThisWeek}
         onAddList={() => setShowNewList(true)}
-        tags={tags}
-        onAddTag={addTag}
-        onDeleteTag={deleteTag}
         todos={todos}
       />
 

@@ -132,7 +132,8 @@ export function useTodos(
           end_time: options?.end_time ?? null,
           priority: options?.priority ?? "none",
           notes: options?.notes ?? null,
-          list_id: options?.list_id ?? activeListId ?? null,
+          list_id: options !== undefined && "list_id" in options ? options.list_id : (activeListId ?? null),
+          event_id: options?.event_id ?? null,
         })
         .select()
         .single();
@@ -150,7 +151,7 @@ export function useTodos(
             end_time: options?.end_time ?? null,
             priority: options?.priority ?? "none",
             notes: options?.notes ?? null,
-            list_id: options?.list_id ?? activeListId ?? null,
+            list_id: options !== undefined && "list_id" in options ? options.list_id : (activeListId ?? null),
           })
           .select()
           .single();
@@ -179,6 +180,9 @@ export function useTodos(
 
       setTodos((prev) => [...prev, newTodo]);
 
+      // Return new todo ID so callers can attach subtasks
+      const createdId: string = todoData.id;
+
       // Calendar sync (fire-and-forget)
       if (options?.due_date) {
         const tagNames = tagIds
@@ -199,6 +203,8 @@ export function useTodos(
           list_name: getListName(options.list_id ?? activeListId),
         });
       }
+
+      return createdId;
     },
     [userId, todos, allTags, activeListId]
   );
@@ -390,7 +396,7 @@ export function useTodos(
 
   // Subtask operations
   const addSubtask = useCallback(
-    async (todoId: string, title: string) => {
+    async (todoId: string, title: string, options?: { due_date?: string | null; start_time?: string | null }) => {
       if (!userId) return;
       const todo = todos.find((t) => t.id === todoId);
       const maxOrder =
@@ -405,11 +411,27 @@ export function useTodos(
           user_id: userId,
           title,
           sort_order: maxOrder + 1,
+          due_date: options?.due_date ?? null,
+          start_time: options?.start_time ?? null,
         })
         .select()
         .single();
 
-      if (error || !data) return;
+      // Fallback without new columns if they don't exist yet
+      if (error) {
+        const { data: d2, error: e2 } = await supabase
+          .from("subtasks")
+          .insert({ todo_id: todoId, user_id: userId, title, sort_order: maxOrder + 1 })
+          .select()
+          .single();
+        if (e2 || !d2) return;
+        setTodos((prev) =>
+          prev.map((t) => t.id === todoId ? { ...t, subtasks: [...(t.subtasks ?? []), d2] } : t)
+        );
+        return;
+      }
+
+      if (!data) return;
 
       setTodos((prev) =>
         prev.map((t) =>

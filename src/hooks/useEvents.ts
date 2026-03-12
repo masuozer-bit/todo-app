@@ -90,7 +90,7 @@ export function useEvents(userId: string | undefined, allTags: Tag[]) {
   }, [fetchEvents]);
 
   const addEvent = useCallback(
-    async (title: string, options?: { description?: string; list_id?: string | null; color?: string; due_date?: string | null; end_date?: string | null }) => {
+    async (title: string, options?: { description?: string; list_id?: string | null; color?: string; due_date?: string | null; end_date?: string | null; start_time?: string | null; end_time?: string | null }) => {
       if (!userId) return;
 
       const { data, error } = await supabase
@@ -103,6 +103,8 @@ export function useEvents(userId: string | undefined, allTags: Tag[]) {
           color: options?.color ?? "#6366f1",
           due_date: options?.due_date ?? null,
           end_date: options?.end_date ?? null,
+          start_time: options?.start_time ?? null,
+          end_time: options?.end_time ?? null,
         })
         .select()
         .single();
@@ -117,7 +119,7 @@ export function useEvents(userId: string | undefined, allTags: Tag[]) {
   );
 
   const updateEvent = useCallback(
-    async (id: string, updates: { title?: string; description?: string | null; list_id?: string | null; color?: string; due_date?: string | null; end_date?: string | null }) => {
+    async (id: string, updates: { title?: string; description?: string | null; list_id?: string | null; color?: string; due_date?: string | null; end_date?: string | null; start_time?: string | null; end_time?: string | null }) => {
       const { error } = await supabase
         .from("events")
         .update(updates)

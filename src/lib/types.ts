@@ -8,6 +8,8 @@ export interface Subtask {
   completed: boolean;
   sort_order: number;
   created_at: string;
+  due_date?: string | null;
+  start_time?: string | null;
 }
 
 export interface Todo {
@@ -42,11 +44,20 @@ export interface TodoTag {
   tag_id: string;
 }
 
+export interface Folder {
+  id: string;
+  user_id: string;
+  name: string;
+  sort_order: number;
+  created_at: string;
+}
+
 export interface List {
   id: string;
   user_id: string;
   name: string;
   sort_order: number;
+  folder_id?: string | null;
   google_calendar_id?: string | null;
   created_at: string;
 }
@@ -60,6 +71,8 @@ export interface Event {
   color?: string | null;
   due_date?: string | null;   // YYYY-MM-DD start/event date
   end_date?: string | null;   // YYYY-MM-DD end date (optional)
+  start_time?: string | null; // "HH:MM" format
+  end_time?: string | null;   // "HH:MM" format
   sort_order: number;
   created_at: string;
   updated_at: string;
@@ -84,6 +97,9 @@ export interface Habit {
   schedule_days: number[]; // 0=Sun, 1=Mon, ..., 6=Sat (for weekly)
   schedule_interval: number; // every X days (for interval, 1=daily, 2=every other day, etc.)
   sort_order: number;
+  time?: string | null;     // "HH:MM" 24-hour format, e.g. "09:00"
+  end_time?: string | null; // "HH:MM" 24-hour format — end of the habit time block
+  notes?: string | null; // free-form notes
   created_at: string;
   updated_at: string;
 }

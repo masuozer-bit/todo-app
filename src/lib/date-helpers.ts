@@ -113,6 +113,7 @@ export function parseNaturalLanguage(input: string): ParsedTask {
   let remaining = input;
   let due_date: string | null = null;
   let start_time: string | null = null;
+  let end_time: string | null = null;
   let priority: Priority = "none";
   const tagNames: string[] = [];
 
@@ -131,8 +132,24 @@ export function parseNaturalLanguage(input: string): ParsedTask {
     return "";
   });
 
+  // Extract time range: "at 3pm-5pm", "from 3pm to 5pm", "3pm-5pm", "at 3:30pm-5pm"
+  remaining = remaining.replace(
+    /\b(?:(?:at|from)\s+)?(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)\s*(?:-|to)\s*(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)\b/gi,
+    (match, t1, t2) => {
+      const p1 = parseTimeString(t1.trim());
+      const p2 = parseTimeString(t2.trim());
+      if (p1 && p2) {
+        start_time = p1;
+        end_time = p2;
+        return "";
+      }
+      return match;
+    }
+  );
+
   // Extract time: "at 3pm", "at 15:00", "at 3:30pm"
   remaining = remaining.replace(/\bat\s+(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)\b/gi, (_, t) => {
+    if (start_time) return ""; // already have a time from range parsing
     const parsed = parseTimeString(t.trim());
     if (parsed) start_time = parsed;
     return "";
@@ -308,6 +325,7 @@ export function parseNaturalLanguage(input: string): ParsedTask {
     title,
     due_date,
     start_time,
+    end_time,
     priority,
     tagNames,
   };

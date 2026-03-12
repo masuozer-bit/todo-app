@@ -5,13 +5,15 @@ import { Plus } from "lucide-react";
 import type { List } from "@/lib/types";
 
 interface EventInputProps {
-  onAdd: (title: string, options?: { description?: string; list_id?: string | null; color?: string; due_date?: string | null; end_date?: string | null }) => void;
+  onAdd: (title: string, options?: { description?: string; list_id?: string | null; color?: string; due_date?: string | null; end_date?: string | null; start_time?: string | null; end_time?: string | null }) => void;
   lists?: List[];
 }
 
 export default function EventInput({ onAdd, lists = [] }: EventInputProps) {
   const [title, setTitle] = useState("");
   const [dueDate, setDueDate] = useState("");
+  const [startTime, setStartTime] = useState("");
+  const [endTime, setEndTime] = useState("");
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -19,9 +21,13 @@ export default function EventInput({ onAdd, lists = [] }: EventInputProps) {
     if (!trimmed) return;
     onAdd(trimmed, {
       due_date: dueDate || null,
+      start_time: startTime || null,
+      end_time: endTime || null,
     });
     setTitle("");
     setDueDate("");
+    setStartTime("");
+    setEndTime("");
   }
 
   return (
@@ -44,6 +50,29 @@ export default function EventInput({ onAdd, lists = [] }: EventInputProps) {
             aria-label="Event date (optional)"
             title="Optional start date"
           />
+          {dueDate && (
+            <>
+              <input
+                type="time"
+                value={startTime}
+                onChange={(e) => { setStartTime(e.target.value); if (!e.target.value) setEndTime(""); }}
+                className="text-xs bg-transparent border border-black/10 dark:border-white/10 rounded-lg px-2 py-1.5 text-black dark:text-white focus:outline-none cursor-pointer flex-shrink-0"
+                aria-label="Start time (optional)"
+                title="Optional start time"
+              />
+              {startTime && (
+                <input
+                  type="time"
+                  value={endTime}
+                  onChange={(e) => setEndTime(e.target.value)}
+                  min={startTime}
+                  className="text-xs bg-transparent border border-black/10 dark:border-white/10 rounded-lg px-2 py-1.5 text-black dark:text-white focus:outline-none cursor-pointer flex-shrink-0"
+                  aria-label="End time (optional)"
+                  title="Optional end time"
+                />
+              )}
+            </>
+          )}
           <button
             type="submit"
             disabled={!title.trim()}

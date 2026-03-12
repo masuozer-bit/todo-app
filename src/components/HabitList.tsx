@@ -27,6 +27,7 @@ function SortableHabitItem({
   onToggle,
   onUpdate,
   onDelete,
+  highlighted,
 }: {
   habit: HabitWithStatus;
   onToggle: (id: string) => void;
@@ -37,9 +38,13 @@ function SortableHabitItem({
       schedule_type?: ScheduleType;
       schedule_days?: number[];
       schedule_interval?: number;
+      time?: string | null;
+      end_time?: string | null;
+      notes?: string | null;
     }
   ) => void;
   onDelete: (id: string) => void;
+  highlighted?: boolean;
 }) {
   const {
     attributes,
@@ -64,6 +69,7 @@ function SortableHabitItem({
         onDelete={onDelete}
         dragHandleProps={{ ...attributes, ...listeners }}
         isDragging={isDragging}
+        highlighted={highlighted}
       />
     </div>
   );
@@ -79,11 +85,15 @@ interface HabitListProps {
       schedule_type?: ScheduleType;
       schedule_days?: number[];
       schedule_interval?: number;
+      time?: string | null;
+      end_time?: string | null;
+      notes?: string | null;
     }
   ) => void;
   onDelete: (id: string) => void;
   onReorder: (reordered: Habit[]) => void;
   loading: boolean;
+  highlightedHabitId?: string | null;
 }
 
 export default function HabitList({
@@ -93,6 +103,7 @@ export default function HabitList({
   onDelete,
   onReorder,
   loading,
+  highlightedHabitId,
 }: HabitListProps) {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const deleteTitle =
@@ -187,6 +198,7 @@ export default function HabitList({
                   onToggle={onToggle}
                   onUpdate={onUpdate}
                   onDelete={(id) => setDeleteId(id)}
+                  highlighted={highlightedHabitId === habit.id}
                 />
               ))}
             </div>

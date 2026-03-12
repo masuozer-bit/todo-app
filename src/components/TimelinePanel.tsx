@@ -109,9 +109,13 @@ export default function TimelinePanel({ todos, habits, onTodoClick, onHabitClick
       .flatMap(h => {
         const base = new Date(now); base.setHours(0, 0, 0, 0);
         const startMs = base.getTime() + parseTime(h.time!) * 60_000;
-        if (startMs > windowEndMs || startMs < windowStartMs) return [];
-        const topPx = ((startMs - windowStartMs) / 3_600_000) * HOUR_HEIGHT;
-        return [{ habit: h, topPx, startMs }];
+        const endMs   = h.end_time
+          ? base.getTime() + parseTime(h.end_time) * 60_000
+          : startMs + 30 * 60_000; // default 30 min
+        if (startMs > windowEndMs || endMs < windowStartMs) return [];
+        const topPx    = ((startMs - windowStartMs) / 3_600_000) * HOUR_HEIGHT;
+        const heightPx = Math.max(18, ((endMs - startMs) / 3_600_000) * HOUR_HEIGHT);
+        return [{ habit: h, topPx, heightPx, startMs }];
       })
       .sort((a, b) => a.startMs - b.startMs);
   }, [habits, now, windowStartMs, windowEndMs]);
@@ -203,16 +207,23 @@ export default function TimelinePanel({ todos, habits, onTodoClick, onHabitClick
           ))}
 
           {/* ── Habit blocks ── */}
-          {timedHabits.map(({ habit, topPx }) => (
+          {timedHabits.map(({ habit, topPx, heightPx }) => (
             <div
               key={habit.id}
               onClick={() => onHabitClick?.(habit.id)}
-              className={`absolute left-10 right-1.5 rounded-[5px] px-1.5 border flex items-center gap-1 text-white text-[9px] font-semibold overflow-hidden z-10 bg-violet-500 border-violet-600/40 ${habit.completedToday ? "opacity-35 line-through" : ""} ${onHabitClick ? "cursor-pointer hover:brightness-110 active:scale-[0.98] transition-all" : ""}`}
-              style={{ top: topPx + 1, height: 18 }}
-              title={`${habit.title}  ${habit.time}`}
+              className={`absolute left-10 right-1.5 rounded-[5px] px-1.5 py-0.5 border text-white text-[9px] font-semibold overflow-hidden z-10 bg-violet-500 border-violet-600/40 ${habit.completedToday ? "opacity-35" : ""} ${onHabitClick ? "cursor-pointer hover:brightness-110 active:scale-[0.98] transition-all" : ""}`}
+              style={{ top: topPx + 1, height: Math.max(18, heightPx - 2) }}
+              title={`${habit.title}  ${habit.time}${habit.end_time ? `–${habit.end_time}` : ""}`}
             >
-              <Repeat size={7} className="flex-shrink-0 opacity-80" />
-              <span className="truncate">{habit.title}</span>
+              <span className={`flex items-center gap-1 leading-tight ${habit.completedToday ? "line-through" : ""}`}>
+                <Repeat size={7} className="flex-shrink-0 opacity-80 shrink-0" />
+                <span className="truncate">{habit.title}</span>
+              </span>
+              {heightPx > 34 && (
+                <span className="opacity-60 text-[8px] block">
+                  {habit.time}{habit.end_time ? `–${habit.end_time}` : ""}
+                </span>
+              )}
             </div>
           ))}
 

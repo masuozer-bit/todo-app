@@ -216,7 +216,7 @@ export default function ScheduleWeekModal({
               </span>
               <span className={`text-base font-bold tabular-nums leading-none ${
                 isToday
-                  ? "w-7 h-7 rounded-full bg-black dark:bg-white text-white dark:text-black flex items-center justify-center text-sm"
+                  ? "w-4/5 py-0.5 rounded-full bg-black dark:bg-white text-white dark:text-black flex items-center justify-center text-sm"
                   : "text-black/70 dark:text-gray-300"
               }`}>
                 {day.getDate()}

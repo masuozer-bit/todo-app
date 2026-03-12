@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { X, ChevronLeft, ChevronRight, Repeat } from "lucide-react";
 import type { Todo, HabitWithStatus } from "@/lib/types";
 
@@ -12,13 +12,17 @@ interface ScheduleWeekModalProps {
   onClose: () => void;
 }
 
-const VIEW_START_HOUR = 6;   // 6am
-const VIEW_END_HOUR   = 24;  // midnight
-const VISIBLE_HOURS   = VIEW_END_HOUR - VIEW_START_HOUR; // 18
-const HOUR_PX         = 64;  // px per hour
+// Full 24h view
+const VIEW_START_HOUR = 0;
+const VIEW_END_HOUR   = 24;
+const VISIBLE_HOURS   = VIEW_END_HOUR - VIEW_START_HOUR; // 24
+const HOUR_PX         = 64;
 const TOTAL_PX        = VISIBLE_HOURS * HOUR_PX;
 
-const DAY_SHORT  = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+// Left sidebar = w-48 = 12rem = 192px; small gutter = 8px
+const SIDEBAR_OFFSET  = "calc(12rem + 8px)";
+
+const DAY_SHORT   = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTH_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
 function toDateStr(d: Date): string {
@@ -31,15 +35,19 @@ function parseTime(t: string): number {
 }
 
 function hourLabel(h: number): string {
-  if (h === 0 || h === 24) return "12am";
+  if (h === 0)  return "12am";
   if (h === 12) return "12pm";
+  if (h === 24) return "";
   return h > 12 ? `${h-12}pm` : `${h}am`;
 }
 
+// Monday-based week start
 function getWeekStart(d: Date): Date {
   const out = new Date(d);
   out.setHours(0,0,0,0);
-  out.setDate(out.getDate() - out.getDay()); // Sunday
+  const day = out.getDay(); // 0=Sun … 6=Sat
+  const daysFromMonday = day === 0 ? 6 : day - 1;
+  out.setDate(out.getDate() - daysFromMonday);
   return out;
 }
 
@@ -65,13 +73,24 @@ function priorityBg(p?: string): string {
 export default function ScheduleWeekModal({
   todos, habits, onTodoClick, onHabitClick, onClose,
 }: ScheduleWeekModalProps) {
-  const now   = useMemo(() => new Date(), []);
-  const today = useMemo(() => { const d = new Date(now); d.setHours(0,0,0,0); return d; }, [now]);
+  const now      = useMemo(() => new Date(), []);
+  const today    = useMemo(() => { const d = new Date(now); d.setHours(0,0,0,0); return d; }, [now]);
   const todayStr = toDateStr(today);
 
   const [weekStart, setWeekStart] = useState(() => getWeekStart(today));
+  const scrollRef = useRef<HTMLDivElement>(null);
 
-  // 7 days of this week
+  // Auto-scroll to 1.5h before current time on open
+  useEffect(() => {
+    if (scrollRef.current) {
+      const nowMin = now.getHours() * 60 + now.getMinutes();
+      const target = (nowMin / 60) * HOUR_PX - HOUR_PX * 1.5;
+      scrollRef.current.scrollTop = Math.max(0, target);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Mon → Sun: 7 days
   const days = useMemo(() =>
     Array.from({ length: 7 }, (_, i) => {
       const d = new Date(weekStart);
@@ -80,62 +99,56 @@ export default function ScheduleWeekModal({
     }),
   [weekStart]);
 
-  const weekEnd = days[6];
-  const isCurrentWeek = toDateStr(weekStart) === toDateStr(getWeekStart(today));
+  const weekEnd        = days[6];
+  const isCurrentWeek  = toDateStr(weekStart) === toDateStr(getWeekStart(today));
 
-  // Week label
   const startLabel = `${MONTH_SHORT[weekStart.getMonth()]} ${weekStart.getDate()}`;
   const endLabel   = weekEnd.getMonth() !== weekStart.getMonth()
     ? `${MONTH_SHORT[weekEnd.getMonth()]} ${weekEnd.getDate()}`
     : `${weekEnd.getDate()}`;
   const weekLabel  = `${startLabel} – ${endLabel}, ${weekEnd.getFullYear()}`;
 
-  // Current time position (only for today's column)
+  // Current-time position within the 24h grid
   const nowTopPx = useMemo(() => {
     const min = now.getHours() * 60 + now.getMinutes();
-    return (min - VIEW_START_HOUR * 60) / 60 * HOUR_PX;
+    return (min / 60) * HOUR_PX;
   }, [now]);
 
-  // Hour slots for grid lines
+  // Hour slots 0 … 24
   const hourSlots = useMemo(() =>
-    Array.from({ length: VISIBLE_HOURS + 1 }, (_, i) => VIEW_START_HOUR + i),
+    Array.from({ length: VISIBLE_HOURS + 1 }, (_, i) => i),
   []);
 
-  // Per-day items
+  // Per-day item blocks
   const dayColumns = useMemo(() => {
     return days.map(day => {
       const dayStr = toDateStr(day);
-
       type ItemBlock = {
         key: string; type: "todo" | "habit";
         id: string; title: string;
         topPx: number; heightPx: number;
-        extra: string; priority?: string;
-        completed: boolean;
+        extra: string; priority?: string; completed: boolean;
       };
-
       const items: ItemBlock[] = [];
 
-      // Todos on this day with a start_time
       todos
         .filter(t => !t.completed && !!t.start_time && (t.due_date === dayStr || t.start_date === dayStr))
         .forEach(t => {
           const startMin = parseTime(t.start_time!);
           const endMin   = t.end_time ? parseTime(t.end_time) : startMin + 30;
-          const topPx    = (startMin - VIEW_START_HOUR * 60) / 60 * HOUR_PX;
-          const heightPx = Math.max(20, (endMin - startMin) / 60 * HOUR_PX);
+          const topPx    = (startMin / 60) * HOUR_PX;
+          const heightPx = Math.max(20, ((endMin - startMin) / 60) * HOUR_PX);
           if (topPx > TOTAL_PX || topPx + heightPx < 0) return;
           items.push({ key: t.id, type: "todo", id: t.id, title: t.title, topPx, heightPx, extra: `${t.start_time}${t.end_time ? `–${t.end_time}` : ""}`, priority: t.priority ?? undefined, completed: false });
         });
 
-      // Habits scheduled on this day with a time
       habits
         .filter(h => !!h.time && isScheduledForDate(h, day))
         .forEach(h => {
           const startMin = parseTime(h.time!);
           const endMin   = h.end_time ? parseTime(h.end_time) : startMin + 30;
-          const topPx    = (startMin - VIEW_START_HOUR * 60) / 60 * HOUR_PX;
-          const heightPx = Math.max(18, (endMin - startMin) / 60 * HOUR_PX);
+          const topPx    = (startMin / 60) * HOUR_PX;
+          const heightPx = Math.max(18, ((endMin - startMin) / 60) * HOUR_PX);
           if (topPx > TOTAL_PX || topPx + heightPx < 0) return;
           items.push({ key: h.id, type: "habit", id: h.id, title: h.title, topPx, heightPx, extra: `${h.time}${h.end_time ? `–${h.end_time}` : ""}`, completed: h.completedToday });
         });
@@ -152,16 +165,19 @@ export default function ScheduleWeekModal({
   }
 
   return (
+    /* Backdrop — covers full screen with blur */
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ backgroundColor: "rgba(0,0,0,0.6)", backdropFilter: "blur(6px)" }}
-      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+      className="fixed inset-0 z-50"
+      style={{ backgroundColor: "rgba(0,0,0,0.55)", backdropFilter: "blur(5px)" }}
+      onClick={onClose}
     >
+      {/* Glass card — starts after left sidebar, fills rest of screen */}
       <div
-        className="glass-card flex flex-col overflow-hidden"
-        style={{ width: "calc(100vw - 32px)", height: "calc(100vh - 32px)" }}
+        className="glass-card absolute flex flex-col overflow-hidden"
+        style={{ left: SIDEBAR_OFFSET, right: 8, top: 8, bottom: 8 }}
+        onClick={e => e.stopPropagation()}
       >
-        {/* ── Header ─────────────────────────────────────────────────────── */}
+        {/* ── Header ──────────────────────────────────────────────────── */}
         <div className="flex items-center gap-3 px-4 py-3 border-b border-black/[0.07] dark:border-white/[0.06] flex-shrink-0">
           <button
             onClick={prevWeek}
@@ -201,10 +217,10 @@ export default function ScheduleWeekModal({
           </button>
         </div>
 
-        {/* ── Day headers ────────────────────────────────────────────────── */}
+        {/* ── Day headers (Mon … Sun) ──────────────────────────────────── */}
         <div
           className="flex border-b border-black/[0.07] dark:border-white/[0.06] flex-shrink-0"
-          style={{ paddingLeft: 40 }}
+          style={{ paddingLeft: 44 }}
         >
           {dayColumns.map(({ day, isToday }) => (
             <div
@@ -214,9 +230,9 @@ export default function ScheduleWeekModal({
               <span className={`text-[10px] uppercase tracking-wider font-medium ${isToday ? "text-black dark:text-white" : "text-black/40 dark:text-gray-500"}`}>
                 {DAY_SHORT[day.getDay()]}
               </span>
-              <span className={`text-base font-bold tabular-nums leading-none ${
+              <span className={`text-sm font-bold tabular-nums leading-none ${
                 isToday
-                  ? "w-4/5 py-0.5 rounded-full bg-black dark:bg-white text-white dark:text-black flex items-center justify-center text-sm"
+                  ? "w-4/5 py-1 rounded-full bg-black dark:bg-white text-white dark:text-black flex items-center justify-center"
                   : "text-black/70 dark:text-gray-300"
               }`}>
                 {day.getDate()}
@@ -225,17 +241,17 @@ export default function ScheduleWeekModal({
           ))}
         </div>
 
-        {/* ── Scrollable grid ────────────────────────────────────────────── */}
-        <div className="overflow-y-auto flex-1 min-h-0">
+        {/* ── Scrollable 24h grid ──────────────────────────────────────── */}
+        <div ref={scrollRef} className="overflow-y-auto flex-1 min-h-0">
           <div className="flex" style={{ height: TOTAL_PX }}>
 
             {/* Time labels */}
-            <div className="flex-shrink-0 relative" style={{ width: 40 }}>
-              {hourSlots.map(h => (
+            <div className="flex-shrink-0 relative" style={{ width: 44 }}>
+              {hourSlots.map(h => h < 24 && (
                 <div
                   key={h}
-                  className="absolute right-0 pr-1.5"
-                  style={{ top: (h - VIEW_START_HOUR) * HOUR_PX - 7 }}
+                  className="absolute right-0 pr-2"
+                  style={{ top: h * HOUR_PX - 7 }}
                 >
                   <span className="text-[9px] text-black/30 dark:text-gray-600 tabular-nums leading-none">
                     {hourLabel(h)}
@@ -248,7 +264,7 @@ export default function ScheduleWeekModal({
             {dayColumns.map(({ day, dayStr, isToday, items }) => (
               <div
                 key={dayStr}
-                className={`flex-1 relative border-l border-black/[0.05] dark:border-white/[0.05] ${isToday ? "bg-black/[0.02] dark:bg-white/[0.02]" : ""}`}
+                className={`flex-1 relative border-l border-black/[0.05] dark:border-white/[0.05] ${isToday ? "bg-black/[0.015] dark:bg-white/[0.015]" : ""}`}
                 style={{ height: TOTAL_PX }}
               >
                 {/* Hour grid lines */}
@@ -256,11 +272,16 @@ export default function ScheduleWeekModal({
                   <div
                     key={h}
                     className="absolute left-0 right-0 pointer-events-none"
-                    style={{
-                      top: (h - VIEW_START_HOUR) * HOUR_PX,
-                      height: 1,
-                      backgroundColor: "rgba(0,0,0,0.05)",
-                    }}
+                    style={{ top: h * HOUR_PX, height: 1, backgroundColor: h % 6 === 0 ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)" }}
+                  />
+                ))}
+
+                {/* Half-hour lines */}
+                {hourSlots.map(h => h < 24 && (
+                  <div
+                    key={`h${h}.5`}
+                    className="absolute left-0 right-0 pointer-events-none"
+                    style={{ top: h * HOUR_PX + HOUR_PX / 2, height: 1, backgroundColor: "rgba(0,0,0,0.025)" }}
                   />
                 ))}
 
@@ -270,9 +291,7 @@ export default function ScheduleWeekModal({
                     className="absolute left-0 right-0 z-20 pointer-events-none"
                     style={{ top: nowTopPx, height: 1.5, backgroundColor: "rgb(239,68,68)" }}
                   >
-                    <div
-                      className="absolute -left-1 -top-[3px] w-2 h-2 rounded-full bg-red-500"
-                    />
+                    <div className="absolute -left-1 -top-[3px] w-2 h-2 rounded-full bg-red-500" />
                   </div>
                 )}
 
@@ -282,36 +301,35 @@ export default function ScheduleWeekModal({
                     <div
                       key={item.key}
                       onClick={() => { onTodoClick?.(item.id); onClose(); }}
-                      className={`absolute inset-x-0.5 rounded-[4px] px-1 py-0.5 border text-white text-[8.5px] font-semibold overflow-hidden z-10 ${priorityBg(item.priority)} ${onTodoClick ? "cursor-pointer hover:brightness-110 transition-all" : ""}`}
+                      className={`absolute inset-x-0.5 rounded-[4px] px-1.5 py-0.5 border text-white text-[9px] font-semibold overflow-hidden z-10 ${priorityBg(item.priority)} ${onTodoClick ? "cursor-pointer hover:brightness-110 transition-all" : ""}`}
                       style={{ top: Math.max(0, item.topPx) + 1, height: item.heightPx - 2 }}
                       title={item.title}
                     >
                       <span className="truncate block leading-tight">{item.title}</span>
-                      {item.heightPx > 32 && (
-                        <span className="opacity-60 text-[7.5px] block leading-tight">{item.extra}</span>
+                      {item.heightPx > 30 && (
+                        <span className="opacity-60 text-[8px] block leading-tight">{item.extra}</span>
                       )}
                     </div>
                   ) : (
                     <div
                       key={`h-${item.key}`}
                       onClick={() => { onHabitClick?.(item.id); onClose(); }}
-                      className={`absolute inset-x-0.5 rounded-[4px] px-1 py-0.5 border text-white text-[8.5px] font-semibold overflow-hidden z-10 bg-violet-500 border-violet-600/40 ${item.completed ? "opacity-40" : ""} ${onHabitClick ? "cursor-pointer hover:brightness-110 transition-all" : ""}`}
+                      className={`absolute inset-x-0.5 rounded-[4px] px-1.5 py-0.5 border text-white text-[9px] font-semibold overflow-hidden z-10 bg-violet-500 border-violet-600/40 ${item.completed ? "opacity-40" : ""} ${onHabitClick ? "cursor-pointer hover:brightness-110 transition-all" : ""}`}
                       style={{ top: Math.max(0, item.topPx) + 1, height: item.heightPx - 2 }}
                       title={item.title}
                     >
                       <span className={`flex items-center gap-0.5 leading-tight ${item.completed ? "line-through" : ""}`}>
-                        <Repeat size={6} className="flex-shrink-0 opacity-80" />
+                        <Repeat size={7} className="flex-shrink-0 opacity-80" />
                         <span className="truncate">{item.title}</span>
                       </span>
-                      {item.heightPx > 32 && (
-                        <span className="opacity-60 text-[7.5px] block leading-tight">{item.extra}</span>
+                      {item.heightPx > 30 && (
+                        <span className="opacity-60 text-[8px] block leading-tight">{item.extra}</span>
                       )}
                     </div>
                   )
                 ))}
               </div>
             ))}
-
           </div>
         </div>
       </div>

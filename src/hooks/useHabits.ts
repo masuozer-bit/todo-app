@@ -276,6 +276,7 @@ export function useHabits(userId: string | undefined) {
   return {
     habits: habitsWithStatus,
     todaysHabits,
+    completions,
     loading,
     addHabit,
     updateHabit,

@@ -433,6 +433,7 @@ export default function DashboardPage() {
   const {
     habits,
     todaysHabits,
+    completions: habitCompletions,
     loading: habitsLoading,
     addHabit,
     updateHabit,
@@ -1320,6 +1321,7 @@ export default function DashboardPage() {
           ) : habitsView ? (
             <HabitList
               habits={todaysHabits}
+              completions={habitCompletions}
               onToggle={toggleCompletion}
               onUpdate={updateHabit}
               onDelete={deleteHabit}

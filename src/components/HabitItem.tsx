@@ -2,10 +2,12 @@
 
 import { useState, useRef, useEffect } from "react";
 import { Trash2, Check, X, Flame, Repeat, Clock, FileText, ChevronDown, Settings2, Minus, Plus } from "lucide-react";
-import type { HabitWithStatus, ScheduleType } from "@/lib/types";
+import type { HabitWithStatus, HabitCompletion, ScheduleType } from "@/lib/types";
+import HabitWeekModal from "./HabitWeekModal";
 
 interface HabitItemProps {
   habit: HabitWithStatus;
+  completions?: HabitCompletion[];
   onToggle: (habitId: string) => void;
   onUpdate: (
     id: string,
@@ -45,6 +47,7 @@ function formatTime12(time24: string): string {
 
 export default function HabitItem({
   habit,
+  completions = [],
   onToggle,
   onUpdate,
   onDelete,
@@ -67,6 +70,7 @@ export default function HabitItem({
   const [showNotes, setShowNotes] = useState(false);
   const [editingNotes, setEditingNotes] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState(false);
+  const [showWeekView, setShowWeekView] = useState(false);
   const [editScheduleType, setEditScheduleType] = useState<ScheduleType>(habit.schedule_type);
   const [editScheduleDays, setEditScheduleDays] = useState<number[]>(habit.schedule_days);
   const [editScheduleInterval, setEditScheduleInterval] = useState(habit.schedule_interval || 1);
@@ -215,16 +219,26 @@ export default function HabitItem({
 
           {/* Meta row: schedule + time + streak */}
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5">
-            <button
-              type="button"
-              onClick={() => setEditingSchedule((v) => !v)}
-              className="flex items-center gap-1 text-xs text-black/40 dark:text-gray-500 hover:text-black dark:hover:text-white transition-default"
-              aria-label="Edit schedule"
-            >
-              <Repeat size={10} />
-              {formatSchedule(habit)}
-              <Settings2 size={9} className="opacity-50" />
-            </button>
+            {/* Schedule: text opens week view, gear opens edit panel */}
+            <span className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setShowWeekView(true)}
+                className="flex items-center gap-1 text-xs text-black/40 dark:text-gray-500 hover:text-black dark:hover:text-white transition-default"
+                aria-label="View schedule calendar"
+              >
+                <Repeat size={10} />
+                {formatSchedule(habit)}
+              </button>
+              <button
+                type="button"
+                onClick={() => setEditingSchedule((v) => !v)}
+                className="text-black/25 dark:text-gray-700 hover:text-black dark:hover:text-white transition-default"
+                aria-label="Edit schedule"
+              >
+                <Settings2 size={9} />
+              </button>
+            </span>
 
             {/* Time — click to edit inline */}
             <button
@@ -472,6 +486,14 @@ export default function HabitItem({
           <Trash2 size={15} />
         </button>
       </div>
+
+      {showWeekView && (
+        <HabitWeekModal
+          habit={habit}
+          completions={completions}
+          onClose={() => setShowWeekView(false)}
+        />
+      )}
     </div>
   );
 }

@@ -18,18 +18,20 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import type { HabitWithStatus, Habit, ScheduleType } from "@/lib/types";
+import type { HabitWithStatus, Habit, HabitCompletion, ScheduleType } from "@/lib/types";
 import HabitItem from "./HabitItem";
 import ConfirmDialog from "./ConfirmDialog";
 
 function SortableHabitItem({
   habit,
+  completions,
   onToggle,
   onUpdate,
   onDelete,
   highlighted,
 }: {
   habit: HabitWithStatus;
+  completions: HabitCompletion[];
   onToggle: (id: string) => void;
   onUpdate: (
     id: string,
@@ -64,6 +66,7 @@ function SortableHabitItem({
     <div ref={setNodeRef} style={style}>
       <HabitItem
         habit={habit}
+        completions={completions}
         onToggle={onToggle}
         onUpdate={onUpdate}
         onDelete={onDelete}
@@ -77,6 +80,7 @@ function SortableHabitItem({
 
 interface HabitListProps {
   habits: HabitWithStatus[];
+  completions?: HabitCompletion[];
   onToggle: (habitId: string) => void;
   onUpdate: (
     id: string,
@@ -98,6 +102,7 @@ interface HabitListProps {
 
 export default function HabitList({
   habits,
+  completions = [],
   onToggle,
   onUpdate,
   onDelete,
@@ -195,6 +200,7 @@ export default function HabitList({
                 <SortableHabitItem
                   key={habit.id}
                   habit={habit}
+                  completions={completions.filter((c) => c.habit_id === habit.id)}
                   onToggle={onToggle}
                   onUpdate={onUpdate}
                   onDelete={(id) => setDeleteId(id)}

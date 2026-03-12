@@ -133,7 +133,7 @@ export default function TimelinePanel({ todos, habits, onTodoClick, onHabitClick
   const currentTimeLabel = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
   return (
-    <div className="glass-card overflow-hidden">
+    <div className="glass-card overflow-hidden flex flex-col flex-1 min-h-0">
       {/* Header */}
       <div className="px-3 pt-2.5 pb-2 flex items-center gap-2 border-b border-black/[0.06] dark:border-white/[0.05]">
         <span className="text-[10px] font-bold uppercase tracking-widest text-black/50 dark:text-gray-400">Schedule</span>
@@ -150,7 +150,7 @@ export default function TimelinePanel({ todos, habits, onTodoClick, onHabitClick
       </div>
 
       {/* Scrollable timeline */}
-      <div ref={containerRef} className="overflow-y-auto scroll-smooth" style={{ height: 280 }}>
+      <div ref={containerRef} className="overflow-y-auto scroll-smooth flex-1 min-h-0">
         <div className="relative select-none" style={{ height: totalPx }}>
 
           {/* Hour grid lines + labels */}

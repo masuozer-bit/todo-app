@@ -1383,8 +1383,8 @@ export default function DashboardPage() {
 
         {/* Calendar + Timeline panel — desktop only, always visible */}
         {!habitsView && !eventsView && (
-          <aside className="hidden md:block w-56 flex-shrink-0 pt-4">
-            <div className="sticky top-4 space-y-2 overflow-y-auto" style={{ maxHeight: "calc(100vh - 2rem)" }}>
+          <aside className="hidden md:flex flex-col w-72 flex-shrink-0 pt-4" style={{ height: "calc(100vh - 1rem)" }}>
+            <div className="sticky top-4 flex flex-col gap-2 overflow-hidden flex-1" style={{ height: "calc(100vh - 2rem)" }}>
               <CalendarPanel
                 todos={todos}
                 selectedDates={calendarDates}

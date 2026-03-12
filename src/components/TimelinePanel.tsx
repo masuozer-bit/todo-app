@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useMemo } from "react";
-import { Repeat } from "lucide-react";
+import { useEffect, useRef, useMemo, useState } from "react";
+import { Repeat, Maximize2 } from "lucide-react";
 import type { Todo, HabitWithStatus } from "@/lib/types";
+import ScheduleWeekModal from "./ScheduleWeekModal";
 
 interface TimelinePanelProps {
   todos: Todo[];
@@ -45,6 +46,7 @@ function priorityClass(p?: string): string {
 
 export default function TimelinePanel({ todos, habits, onTodoClick, onHabitClick }: TimelinePanelProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [showWeekModal, setShowWeekModal] = useState(false);
 
   // Freeze 'now' at mount time — refreshes on next render cycle naturally
   const now = useMemo(() => new Date(), []);
@@ -137,6 +139,14 @@ export default function TimelinePanel({ todos, habits, onTodoClick, onHabitClick
         <span className="text-[10px] font-bold uppercase tracking-widest text-black/50 dark:text-gray-400">Schedule</span>
         <div className="flex-1 h-px bg-black/[0.06] dark:bg-white/[0.05]" />
         <span className="text-[10px] text-black/30 dark:text-gray-600 tabular-nums">{currentTimeLabel}</span>
+        <button
+          onClick={() => setShowWeekModal(true)}
+          className="text-black/25 dark:text-gray-700 hover:text-black dark:hover:text-white transition-default"
+          aria-label="Open week view"
+          title="Week view"
+        >
+          <Maximize2 size={11} />
+        </button>
       </div>
 
       {/* Scrollable timeline */}
@@ -229,6 +239,16 @@ export default function TimelinePanel({ todos, habits, onTodoClick, onHabitClick
 
         </div>
       </div>
+
+      {showWeekModal && (
+        <ScheduleWeekModal
+          todos={todos}
+          habits={habits}
+          onTodoClick={onTodoClick}
+          onHabitClick={onHabitClick}
+          onClose={() => setShowWeekModal(false)}
+        />
+      )}
     </div>
   );
 }

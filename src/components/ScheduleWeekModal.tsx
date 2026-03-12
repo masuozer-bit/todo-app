@@ -12,10 +12,10 @@ interface ScheduleWeekModalProps {
   onClose: () => void;
 }
 
-const VIEW_START_HOUR = 7;   // 7am
-const VIEW_END_HOUR   = 23;  // 11pm
-const VISIBLE_HOURS   = VIEW_END_HOUR - VIEW_START_HOUR; // 16
-const HOUR_PX         = 56;  // px per hour
+const VIEW_START_HOUR = 6;   // 6am
+const VIEW_END_HOUR   = 24;  // midnight
+const VISIBLE_HOURS   = VIEW_END_HOUR - VIEW_START_HOUR; // 18
+const HOUR_PX         = 64;  // px per hour
 const TOTAL_PX        = VISIBLE_HOURS * HOUR_PX;
 
 const DAY_SHORT  = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -158,8 +158,8 @@ export default function ScheduleWeekModal({
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div
-        className="glass-card w-full flex flex-col overflow-hidden"
-        style={{ maxWidth: 960, maxHeight: "92vh" }}
+        className="glass-card flex flex-col overflow-hidden"
+        style={{ width: "calc(100vw - 32px)", height: "calc(100vh - 32px)" }}
       >
         {/* ── Header ─────────────────────────────────────────────────────── */}
         <div className="flex items-center gap-3 px-4 py-3 border-b border-black/[0.07] dark:border-white/[0.06] flex-shrink-0">

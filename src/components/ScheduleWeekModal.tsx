@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { X, ChevronLeft, ChevronRight, Repeat } from "lucide-react";
 import type { Todo, HabitWithStatus } from "@/lib/types";
 
@@ -164,7 +165,7 @@ export default function ScheduleWeekModal({
     const d = new Date(weekStart); d.setDate(d.getDate() + 7); setWeekStart(d);
   }
 
-  return (
+  const modal = (
     /* Backdrop — covers full screen with blur */
     <div
       className="fixed inset-0 z-50"
@@ -335,4 +336,6 @@ export default function ScheduleWeekModal({
       </div>
     </div>
   );
+
+  return createPortal(modal, document.body);
 }

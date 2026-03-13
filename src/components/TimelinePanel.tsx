@@ -48,8 +48,13 @@ export default function TimelinePanel({ todos, habits, onTodoClick, onHabitClick
   const containerRef = useRef<HTMLDivElement>(null);
   const [showWeekModal, setShowWeekModal] = useState(false);
 
-  // Freeze 'now' at mount time — refreshes on next render cycle naturally
-  const now = useMemo(() => new Date(), []);
+  // Live clock — updates every minute
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+
   const windowStartMs = useMemo(() => now.getTime() - PAST_HOURS * 3_600_000, [now]);
   const windowEndMs   = useMemo(() => now.getTime() + FUTURE_HOURS * 3_600_000, [now]);
 
@@ -122,10 +127,21 @@ export default function TimelinePanel({ todos, habits, onTodoClick, onHabitClick
       .sort((a, b) => a.startMs - b.startMs);
   }, [habits, now, windowStartMs, windowEndMs]);
 
-  // Auto-scroll: show current time with ~1.5h of past above it
+  // Auto-scroll: center on next upcoming item, or fall back to current time
   useEffect(() => {
-    if (containerRef.current) {
-      containerRef.current.scrollTop = nowOffsetPx - HOUR_HEIGHT * 1.5;
+    const el = containerRef.current;
+    if (!el) return;
+    const nowMs = now.getTime();
+    const allItems = [
+      ...timedTodos.map(t => ({ topPx: t.topPx, heightPx: t.heightPx, startMs: t.startMs })),
+      ...timedHabits.map(h => ({ topPx: h.topPx, heightPx: h.heightPx, startMs: h.startMs })),
+    ];
+    const next = allItems.filter(i => i.startMs >= nowMs).sort((a, b) => a.startMs - b.startMs)[0];
+    if (next) {
+      // Center the next item in the visible area
+      el.scrollTop = next.topPx - el.clientHeight / 2 + next.heightPx / 2;
+    } else {
+      el.scrollTop = nowOffsetPx - HOUR_HEIGHT * 1.5;
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

@@ -21,7 +21,7 @@ const HOUR_PX         = 64;
 const TOTAL_PX        = VISIBLE_HOURS * HOUR_PX;
 
 // Left sidebar = w-48 = 12rem = 192px; small gutter = 8px
-const SIDEBAR_OFFSET  = "calc(12rem + 8px)";
+const SIDEBAR_OFFSET = "calc(12rem + 8px)";
 
 const DAY_SHORT   = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTH_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];

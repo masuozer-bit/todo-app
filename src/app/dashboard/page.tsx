@@ -1383,22 +1383,18 @@ export default function DashboardPage() {
 
         {/* Calendar + Timeline panel — desktop only, always visible */}
         {!habitsView && !eventsView && (
-          <aside className="hidden md:w-96 md:flex-shrink-0" style={{ position: "sticky", top: 0, height: "100vh", display: "flex", flexDirection: "column", gap: "8px", padding: "24px 0 16px", overflow: "hidden" }}>
-            <div style={{ flexShrink: 0 }}>
-              <CalendarPanel
-                todos={todos}
-                selectedDates={calendarDates}
-                onSelectDates={handleCalendarDatesChange}
-              />
-            </div>
-            <div style={{ flex: "1 1 0", minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column" }}>
-              <TimelinePanel
-                todos={todos}
-                habits={todaysHabits}
-                onTodoClick={handleTimelineTodoClick}
-                onHabitClick={handleTimelineHabitClick}
-              />
-            </div>
+          <aside className="hidden md:w-96 md:flex-shrink-0 pt-6 space-y-2" style={{ position: "sticky", top: 0 }}>
+            <CalendarPanel
+              todos={todos}
+              selectedDates={calendarDates}
+              onSelectDates={handleCalendarDatesChange}
+            />
+            <TimelinePanel
+              todos={todos}
+              habits={todaysHabits}
+              onTodoClick={handleTimelineTodoClick}
+              onHabitClick={handleTimelineHabitClick}
+            />
           </aside>
         )}
       </div>

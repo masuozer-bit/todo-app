@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import type { Todo, Tag, Subtask, Priority, List } from "@/lib/types";
 import { syncTodoToCalendar } from "@/lib/calendar-sync-client";
 
+
 export function useTodos(
   userId: string | undefined,
   allTags: Tag[],
@@ -224,8 +225,8 @@ export function useTodos(
           prev.map((t) => (t.id === id ? { ...t, completed } : t))
         );
 
-        // Calendar sync (fire-and-forget)
-        if (todo?.due_date) {
+        // Calendar sync (fire-and-forget) — skip for Google-imported todos
+        if (todo?.due_date && !todo.google_event_id) {
           syncTodoToCalendar("complete", id, {
             title: todo.title,
             due_date: todo.due_date,
@@ -261,6 +262,9 @@ export function useTodos(
         priority?: Priority;
         notes?: string | null;
         list_id?: string | null;
+        time_spent?: number | null;
+        estimated_time?: number | null;
+        extra_dates?: { date: string; completed: boolean }[] | null;
       }
     ) => {
       const { error } = await supabase
@@ -288,9 +292,9 @@ export function useTodos(
         prev.map((t) => (t.id === id ? { ...t, ...updates } : t))
       );
 
-      // Calendar sync (fire-and-forget)
+      // Calendar sync (fire-and-forget) — skip for Google-imported todos
       const existingTodo = todosRef.current.find((t) => t.id === id);
-      if (existingTodo) {
+      if (existingTodo && !existingTodo.google_event_id) {
         const merged = { ...existingTodo, ...updates };
         if (merged.due_date || existingTodo.due_date) {
           syncTodoToCalendar("update", id, {

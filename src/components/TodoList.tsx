@@ -256,7 +256,7 @@ interface TodoListProps {
   todos: Todo[];
   allTags: Tag[];
   onToggle: (id: string, completed: boolean) => void;
-  onUpdate: (id: string, updates: { title?: string; due_date?: string | null; start_date?: string | null; start_time?: string | null; end_time?: string | null; priority?: Priority; notes?: string | null; list_id?: string | null }) => void;
+  onUpdate: (id: string, updates: { title?: string; due_date?: string | null; start_date?: string | null; start_time?: string | null; end_time?: string | null; priority?: Priority; notes?: string | null; list_id?: string | null; estimated_time?: number | null; time_spent?: number | null; extra_dates?: { date: string; time?: string | null; completed: boolean }[] | null }) => void;
   onDelete: (id: string) => void;
   onTagToggle: (todoId: string, tagId: string, add: boolean) => void;
   onReorder: (reordered: Todo[]) => void;
@@ -291,6 +291,12 @@ interface TodoListProps {
   onToggleHabit?: (habitId: string) => void;
   /** ID of a todo to highlight (from timeline click) */
   highlightedTodoId?: string | null;
+  /** When true (calendar hidden), use 4-column grid instead of 2 */
+  wideMode?: boolean;
+  /** Start live task timer */
+  onStartLiveTask?: (todoId: string) => void;
+  /** Currently active live task ID */
+  liveTaskId?: string | null;
 }
 
 export default function TodoList({
@@ -322,7 +328,11 @@ export default function TodoList({
   showHabits = false,
   onToggleHabit,
   highlightedTodoId,
+  wideMode,
+  onStartLiveTask,
+  liveTaskId,
 }: TodoListProps) {
+  const gridCols = wideMode ? "grid grid-cols-1 md:grid-cols-3 gap-2" : "grid grid-cols-1 md:grid-cols-2 gap-2";
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
@@ -789,6 +799,8 @@ export default function TodoList({
                 activeListId={activeListId}
                 events={events}
                 onAssignEvent={onAssignEvent}
+                onStartLiveTask={onStartLiveTask}
+                isLiveTask={liveTaskId === todo.id}
               />
             ))}
           </div>
@@ -833,6 +845,8 @@ export default function TodoList({
         events={events}
         onAssignEvent={onAssignEvent}
         highlighted={highlightedTodoId === todo.id}
+        onStartLiveTask={onStartLiveTask}
+        isLiveTask={liveTaskId === todo.id}
       />
     );
 
@@ -1092,7 +1106,7 @@ export default function TodoList({
                 </button>
               )}
               {isOpen && (
-                <div className="space-y-2">
+                <div className={gridCols}>
                   {group.events.map((event) => renderEventContainer(event))}
                   {group.todos.map((todo) => renderTodo(todo, false))}
                 </div>
@@ -1117,7 +1131,7 @@ export default function TodoList({
                 <div className="flex-1 h-px bg-black/10 dark:bg-white/[0.07]" />
               </button>
               {showDone && (
-                <div className="space-y-2">
+                <div className={gridCols}>
                   {standaloneCompletedTodos.map((todo) => renderTodo(todo, false))}
                 </div>
               )}
@@ -1141,7 +1155,7 @@ export default function TodoList({
                   )}
                   strategy={verticalListSortingStrategy}
                 >
-                  <div className="space-y-2">
+                  <div className={gridCols}>
                     {sortedMergedItems.map((item) =>
                       item.kind === "event" ? (
                         <ManualSortWrapper key={item.event.id} id={item.event.id}>
@@ -1158,7 +1172,7 @@ export default function TodoList({
               </DndContext>
             ) : (
               /* Priority sort: urgency order, no DnD */
-              <div className="space-y-2">
+              <div className={gridCols}>
                 {sortedMergedItems.map((item) =>
                   item.kind === "event"
                     ? renderEventContainer(item.event)
@@ -1184,7 +1198,7 @@ export default function TodoList({
                 <div className="flex-1 h-px bg-black/10 dark:bg-white/[0.07]" />
               </button>
               {showDone && (
-                <div className="space-y-2">
+                <div className={gridCols}>
                   {standaloneCompletedTodos.map((todo) => renderTodo(todo, false))}
                 </div>
               )}

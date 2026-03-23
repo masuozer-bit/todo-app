@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { X, Inbox, Repeat, List, Plus, Sun, CalendarDays, CalendarRange } from "lucide-react";
+import { X, Inbox, Repeat, List, Plus, Sun, CalendarDays, CalendarRange, Shield } from "lucide-react";
 import type { List as ListType, Todo } from "@/lib/types";
 import ProductivityStats from "./ProductivityStats";
 
@@ -12,10 +12,12 @@ interface MobileSidebarProps {
   activeListId: string | null;
   habitsView: boolean;
   eventsView?: boolean;
+  rulesView?: boolean;
   quickFilter?: "overdue" | "today" | "thisWeek" | null;
   onSwitchToAll: () => void;
   onSwitchToEvents?: () => void;
   onSwitchToHabits: () => void;
+  onSwitchToRules?: () => void;
   onSwitchToList: (listId: string) => void;
   onSwitchToToday?: () => void;
   onSwitchToThisWeek?: () => void;
@@ -30,10 +32,12 @@ export default function MobileSidebar({
   activeListId,
   habitsView,
   eventsView,
+  rulesView,
   quickFilter,
   onSwitchToAll,
   onSwitchToEvents,
   onSwitchToHabits,
+  onSwitchToRules,
   onSwitchToList,
   onSwitchToToday,
   onSwitchToThisWeek,
@@ -173,6 +177,21 @@ export default function MobileSidebar({
               <Repeat size={16} />
               Habits
             </button>
+
+            {/* Rules */}
+            {onSwitchToRules && (
+              <button
+                onClick={() => handleNav(onSwitchToRules)}
+                className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition-default ${
+                  rulesView
+                    ? "bg-black dark:bg-white text-white dark:text-black font-medium"
+                    : "text-gray-500 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/10"
+                }`}
+              >
+                <Shield size={16} />
+                Rules
+              </button>
+            )}
 
             {/* Lists */}
             {lists.length > 0 && (

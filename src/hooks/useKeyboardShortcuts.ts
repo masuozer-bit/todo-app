@@ -8,6 +8,10 @@ interface ShortcutHandlers {
   onToggleTheme?: () => void;
   onShowShortcuts?: () => void;
   onToggleBar?: () => void;
+  onToggleCalendar?: () => void;
+  onToggleSchedule?: () => void;
+  onNewRule?: () => void;
+  onToggleTemplates?: () => void;
   onEscape?: () => void;
 }
 
@@ -17,6 +21,10 @@ export function useKeyboardShortcuts({
   onToggleTheme,
   onShowShortcuts,
   onToggleBar,
+  onToggleCalendar,
+  onToggleSchedule,
+  onNewRule,
+  onToggleTemplates,
   onEscape,
 }: ShortcutHandlers) {
   useEffect(() => {
@@ -52,6 +60,34 @@ export function useKeyboardShortcuts({
         return;
       }
 
+      // C → toggle calendar & schedule panel (not while typing)
+      if (e.key === "c" && !isTyping && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault();
+        onToggleCalendar?.();
+        return;
+      }
+
+      // S → toggle schedule week view (not while typing)
+      if (e.key === "s" && !isTyping && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault();
+        onToggleSchedule?.();
+        return;
+      }
+
+      // R → new rule (not while typing)
+      if (e.key === "r" && !isTyping && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault();
+        onNewRule?.();
+        return;
+      }
+
+      // T → templates (not while typing)
+      if (e.key === "t" && !isTyping && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault();
+        onToggleTemplates?.();
+        return;
+      }
+
       // Cmd+D / Ctrl+D → toggle dark mode
       if ((e.metaKey || e.ctrlKey) && e.key === "d") {
         e.preventDefault();
@@ -70,5 +106,5 @@ export function useKeyboardShortcuts({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onNewTask, onSearch, onToggleTheme, onShowShortcuts, onToggleBar, onEscape]);
+  }, [onNewTask, onSearch, onToggleTheme, onShowShortcuts, onToggleBar, onToggleCalendar, onToggleSchedule, onNewRule, onToggleTemplates, onEscape]);
 }

@@ -163,6 +163,7 @@ export async function fetchCalendarEvents(
     htmlLink?: string;
     source: "google" | "synced";
   }[];
+  imported?: boolean;
 }> {
   try {
     const params = new URLSearchParams({ timeMin, timeMax });

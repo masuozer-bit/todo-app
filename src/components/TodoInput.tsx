@@ -233,8 +233,7 @@ export default function TodoInput({
   const [listId, setListId] = useState<string | null>(activeListId ?? null);
   const [eventId, setEventId] = useState<string | null>(null);
   const [subtaskEntries, setSubtaskEntries] = useState<SubtaskEntry[]>([]);
-  const [showCustomDate, setShowCustomDate] = useState(false);
-  const [showCustomStart, setShowCustomStart] = useState(false);
+
   const [selectedSuggestion, setSelectedSuggestion] = useState(0);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -365,8 +364,6 @@ export default function TodoInput({
     setSubtaskEntries([]);
     setShowOptions(false);
     setShowSuggestions(false);
-    setShowCustomDate(false);
-    setShowCustomStart(false);
     inputRef.current?.focus();
   }
 
@@ -378,7 +375,6 @@ export default function TodoInput({
 
   function setQuickDate(val: string) {
     setDueDate(val);
-    setShowCustomDate(false);
     if (!val) { setStartTime(""); setEndTime(""); }
   }
 
@@ -499,112 +495,74 @@ export default function TodoInput({
 
         {/* ── Expanded options ── */}
         {showOptions && (
-          <div className="mt-3 pt-3 border-t border-black/5 dark:border-white/5 space-y-3">
+          <div className="mt-3 pt-3 border-t border-black/5 dark:border-white/5 space-y-4">
 
-            {/* Priority */}
-            <div className="flex items-center gap-3">
-              <span className="text-xs text-gray-400 w-14 flex-shrink-0">Priority</span>
-              <div className="flex gap-1.5">
-                {PRIORITY_CONFIG.map((p) => (
+            {/* ① Priority */}
+            <div className="flex gap-1.5">
+              {PRIORITY_CONFIG.map((p) => (
+                <button
+                  key={p.value}
+                  type="button"
+                  onClick={() => setPriority(p.value)}
+                  className={`flex items-center justify-center gap-1.5 px-0 py-1.5 rounded-lg border text-xs transition-default flex-1 ${
+                    priority === p.value
+                      ? p.active + " font-medium"
+                      : "border-black/8 dark:border-white/8 text-gray-400 hover:text-black dark:hover:text-white hover:border-black/15 dark:hover:border-white/15"
+                  }`}
+                >
+                  <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${p.dot}`} />
+                  {p.label}
+                </button>
+              ))}
+            </div>
+
+            {/* ② Schedule */}
+            <div className="space-y-2">
+              <p className="text-[10px] uppercase tracking-wide text-gray-400 font-medium">Schedule</p>
+
+              {/* Due date chips + inline date picker */}
+              <div className="flex flex-wrap gap-1.5 items-center">
+                {QUICK_DATES.map((q) => (
                   <button
-                    key={p.value}
+                    key={q.label}
                     type="button"
-                    onClick={() => setPriority(p.value)}
-                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs transition-default ${
-                      priority === p.value
-                        ? p.active + " font-medium"
+                    onClick={() => setQuickDate(dueDate === q.fn() ? "" : q.fn())}
+                    className={`text-xs px-2.5 py-1.5 rounded-lg border transition-default ${
+                      dueDate === q.fn()
+                        ? "border-black/20 dark:border-white/20 bg-black/5 dark:bg-white/10 text-black dark:text-white font-medium"
                         : "border-black/8 dark:border-white/8 text-gray-400 hover:text-black dark:hover:text-white hover:border-black/15 dark:hover:border-white/15"
                     }`}
                   >
-                    <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${p.dot}`} />
-                    {p.label}
+                    {q.label}
                   </button>
                 ))}
-              </div>
-            </div>
-
-            {/* Due date */}
-            <div className="flex items-start gap-3">
-              <span className="text-xs text-gray-400 w-14 flex-shrink-0 pt-0.5">Due</span>
-              <div className="flex-1 space-y-2">
-                <div className="flex flex-wrap gap-1.5">
-                  {QUICK_DATES.map((q) => (
-                    <button
-                      key={q.label}
-                      type="button"
-                      onClick={() => setQuickDate(q.fn())}
-                      className={`text-xs px-2.5 py-1 rounded-lg border transition-default ${
-                        dueDate === q.fn()
-                          ? "border-black/20 dark:border-white/20 bg-black/5 dark:bg-white/10 text-black dark:text-white font-medium"
-                          : "border-black/8 dark:border-white/8 text-gray-400 hover:text-black dark:hover:text-white hover:border-black/15 dark:hover:border-white/15"
-                      }`}
-                    >
-                      {q.label}
-                    </button>
-                  ))}
-
-                  {/* Custom date chip */}
-                  {isCustomDate ? (
-                    <span className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg border border-black/20 dark:border-white/20 bg-black/5 dark:bg-white/10 text-black dark:text-white font-medium">
-                      <Calendar size={10} />
-                      {formatDateLabel(dueDate)}
-                      <button
-                        type="button"
-                        onClick={() => { setDueDate(""); setStartTime(""); setEndTime(""); }}
-                        className="ml-0.5 text-gray-400 hover:text-black dark:hover:text-white"
-                      >
-                        <X size={10} />
-                      </button>
-                    </span>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => setShowCustomDate((v) => !v)}
-                      className={`inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg border transition-default ${
-                        showCustomDate
-                          ? "border-black/20 dark:border-white/20 text-black dark:text-white"
-                          : "border-black/8 dark:border-white/8 text-gray-400 hover:text-black dark:hover:text-white hover:border-black/15 dark:hover:border-white/15"
-                      }`}
-                    >
-                      <Calendar size={10} />
-                      Custom
-                    </button>
-                  )}
-
-                  {/* No date */}
-                  {dueDate && (
-                    <button
-                      type="button"
-                      onClick={() => setQuickDate("")}
-                      className="text-xs px-2 py-1 rounded-lg text-gray-300 dark:text-gray-600 hover:text-gray-500 dark:hover:text-gray-400 transition-default"
-                    >
-                      <X size={11} />
-                    </button>
-                  )}
-                </div>
-
-                {/* Custom date input */}
-                {showCustomDate && !isCustomDate && (
-                  <input
-                    type="date"
-                    value={dueDate}
-                    onChange={(e) => { setDueDate(e.target.value); if (e.target.value) setShowCustomDate(false); }}
-                    className="text-xs bg-transparent border border-black/10 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-black dark:text-white focus:outline-none focus:border-black/30 dark:focus:border-white/30 transition-default"
-                  />
+                <input
+                  type="date"
+                  value={dueDate}
+                  onChange={(e) => setDueDate(e.target.value)}
+                  title="Custom due date"
+                  className="text-xs bg-transparent border border-black/8 dark:border-white/8 rounded-lg px-2.5 py-1.5 text-black dark:text-white focus:outline-none focus:border-black/25 dark:focus:border-white/25 transition-default"
+                />
+                {dueDate && (
+                  <button
+                    type="button"
+                    onClick={() => { setDueDate(""); setStartTime(""); setEndTime(""); }}
+                    className="text-gray-300 dark:text-gray-600 hover:text-gray-500 dark:hover:text-gray-400 transition-default"
+                  >
+                    <X size={13} />
+                  </button>
                 )}
               </div>
-            </div>
 
-            {/* Time — only if due date set */}
-            {dueDate && (
-              <div className="flex items-center gap-3">
-                <span className="text-xs text-gray-400 w-14 flex-shrink-0">Time</span>
-                <div className="flex items-center gap-2">
+              {/* Time — only visible when date is set */}
+              {dueDate && (
+                <div className="flex items-center gap-2 pl-0.5">
+                  <Clock size={11} className="text-gray-400 flex-shrink-0" />
                   <input
                     type="time"
                     value={startTime}
                     onChange={(e) => setStartTime(e.target.value)}
-                    className="text-xs bg-transparent border border-black/10 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-black dark:text-white focus:outline-none focus:border-black/30 dark:focus:border-white/30 transition-default"
+                    className="text-xs bg-transparent border border-black/8 dark:border-white/8 rounded-lg px-2.5 py-1.5 text-black dark:text-white focus:outline-none focus:border-black/25 dark:focus:border-white/25 transition-default"
                   />
                   {startTime && (
                     <>
@@ -613,175 +571,113 @@ export default function TodoInput({
                         type="time"
                         value={endTime}
                         onChange={(e) => setEndTime(e.target.value)}
-                        placeholder="End"
-                        className="text-xs bg-transparent border border-black/10 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-black dark:text-white focus:outline-none focus:border-black/30 dark:focus:border-white/30 transition-default"
+                        className="text-xs bg-transparent border border-black/8 dark:border-white/8 rounded-lg px-2.5 py-1.5 text-black dark:text-white focus:outline-none focus:border-black/25 dark:focus:border-white/25 transition-default"
                       />
                     </>
                   )}
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* Start date */}
-            <div className="flex items-start gap-3">
-              <span className="text-xs text-gray-400 w-14 flex-shrink-0 pt-0.5">Start</span>
-              <div className="flex-1 space-y-1.5">
-                <div className="flex flex-wrap gap-1.5 items-center">
-                  {startDate ? (
-                    <span className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg border border-black/20 dark:border-white/20 bg-black/5 dark:bg-white/10 text-black dark:text-white font-medium">
-                      <Calendar size={10} />
-                      {formatDateLabel(startDate)}
-                      <button
-                        type="button"
-                        onClick={() => setStartDate("")}
-                        className="ml-0.5 text-gray-400 hover:text-black dark:hover:text-white"
-                      >
-                        <X size={10} />
-                      </button>
-                    </span>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => setShowCustomStart((v) => !v)}
-                      className={`inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg border transition-default ${
-                        showCustomStart
-                          ? "border-black/20 dark:border-white/20 text-black dark:text-white"
-                          : "border-black/8 dark:border-white/8 text-gray-400 hover:text-black dark:hover:text-white hover:border-black/15 dark:hover:border-white/15"
-                      }`}
-                    >
-                      <Calendar size={10} />
-                      Set start date
+              {/* Start date — subtle toggle */}
+              <div className="flex items-center gap-2 pl-0.5">
+                <CalendarRange size={11} className="text-gray-400 flex-shrink-0" />
+                {startDate ? (
+                  <span className="inline-flex items-center gap-1 text-xs text-black/60 dark:text-gray-400">
+                    Start {formatDateLabel(startDate)}
+                    <button type="button" onClick={() => setStartDate("")} className="text-gray-400 hover:text-black dark:hover:text-white ml-0.5">
+                      <X size={10} />
                     </button>
+                  </span>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] text-gray-400">Start date</span>
+                    <input
+                      type="date"
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      className="text-xs bg-transparent border border-black/8 dark:border-white/8 rounded-lg px-2.5 py-1.5 text-black dark:text-white focus:outline-none focus:border-black/25 dark:focus:border-white/25 transition-default"
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* ③ List + Event */}
+            {(lists.length > 0 || events.length > 0) && (
+              <div className="space-y-2">
+                <p className="text-[10px] uppercase tracking-wide text-gray-400 font-medium">Assign to</p>
+                <div className="flex flex-wrap gap-2">
+                  {lists.length > 0 && (
+                    <select
+                      value={listId ?? ""}
+                      onChange={(e) => setListId(e.target.value || null)}
+                      className="text-xs bg-white/60 dark:bg-white/[0.07] border border-black/10 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-black dark:text-white focus:outline-none focus:border-black/25 dark:focus:border-white/25 transition-default cursor-pointer"
+                    >
+                      <option value="">No list</option>
+                      {lists.map((list) => (
+                        <option key={list.id} value={list.id}>{list.name}</option>
+                      ))}
+                    </select>
+                  )}
+                  {events.length > 0 && (
+                    <select
+                      value={eventId ?? ""}
+                      onChange={(e) => {
+                        const id = e.target.value || null;
+                        setEventId(id);
+                        if (id) {
+                          const ev = events.find((x) => x.id === id);
+                          if (ev?.list_id) setListId(ev.list_id);
+                        }
+                      }}
+                      className="text-xs bg-white/60 dark:bg-white/[0.07] border border-black/10 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-black dark:text-white focus:outline-none focus:border-black/25 dark:focus:border-white/25 transition-default cursor-pointer"
+                    >
+                      <option value="">No event</option>
+                      {events.map((ev) => (
+                        <option key={ev.id} value={ev.id}>{ev.title}</option>
+                      ))}
+                    </select>
                   )}
                 </div>
-                {showCustomStart && !startDate && (
-                  <input
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => { setStartDate(e.target.value); if (e.target.value) setShowCustomStart(false); }}
-                    className="text-xs bg-transparent border border-black/10 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-black dark:text-white focus:outline-none focus:border-black/30 dark:focus:border-white/30 transition-default"
-                  />
-                )}
-                <p className="text-[10px] text-gray-300 dark:text-gray-600">when to begin working on this</p>
-              </div>
-            </div>
-
-            {/* Notes */}
-            <div className="flex items-start gap-3">
-              <span className="text-xs text-gray-400 w-14 flex-shrink-0 pt-2">Notes</span>
-              <textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Optional note..."
-                rows={2}
-                className="flex-1 text-sm bg-transparent border border-black/10 dark:border-white/10 rounded-xl px-3 py-2 text-black dark:text-white placeholder:text-gray-400 focus:outline-none focus:border-black/30 dark:focus:border-white/30 resize-none transition-default"
-              />
-            </div>
-
-            {/* Tags */}
-            {tags.length > 0 && (
-              <div className="flex items-start gap-3">
-                <span className="text-xs text-gray-400 w-14 flex-shrink-0 pt-0.5">Tags</span>
-                <div className="flex flex-wrap gap-1.5">
-                  {tags.map((tag) => (
-                    <TagPill
-                      key={tag.id}
-                      name={tag.name}
-                      selected={selectedTagIds.includes(tag.id)}
-                      onClick={() => toggleTag(tag.id)}
-                      size="sm"
-                    />
-                  ))}
-                </div>
               </div>
             )}
 
-            {/* List */}
-            {lists.length > 0 && (
-              <div className="flex items-center gap-3">
-                <span className="text-xs text-gray-400 w-14 flex-shrink-0">List</span>
-                <select
-                  value={listId ?? ""}
-                  onChange={(e) => setListId(e.target.value || null)}
-                  className="text-xs bg-white dark:bg-black border border-black/10 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-black dark:text-white focus:outline-none focus:border-black/30 dark:focus:border-white/30 transition-default cursor-pointer"
-                >
-                  <option value="">No list</option>
-                  {lists.map((list) => (
-                    <option key={list.id} value={list.id}>
-                      {list.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
+            {/* ④ Notes */}
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Add a note..."
+              rows={2}
+              className="w-full text-sm bg-transparent border border-black/8 dark:border-white/8 rounded-xl px-3 py-2 text-black dark:text-white placeholder:text-gray-400 focus:outline-none focus:border-black/20 dark:focus:border-white/20 resize-none transition-default"
+            />
 
-            {/* Event */}
-            {events.length > 0 && (
-              <div className="flex items-center gap-3">
-                <span className="text-xs text-gray-400 w-14 flex-shrink-0">Event</span>
-                <select
-                  value={eventId ?? ""}
-                  onChange={(e) => {
-                    const id = e.target.value || null;
-                    setEventId(id);
-                    if (id) {
-                      const ev = events.find((x) => x.id === id);
-                      if (ev?.list_id) setListId(ev.list_id);
-                    }
-                  }}
-                  className="text-xs bg-white dark:bg-black border border-black/10 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-black dark:text-white focus:outline-none focus:border-black/30 dark:focus:border-white/30 transition-default cursor-pointer"
-                >
-                  <option value="">No event</option>
-                  {events.map((ev) => (
-                    <option key={ev.id} value={ev.id}>
-                      {ev.title}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            {/* Subtasks */}
-            <div className="flex items-start gap-3">
-              <span className="text-xs text-gray-400 w-14 flex-shrink-0 pt-0.5">Subtasks</span>
-              <div className="flex-1 space-y-1.5">
+            {/* ⑤ Subtasks */}
+            <div className="space-y-2">
+              <p className="text-[10px] uppercase tracking-wide text-gray-400 font-medium">Subtasks</p>
+              <div className="space-y-1.5">
                 {subtaskEntries.map((s, i) => (
-                  <div key={s.id} className="flex items-center gap-1.5">
-                    <span className="w-1 h-1 rounded-full bg-gray-300 dark:bg-gray-600 flex-shrink-0" />
+                  <div key={s.id} className="flex items-center gap-2 group/sub">
+                    <span className="w-1.5 h-1.5 rounded-full bg-black/15 dark:bg-white/20 flex-shrink-0" />
                     <input
                       type="text"
                       value={s.title}
                       onChange={(e) => setSubtaskEntries((prev) => prev.map((x, j) => j === i ? { ...x, title: e.target.value } : x))}
-                      placeholder="Subtask title"
-                      className="flex-1 text-xs bg-transparent text-black dark:text-white placeholder:text-gray-400 focus:outline-none min-w-0"
+                      placeholder={`Subtask ${i + 1}...`}
+                      className="flex-1 text-sm bg-transparent text-black dark:text-white placeholder:text-gray-400 focus:outline-none min-w-0"
                     />
-                    <input
-                      type="date"
-                      value={s.due_date}
-                      onChange={(e) => setSubtaskEntries((prev) => prev.map((x, j) => j === i ? { ...x, due_date: e.target.value } : x))}
-                      className="text-xs bg-transparent border border-black/10 dark:border-white/10 rounded-lg px-2 py-1 text-black dark:text-white focus:outline-none focus:border-black/30 dark:focus:border-white/30 transition-default w-[118px] flex-shrink-0"
-                    />
-                    {s.due_date && (
-                      <input
-                        type="time"
-                        value={s.start_time}
-                        onChange={(e) => setSubtaskEntries((prev) => prev.map((x, j) => j === i ? { ...x, start_time: e.target.value } : x))}
-                        className="text-xs bg-transparent border border-black/10 dark:border-white/10 rounded-lg px-2 py-1 text-black dark:text-white focus:outline-none focus:border-black/30 dark:focus:border-white/30 transition-default flex-shrink-0"
-                      />
-                    )}
                     <button
                       type="button"
                       onClick={() => setSubtaskEntries((prev) => prev.filter((_, j) => j !== i))}
-                      className="text-gray-300 dark:text-gray-600 hover:text-gray-500 dark:hover:text-gray-400 transition-default flex-shrink-0"
+                      className="opacity-0 group-hover/sub:opacity-100 text-gray-300 dark:text-gray-600 hover:text-gray-500 dark:hover:text-gray-400 transition-default flex-shrink-0"
                     >
-                      <X size={11} />
+                      <X size={12} />
                     </button>
                   </div>
                 ))}
                 <button
                   type="button"
                   onClick={() => setSubtaskEntries((prev) => [...prev, { id: crypto.randomUUID(), title: "", due_date: "", start_time: "" }])}
-                  className="flex items-center gap-1 text-xs text-gray-400 hover:text-black dark:hover:text-white transition-default"
+                  className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-black dark:hover:text-white transition-default"
                 >
                   <Plus size={11} />
                   Add subtask

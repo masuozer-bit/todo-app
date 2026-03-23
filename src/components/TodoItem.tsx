@@ -13,6 +13,8 @@ import {
   List as ListIcon,
   Plus,
   AlertCircle,
+  Play,
+  Clock,
 } from "lucide-react";
 import type { Todo, Tag, Priority, List, Event } from "@/lib/types";
 import { getToday, getTomorrow, getNextMonday, getNextWeek } from "@/lib/date-helpers";
@@ -33,6 +35,9 @@ interface TodoItemProps {
       priority?: Priority;
       notes?: string | null;
       list_id?: string | null;
+      estimated_time?: number | null;
+      time_spent?: number | null;
+      extra_dates?: { date: string; time?: string | null; completed: boolean }[] | null;
     }
   ) => void;
   onDelete: (id: string) => void;
@@ -46,6 +51,8 @@ interface TodoItemProps {
   activeListId?: string | null;
   events?: Event[];
   onAssignEvent?: (todoId: string, eventId: string | null) => void;
+  onStartLiveTask?: (todoId: string) => void;
+  isLiveTask?: boolean;
   highlighted?: boolean;
 }
 
@@ -125,6 +132,8 @@ export default function TodoItem({
   activeListId,
   events = [],
   onAssignEvent,
+  onStartLiveTask,
+  isLiveTask = false,
   highlighted = false,
 }: TodoItemProps) {
   const itemRef = useRef<HTMLDivElement>(null);
@@ -143,6 +152,7 @@ export default function TodoItem({
   const [newSubtask, setNewSubtask] = useState("");
   const [showSubtaskInput, setShowSubtaskInput] = useState(false);
   const [blockedMsg, setBlockedMsg] = useState(false);
+  const [newExtraDate, setNewExtraDate] = useState({ date: "", time: "" });
   const [subtasksExpanded, setSubtasksExpanded] = useState(false);
   const editRef = useRef<HTMLInputElement>(null);
   const subtaskRef = useRef<HTMLInputElement>(null);
@@ -154,10 +164,9 @@ export default function TodoItem({
   const priorityConf = PRIORITY_CONFIG[todo.priority ?? "none"];
   const dueInfo = todo.due_date ? formatDueDate(todo.due_date) : null;
   // Show list name only when viewing "All Tasks" (no active list filter)
-  const listName =
-    !activeListId && todo.list_id
-      ? lists.find((l) => l.id === todo.list_id)?.name ?? null
-      : null;
+  const todoList = todo.list_id ? lists.find((l) => l.id === todo.list_id) : null;
+  const listName = !activeListId && todoList ? todoList.name : null;
+  const listColor = todoList?.color ?? null;
 
   useEffect(() => {
     if (editing) {
@@ -230,80 +239,63 @@ export default function TodoItem({
     <div
       ref={itemRef}
       data-todo-id={todo.id}
-      className={`glass-card-subtle group transition-default ${
-        isDragging ? "opacity-50 scale-[1.02] shadow-lg" : ""
-      } ${todo.completed ? "opacity-60" : ""} ${highlighted ? "ring-2 ring-blue-500/60 ring-offset-1" : ""}`}
+      className="group transition-default"
     >
-      {/* Main row */}
-      <div className="flex items-start gap-3 py-2 px-3" {...dragHandleProps}>
-        {/* Checkbox — blocked when subtasks incomplete */}
-        <div className="flex flex-col items-center flex-shrink-0 mt-0.5">
+      {/* The pill — this IS the card */}
+      {editing ? (
+        <div className="flex items-center gap-2 rounded-xl px-3 py-2 bg-white dark:bg-black">
           <input
-            type="checkbox"
-            checked={todo.completed}
-            onChange={handleToggle}
-            className={`custom-checkbox ${
-              !todo.completed && !allSubtasksDone ? "cursor-not-allowed opacity-50" : ""
-            }`}
-            aria-label={`Mark "${todo.title}" as ${
-              todo.completed ? "incomplete" : "complete"
-            }`}
+            ref={editRef}
+            type="text"
+            value={editValue}
+            onChange={(e) => setEditValue(e.target.value)}
+            onBlur={handleSave}
+            onKeyDown={(e) => { e.stopPropagation(); handleKeyDown(e); }}
+            className="flex-1 bg-transparent text-black dark:text-white focus:outline-none text-sm"
+            aria-label="Edit task title"
           />
+          <button
+            onClick={handleSave}
+            className="text-gray-400 hover:text-black dark:hover:text-white transition-default"
+            aria-label="Save edit"
+          >
+            <Check size={16} />
+          </button>
+          <button
+            onMouseDown={() => { cancelledRef.current = true; }}
+            onClick={() => {
+              setEditValue(todo.title);
+              setEditing(false);
+              cancelledRef.current = false;
+            }}
+            className="text-gray-400 hover:text-black dark:hover:text-white transition-default"
+            aria-label="Cancel edit"
+          >
+            <X size={16} />
+          </button>
         </div>
-
-        {/* Content */}
-        <div className="flex-1 min-w-0">
-          {/* Title */}
-          {editing ? (
-            <div className="flex items-center gap-2">
-              <input
-                ref={editRef}
-                type="text"
-                value={editValue}
-                onChange={(e) => setEditValue(e.target.value)}
-                onBlur={handleSave}
-                onKeyDown={(e) => { e.stopPropagation(); handleKeyDown(e); }}
-                className="flex-1 bg-transparent text-black dark:text-white focus:outline-none text-sm border-b border-black/20 dark:border-white/20 pb-0.5"
-                aria-label="Edit task title"
-              />
-              <button
-                onClick={handleSave}
-                className="text-gray-400 hover:text-black dark:hover:text-white transition-default"
-                aria-label="Save edit"
-              >
-                <Check size={16} />
-              </button>
-              <button
-                onMouseDown={() => { cancelledRef.current = true; }}
-                onClick={() => {
-                  setEditValue(todo.title);
-                  setEditing(false);
-                  cancelledRef.current = false;
-                }}
-                className="text-gray-400 hover:text-black dark:hover:text-white transition-default"
-                aria-label="Cancel edit"
-              >
-                <X size={16} />
-              </button>
-            </div>
-          ) : (
-            <p
-              className={`text-sm cursor-pointer transition-default ${
-                todo.completed
-                  ? "line-through text-gray-400"
-                  : "text-black dark:text-white"
-              }`}
-              onClick={() => !todo.completed && setEditing(true)}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !todo.completed) setEditing(true);
-              }}
-              aria-label={`Edit "${todo.title}"`}
-            >
-              {todo.title}
-            </p>
-          )}
+      ) : (
+        <div
+          className={`relative rounded-xl px-3 py-2 cursor-pointer transition-default ${
+            isDragging ? "opacity-50 scale-[1.02] shadow-lg" : ""
+          } ${todo.completed ? "opacity-60" : ""} ${highlighted ? "ring-2 ring-blue-500/60 ring-offset-1" : ""} ${
+            listColor ? "list-colored" : ""
+          } bg-white dark:bg-black`}
+          style={listColor ? { "--list-color": listColor } as React.CSSProperties : undefined}
+          onClick={handleToggle}
+          onDoubleClick={(e) => { e.stopPropagation(); if (!todo.completed) setEditing(true); }}
+          {...dragHandleProps}
+          aria-label={`Mark "${todo.title}" as ${todo.completed ? "incomplete" : "complete"}`}
+        >
+          <p
+            className={`text-sm transition-default ${
+              todo.completed
+                ? "line-through text-gray-400"
+                : "text-black dark:text-white"
+            }`}
+          >
+            {todo.title}
+          </p>
 
           {/* Blocked message */}
           {blockedMsg && (
@@ -331,7 +323,7 @@ export default function TodoItem({
                 Start {formatDueDate(todo.start_date).text}
               </span>
             )}
-            {dueInfo && (
+            {dueInfo && (todo.extra_dates ?? []).length === 0 && (
               <span
                 className={`flex items-center gap-1 text-xs ${
                   dueInfo.overdue
@@ -348,10 +340,43 @@ export default function TodoItem({
                 )}
               </span>
             )}
-            {/* Subtasks standalone toggle — click to expand/collapse */}
+            {/* Multi-date view: show all dates when extra_dates exist */}
+            {(todo.extra_dates ?? []).length > 0 && (
+              <span className="flex items-center gap-1.5 flex-wrap">
+                {todo.due_date && (() => {
+                  const info = formatDueDate(todo.due_date);
+                  return (
+                    <span className={`flex items-center gap-1 text-xs ${info.overdue ? "text-red-500 dark:text-red-400 font-medium" : "text-black/50 dark:text-gray-400"}`}>
+                      <Calendar size={11} />
+                      {info.text}
+                    </span>
+                  );
+                })()}
+                {[...(todo.extra_dates ?? [])].sort((a, b) => a.date.localeCompare(b.date)).map((ed, i) => {
+                  const info = formatDueDate(ed.date);
+                  return (
+                    <span
+                      key={i}
+                      className={`flex items-center gap-1 text-xs ${
+                        ed.completed
+                          ? "line-through text-black/25 dark:text-gray-600"
+                          : info.overdue
+                          ? "text-red-500 dark:text-red-400 font-medium"
+                          : "text-black/50 dark:text-gray-400"
+                      }`}
+                    >
+                      <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${ed.completed ? "bg-emerald-500" : info.overdue ? "bg-red-500" : "bg-black/20 dark:bg-white/20"}`} />
+                      {info.text}
+                      {ed.time && <span className="text-black/30 dark:text-gray-600">{ed.time}</span>}
+                    </span>
+                  );
+                })}
+              </span>
+            )}
+            {/* Subtasks standalone toggle */}
             {subtasks.length > 0 && (
               <button
-                onClick={() => setSubtasksExpanded((v) => !v)}
+                onClick={(e) => { e.stopPropagation(); setSubtasksExpanded((v) => !v); }}
                 className={`flex items-center gap-1.5 text-xs font-medium transition-default rounded px-1 -mx-1 ${
                   allSubtasksDone
                     ? "text-green-500 dark:text-green-400"
@@ -359,7 +384,6 @@ export default function TodoItem({
                 }`}
                 aria-label={subtasksExpanded ? "Collapse subtasks" : "Expand subtasks"}
               >
-                {/* Mini progress bar */}
                 <span className="w-10 h-1 bg-black/5 dark:bg-white/10 rounded-full overflow-hidden flex-shrink-0">
                   <span
                     className={`block h-full rounded-full transition-all duration-300 ${
@@ -386,128 +410,163 @@ export default function TodoItem({
                 {listName}
               </span>
             )}
+            {(todo.time_spent ?? 0) > 0 && (
+              <span className={`text-xs flex items-center gap-0.5 ${isLiveTask ? "text-emerald-400" : "text-black/40 dark:text-gray-500"}`}>
+                <Clock size={11} />
+                {(() => {
+                  const s = todo.time_spent!;
+                  const h = Math.floor(s / 3600);
+                  const m = Math.floor((s % 3600) / 60);
+                  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+                })()}
+                {todo.estimated_time && (
+                  <span className="text-black/25 dark:text-gray-600">/ {todo.estimated_time < 60 ? `${todo.estimated_time}m` : `${Math.round(todo.estimated_time / 60 * 10) / 10}h`}</span>
+                )}
+              </span>
+            )}
+            {!todo.time_spent && todo.estimated_time && (
+              <span className="text-xs flex items-center gap-0.5 text-black/30 dark:text-gray-600">
+                <Clock size={11} />
+                ~{todo.estimated_time < 60 ? `${todo.estimated_time}m` : `${Math.round(todo.estimated_time / 60 * 10) / 10}h`}
+              </span>
+            )}
           </div>
 
-          {/* Tags */}
-          {(todo.tags ?? []).length > 0 && (
-            <div className="flex flex-wrap gap-1.5 mt-2">
-              {(todo.tags ?? []).map((tag) => (
-                <TagPill
-                  key={tag.id}
-                  name={tag.name}
-                  size="sm"
-                  onRemove={
-                    !todo.completed
-                      ? () => onTagToggle(todo.id, tag.id, false)
-                      : undefined
+          {/* Hover actions — top right corner */}
+          <div className="absolute top-1 right-1 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-default">
+            {!todo.completed && onStartLiveTask && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onStartLiveTask(todo.id); }}
+                className={`p-1 rounded-lg transition-default ${
+                  isLiveTask
+                    ? "text-emerald-400 bg-emerald-500/20"
+                    : "text-gray-400 hover:text-emerald-400 hover:bg-emerald-500/10"
+                }`}
+                aria-label="Start timer"
+              >
+                <Play size={14} />
+              </button>
+            )}
+            <button
+              onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
+              className="p-1 rounded-lg text-gray-400 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-default"
+              aria-label={expanded ? "Collapse" : "Expand"}
+            >
+              {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); if (!todo.completed) setEditing(true); }}
+              className="p-1 rounded-lg text-gray-400 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-default"
+              aria-label="Edit task"
+            >
+              <FileText size={14} />
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); onDelete(todo.id); }}
+              className="p-1 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-500/10 transition-default"
+              aria-label={`Delete "${todo.title}"`}
+            >
+              <Trash2 size={14} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Tags */}
+      {(todo.tags ?? []).length > 0 && !editing && (
+        <div className="flex flex-wrap gap-1.5 mt-1.5 px-1">
+          {(todo.tags ?? []).map((tag) => (
+            <TagPill
+              key={tag.id}
+              name={tag.name}
+              size="sm"
+              onRemove={
+                !todo.completed
+                  ? () => onTagToggle(todo.id, tag.id, false)
+                  : undefined
+              }
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Inline subtasks */}
+      {subtasks.length > 0 && subtasksExpanded && !editing && (
+        <div className="mt-1.5 pl-3 pr-1 border-l-2 border-black/10 dark:border-white/10 ml-3">
+          <div className="space-y-1.5">
+            {subtasks.map((subtask) => (
+              <div
+                key={subtask.id}
+                className="flex items-center gap-2 group/subtask"
+              >
+                <input
+                  type="checkbox"
+                  checked={subtask.completed}
+                  onChange={() =>
+                    onToggleSubtask(todo.id, subtask.id, !subtask.completed)
                   }
+                  className="custom-checkbox flex-shrink-0"
+                  style={{ width: "0.875rem", height: "0.875rem" }}
                 />
-              ))}
-            </div>
-          )}
-
-          {/* ── Inline subtasks — expands via meta toggle ── */}
-          {subtasks.length > 0 && subtasksExpanded && (
-            <div className="mt-2 pl-1 border-l-2 border-black/10 dark:border-white/10 ml-0.5">
-              {/* Subtask rows */}
-              <div className="space-y-1.5">
-                {subtasks.map((subtask) => (
-                  <div
-                    key={subtask.id}
-                    className="flex items-center gap-2 group/subtask"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={subtask.completed}
-                      onChange={() =>
-                        onToggleSubtask(todo.id, subtask.id, !subtask.completed)
-                      }
-                      className="custom-checkbox flex-shrink-0"
-                      style={{ width: "0.875rem", height: "0.875rem" }}
-                    />
-                    <span
-                      className={`flex-1 text-sm transition-default ${
-                        subtask.completed
-                          ? "line-through text-gray-400"
-                          : "text-gray-600 dark:text-gray-300"
-                      }`}
-                    >
-                      {subtask.title}
-                    </span>
-                    {!todo.completed && (
-                      <button
-                        onClick={() => onDeleteSubtask(todo.id, subtask.id)}
-                        className="opacity-0 group-hover/subtask:opacity-100 text-gray-400 hover:text-red-500 transition-default flex-shrink-0"
-                        aria-label="Delete subtask"
-                      >
-                        <X size={12} />
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-
-              {/* Quick add subtask link */}
-              {!todo.completed && !showSubtaskInput && (
-                <button
-                  onClick={() => {
-                    setExpanded(true);
-                    setShowSubtaskInput(true);
-                  }}
-                  className="flex items-center gap-1 mt-2 text-xs text-gray-400 hover:text-black dark:hover:text-white transition-default"
+                <span
+                  className={`flex-1 text-sm transition-default ${
+                    subtask.completed
+                      ? "line-through text-gray-400"
+                      : "text-gray-600 dark:text-gray-300"
+                  }`}
                 >
-                  <Plus size={11} />
-                  Add subtask
-                </button>
-              )}
-            </div>
+                  {subtask.title}
+                </span>
+                {!todo.completed && (
+                  <button
+                    onClick={() => onDeleteSubtask(todo.id, subtask.id)}
+                    className="opacity-0 group-hover/subtask:opacity-100 text-gray-400 hover:text-red-500 transition-default flex-shrink-0"
+                    aria-label="Delete subtask"
+                  >
+                    <X size={12} />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {!todo.completed && !showSubtaskInput && (
+            <button
+              onClick={() => {
+                setExpanded(true);
+                setShowSubtaskInput(true);
+              }}
+              className="flex items-center gap-1 mt-2 text-xs text-gray-400 hover:text-black dark:hover:text-white transition-default"
+            >
+              <Plus size={11} />
+              Add subtask
+            </button>
           )}
         </div>
-
-        {/* Right: expand + delete */}
-        <div className="flex items-center gap-1 flex-shrink-0">
-          <button
-            onClick={() => setExpanded(!expanded)}
-            className="text-gray-400 opacity-0 group-hover:opacity-100 hover:text-black dark:hover:text-white transition-default"
-            aria-label={expanded ? "Collapse" : "Expand"}
-          >
-            {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-          </button>
-          <button
-            onClick={() => onDelete(todo.id)}
-            className="text-gray-400 opacity-0 group-hover:opacity-100 hover:text-black dark:hover:text-white transition-default"
-            aria-label={`Delete "${todo.title}"`}
-          >
-            <Trash2 size={16} />
-          </button>
-        </div>
-      </div>
+      )}
 
       {/* Expanded panel */}
       {expanded && (
-        <div className="px-4 pb-4 space-y-4 border-t border-black/5 dark:border-white/5 pt-3">
+        <div className="px-3 pb-3 pt-2.5 space-y-3 border-t border-black/5 dark:border-white/5" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
+
           {/* Priority */}
           {!todo.completed && (
             <div>
-              <p className="text-xs text-gray-400 mb-2 font-medium uppercase tracking-wide">
-                Priority
-              </p>
-              <div className="flex gap-2 flex-wrap">
+              <p className="text-[10px] uppercase tracking-wide text-gray-400 font-medium mb-1.5">Priority</p>
+              <div className="flex gap-1.5">
                 {(["high", "medium", "low", "none"] as Priority[]).map((p) => {
                   const conf = PRIORITY_CONFIG[p];
                   return (
                     <button
                       key={p}
                       onClick={() => onUpdate(todo.id, { priority: p })}
-                      className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border transition-default ${
+                      className={`flex-1 flex items-center justify-center gap-1.5 text-xs py-1.5 rounded-lg border transition-default ${
                         todo.priority === p
-                          ? "border-black/30 dark:border-white/30 bg-black/5 dark:bg-white/10 font-medium text-black dark:text-white"
-                          : "border-black/10 dark:border-white/10 text-gray-400 hover:border-black/20 dark:hover:border-white/20"
+                          ? "border-black/25 dark:border-white/25 bg-black/5 dark:bg-white/10 font-medium text-black dark:text-white"
+                          : "border-black/8 dark:border-white/8 text-gray-400 hover:border-black/15 dark:hover:border-white/15"
                       }`}
                     >
-                      <span
-                        className={`w-1.5 h-1.5 rounded-full ${conf.dot}`}
-                      />
+                      <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${conf.dot}`} />
                       {conf.label}
                     </button>
                   );
@@ -519,11 +578,8 @@ export default function TodoItem({
           {/* Due date & time */}
           {!todo.completed && (
             <div>
-              <p className="text-xs text-gray-400 mb-2 font-medium uppercase tracking-wide">
-                Due date & time
-              </p>
-              {/* Quick-pick buttons */}
-              <div className="flex gap-2 flex-wrap mb-2">
+              <p className="text-[10px] uppercase tracking-wide text-gray-400 font-medium mb-1.5">Due date</p>
+              <div className="flex gap-1 flex-wrap mb-1.5">
                 {[
                   { label: "Today", val: getToday() },
                   { label: "Tomorrow", val: getTomorrow() },
@@ -535,15 +591,15 @@ export default function TodoItem({
                     onClick={() => onUpdate(todo.id, { due_date: pick.val })}
                     className={`text-xs px-2 py-1 rounded-lg border transition-default ${
                       todo.due_date === pick.val
-                        ? "border-black/30 dark:border-white/30 bg-black/5 dark:bg-white/10 text-black dark:text-white font-medium"
-                        : "border-black/10 dark:border-white/10 text-gray-400 hover:border-black/20 dark:hover:border-white/20"
+                        ? "border-black/25 dark:border-white/25 bg-black/5 dark:bg-white/10 text-black dark:text-white font-medium"
+                        : "border-black/8 dark:border-white/8 text-gray-400 hover:border-black/15 dark:hover:border-white/15"
                     }`}
                   >
                     {pick.label}
                   </button>
                 ))}
               </div>
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-1.5 flex-wrap">
                 <input
                   type="date"
                   value={todo.due_date ?? ""}
@@ -553,108 +609,208 @@ export default function TodoItem({
                       ...(e.target.value ? {} : { start_time: null, end_time: null }),
                     })
                   }
-                  className="text-xs bg-transparent border border-black/10 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-black dark:text-white focus:outline-none focus:border-black/30 dark:focus:border-white/30 transition-default"
+                  className="text-xs bg-transparent border border-black/10 dark:border-white/10 rounded-lg px-2 py-1.5 text-black dark:text-white focus:outline-none focus:border-black/25 dark:focus:border-white/25 transition-default"
                 />
                 {todo.due_date && (
                   <>
                     <input
                       type="time"
                       value={todo.start_time ?? ""}
-                      onChange={(e) =>
-                        onUpdate(todo.id, { start_time: e.target.value || null })
-                      }
-                      placeholder="Start"
-                      className="text-xs bg-transparent border border-black/10 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-black dark:text-white focus:outline-none focus:border-black/30 dark:focus:border-white/30 transition-default"
+                      onChange={(e) => onUpdate(todo.id, { start_time: e.target.value || null })}
+                      className="text-xs bg-transparent border border-black/10 dark:border-white/10 rounded-lg px-2 py-1.5 text-black dark:text-white focus:outline-none focus:border-black/25 dark:focus:border-white/25 transition-default"
                     />
                     {todo.start_time && (
                       <input
                         type="time"
                         value={todo.end_time ?? ""}
-                        onChange={(e) =>
-                          onUpdate(todo.id, { end_time: e.target.value || null })
-                        }
-                        placeholder="End"
-                        className="text-xs bg-transparent border border-black/10 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-black dark:text-white focus:outline-none focus:border-black/30 dark:focus:border-white/30 transition-default"
+                        onChange={(e) => onUpdate(todo.id, { end_time: e.target.value || null })}
+                        className="text-xs bg-transparent border border-black/10 dark:border-white/10 rounded-lg px-2 py-1.5 text-black dark:text-white focus:outline-none focus:border-black/25 dark:focus:border-white/25 transition-default"
                       />
                     )}
+                    <button
+                      onClick={() => onUpdate(todo.id, { due_date: null, start_time: null, end_time: null })}
+                      className="text-gray-400 hover:text-black dark:hover:text-white transition-default"
+                    >
+                      <X size={13} />
+                    </button>
                   </>
-                )}
-                {todo.due_date && (
-                  <button
-                    onClick={() => onUpdate(todo.id, { due_date: null, start_time: null, end_time: null })}
-                    className="text-xs text-gray-400 hover:text-black dark:hover:text-white transition-default"
-                  >
-                    Clear
-                  </button>
                 )}
               </div>
             </div>
           )}
 
-          {/* Startdatum */}
+          {/* Start date */}
           {!todo.completed && (
             <div>
-              <p className="text-xs text-gray-400 mb-2 font-medium uppercase tracking-wide">
-                Startdatum
-              </p>
-              <p className="text-[10px] text-gray-300 dark:text-gray-600 mb-2">
-                Ab wann du mit dieser Aufgabe beginnen solltest
-              </p>
-              <div className="flex flex-wrap items-center gap-2">
+              <p className="text-[10px] uppercase tracking-wide text-gray-400 font-medium mb-1.5">Start date</p>
+              <div className="flex items-center gap-1.5">
                 <input
                   type="date"
                   value={todo.start_date ?? ""}
-                  onChange={(e) =>
-                    onUpdate(todo.id, { start_date: e.target.value || null })
-                  }
-                  className="text-xs bg-transparent border border-black/10 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-black dark:text-white focus:outline-none focus:border-black/30 dark:focus:border-white/30 transition-default"
+                  onChange={(e) => onUpdate(todo.id, { start_date: e.target.value || null })}
+                  className="text-xs bg-transparent border border-black/10 dark:border-white/10 rounded-lg px-2 py-1.5 text-black dark:text-white focus:outline-none focus:border-black/25 dark:focus:border-white/25 transition-default"
                 />
                 {todo.start_date && (
                   <button
                     onClick={() => onUpdate(todo.id, { start_date: null })}
-                    className="text-xs text-gray-400 hover:text-black dark:hover:text-white transition-default"
+                    className="text-gray-400 hover:text-black dark:hover:text-white transition-default"
                   >
-                    Clear
+                    <X size={13} />
                   </button>
                 )}
               </div>
             </div>
           )}
 
-          {/* List */}
-          {!todo.completed && lists.length > 0 && (
+          {/* List + Est. time — side by side */}
+          {!todo.completed && (lists.length > 0 || true) && (
+            <div className="flex gap-3">
+              {lists.length > 0 && (
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] uppercase tracking-wide text-gray-400 font-medium mb-1.5">List</p>
+                  <select
+                    value={todo.list_id ?? ""}
+                    onChange={(e) => onUpdate(todo.id, { list_id: e.target.value || null })}
+                    className="w-full text-xs bg-transparent border border-black/10 dark:border-white/10 rounded-lg px-2 py-1.5 text-black dark:text-white focus:outline-none focus:border-black/25 dark:focus:border-white/25 transition-default cursor-pointer"
+                  >
+                    <option value="">No list</option>
+                    {lists.map((list) => (
+                      <option key={list.id} value={list.id}>{list.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] uppercase tracking-wide text-gray-400 font-medium mb-1.5">Est. time</p>
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="number"
+                    min={1}
+                    max={999}
+                    placeholder="min"
+                    value={todo.estimated_time ?? ""}
+                    onChange={(e) => {
+                      const v = parseInt(e.target.value);
+                      onUpdate(todo.id, { estimated_time: v > 0 ? v : null });
+                    }}
+                    className="w-full text-xs bg-transparent border border-black/10 dark:border-white/10 rounded-lg px-2 py-1.5 text-black dark:text-white focus:outline-none focus:border-black/25 dark:focus:border-white/25 transition-default tabular-nums"
+                  />
+                  {todo.estimated_time && (
+                    <>
+                      <span className="text-xs text-black/35 dark:text-gray-600 tabular-nums flex-shrink-0">
+                        {todo.estimated_time < 60 ? `${todo.estimated_time}m` : `${Math.floor(todo.estimated_time / 60)}h${todo.estimated_time % 60 > 0 ? `${todo.estimated_time % 60}m` : ""}`}
+                      </span>
+                      <button onClick={() => onUpdate(todo.id, { estimated_time: null })} className="text-gray-400 hover:text-black dark:hover:text-white transition-default flex-shrink-0">
+                        <X size={12} />
+                      </button>
+                    </>
+                  )}
+                </div>
+                {todo.estimated_time && (todo.time_spent ?? 0) > 0 && (() => {
+                  const estSec = todo.estimated_time * 60;
+                  const ratio = todo.time_spent! / estSec;
+                  const pct = Math.round(ratio * 100);
+                  const isGood = ratio >= 0.8 && ratio <= 1.2;
+                  const isOver = ratio > 1.2;
+                  return (
+                    <div className="flex items-center gap-1.5 mt-1.5">
+                      <div className="flex-1 h-1 rounded-full bg-black/8 dark:bg-white/10 overflow-hidden">
+                        <div className={`h-full rounded-full ${isGood ? "bg-emerald-500" : isOver ? "bg-red-400" : "bg-blue-400"}`} style={{ width: `${Math.min(pct, 100)}%` }} />
+                      </div>
+                      <span className={`text-[10px] font-medium tabular-nums ${isGood ? "text-emerald-400" : isOver ? "text-red-400" : "text-blue-400"}`}>{pct}%</span>
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+          )}
+
+          {/* Additional dates */}
+          {!todo.completed && (
             <div>
-              <p className="text-xs text-gray-400 mb-2 font-medium uppercase tracking-wide">
-                List
-              </p>
-              <select
-                value={todo.list_id ?? ""}
-                onChange={(e) =>
-                  onUpdate(todo.id, { list_id: e.target.value || null })
-                }
-                className="text-xs bg-white/50 dark:bg-white/[0.07] border border-black/10 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-black dark:text-white focus:outline-none focus:border-black/30 dark:focus:border-white/30 transition-default cursor-pointer backdrop-blur-sm"
-              >
-                <option value="">No list</option>
-                {lists.map((list) => (
-                  <option key={list.id} value={list.id}>
-                    {list.name}
-                  </option>
+              <p className="text-[10px] uppercase tracking-wide text-gray-400 font-medium mb-1.5">Additional dates</p>
+              <div className="space-y-1 mb-2">
+                {todo.due_date && (
+                  <div className="flex items-center gap-2 text-xs text-black/35 dark:text-gray-600">
+                    <span className="w-2.5 h-2.5 rounded-full border border-black/15 dark:border-white/15 flex-shrink-0" />
+                    <span className="tabular-nums">{todo.due_date}</span>
+                    {todo.start_time && <span className="tabular-nums">{todo.start_time}{todo.end_time ? `–${todo.end_time}` : ""}</span>}
+                    <span className="text-[10px] text-gray-300 dark:text-gray-700">primary</span>
+                  </div>
+                )}
+                {(todo.extra_dates ?? []).sort((a, b) => a.date.localeCompare(b.date)).map((ed, i) => (
+                  <div key={i} className="flex items-center gap-2 group/ed">
+                    <button
+                      onClick={() => {
+                        const sorted = [...(todo.extra_dates ?? [])].sort((a, b) => a.date.localeCompare(b.date));
+                        const realIdx = (todo.extra_dates ?? []).indexOf(sorted[i]);
+                        const updated = (todo.extra_dates ?? []).map((d, j) => j === realIdx ? { ...d, completed: !d.completed } : d);
+                        onUpdate(todo.id, { extra_dates: updated });
+                      }}
+                      className={`w-2.5 h-2.5 rounded-full border flex-shrink-0 transition-default ${ed.completed ? "bg-emerald-500 border-emerald-500" : "border-black/20 dark:border-white/20 hover:border-black/40 dark:hover:border-white/40"}`}
+                    />
+                    <span className={`text-xs tabular-nums ${ed.completed ? "line-through text-black/25 dark:text-gray-700" : "text-black dark:text-white"}`}>{ed.date}</span>
+                    <input
+                      type="time"
+                      value={ed.time ?? ""}
+                      onChange={(e) => {
+                        const sorted = [...(todo.extra_dates ?? [])].sort((a, b) => a.date.localeCompare(b.date));
+                        const realIdx = (todo.extra_dates ?? []).indexOf(sorted[i]);
+                        const updated = (todo.extra_dates ?? []).map((d, j) => j === realIdx ? { ...d, time: e.target.value || null } : d);
+                        onUpdate(todo.id, { extra_dates: updated });
+                      }}
+                      className="text-xs bg-transparent border-b border-black/8 dark:border-white/8 text-black/40 dark:text-gray-600 focus:outline-none focus:border-black/25 dark:focus:border-white/25 transition-default tabular-nums w-20"
+                    />
+                    <button
+                      onClick={() => {
+                        const sorted = [...(todo.extra_dates ?? [])].sort((a, b) => a.date.localeCompare(b.date));
+                        const realIdx = (todo.extra_dates ?? []).indexOf(sorted[i]);
+                        const updated = (todo.extra_dates ?? []).filter((_, j) => j !== realIdx);
+                        onUpdate(todo.id, { extra_dates: updated });
+                      }}
+                      className="opacity-0 group-hover/ed:opacity-100 text-gray-400 hover:text-red-400 transition-default ml-auto"
+                    >
+                      <X size={10} />
+                    </button>
+                  </div>
                 ))}
-              </select>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="date"
+                  value={newExtraDate.date}
+                  onChange={(e) => setNewExtraDate((p) => ({ ...p, date: e.target.value }))}
+                  className="text-xs bg-transparent border border-black/10 dark:border-white/10 rounded-lg px-2 py-1 text-black dark:text-white focus:outline-none focus:border-black/25 dark:focus:border-white/25 transition-default"
+                />
+                <input
+                  type="time"
+                  value={newExtraDate.time}
+                  onChange={(e) => setNewExtraDate((p) => ({ ...p, time: e.target.value }))}
+                  className="text-xs bg-transparent border border-black/10 dark:border-white/10 rounded-lg px-2 py-1 text-black/50 dark:text-gray-500 focus:outline-none focus:border-black/25 dark:focus:border-white/25 transition-default"
+                />
+                <button
+                  onClick={() => {
+                    if (!newExtraDate.date) return;
+                    onUpdate(todo.id, {
+                      extra_dates: [...(todo.extra_dates ?? []), { date: newExtraDate.date, time: newExtraDate.time || null, completed: false }],
+                    });
+                    setNewExtraDate({ date: "", time: "" });
+                  }}
+                  disabled={!newExtraDate.date}
+                  className="p-1.5 rounded-lg border border-black/10 dark:border-white/10 text-gray-400 hover:text-black dark:hover:text-white hover:border-black/20 dark:hover:border-white/20 transition-default disabled:opacity-30"
+                >
+                  <Plus size={12} />
+                </button>
+              </div>
             </div>
           )}
 
           {/* Notes */}
           <div>
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">
-                Notes
-              </p>
+            <div className="flex items-center justify-between mb-1.5">
+              <p className="text-[10px] uppercase tracking-wide text-gray-400 font-medium">Notes</p>
               {!showNotes && !todo.completed && (
-                <button
-                  onClick={() => setShowNotes(true)}
-                  className="text-xs text-gray-400 hover:text-black dark:hover:text-white transition-default"
-                >
+                <button onClick={() => setShowNotes(true)} className="text-[10px] text-gray-400 hover:text-black dark:hover:text-white transition-default">
                   {todo.notes ? "Edit" : "+ Add"}
                 </button>
               )}
@@ -666,62 +822,34 @@ export default function TodoItem({
                   onChange={(e) => setNotesValue(e.target.value)}
                   placeholder="Add a note..."
                   rows={3}
-                  className="w-full text-sm bg-transparent border border-black/10 dark:border-white/10 rounded-xl px-3 py-2 text-black dark:text-white placeholder:text-gray-400 focus:outline-none focus:border-black/30 dark:focus:border-white/30 resize-none transition-default"
+                  className="w-full text-sm bg-transparent border border-black/10 dark:border-white/10 rounded-xl px-3 py-2 text-black dark:text-white placeholder:text-gray-400 focus:outline-none focus:border-black/25 dark:focus:border-white/25 resize-none transition-default"
                   autoFocus
                 />
-                <div className="flex gap-2 mt-2">
-                  <button
-                    onClick={handleNotesSave}
-                    className="text-xs px-3 py-1.5 rounded-lg bg-black dark:bg-white text-white dark:text-black hover:opacity-80 transition-default"
-                  >
-                    Save
-                  </button>
-                  <button
-                    onClick={() => {
-                      setNotesValue(todo.notes ?? "");
-                      setShowNotes(false);
-                    }}
-                    className="text-xs px-3 py-1.5 rounded-lg border border-black/10 dark:border-white/10 text-gray-400 hover:text-black dark:hover:text-white transition-default"
-                  >
-                    Cancel
-                  </button>
+                <div className="flex gap-1.5 mt-1.5">
+                  <button onClick={handleNotesSave} className="text-xs px-3 py-1.5 rounded-lg bg-black dark:bg-white text-white dark:text-black hover:opacity-80 transition-default">Save</button>
+                  <button onClick={() => { setNotesValue(todo.notes ?? ""); setShowNotes(false); }} className="text-xs px-3 py-1.5 rounded-lg border border-black/10 dark:border-white/10 text-gray-400 hover:text-black dark:hover:text-white transition-default">Cancel</button>
                 </div>
               </div>
+            ) : todo.notes ? (
+              <p className="text-sm text-gray-500 dark:text-gray-400 whitespace-pre-wrap">{renderWithLinks(todo.notes)}</p>
             ) : (
-              todo.notes ? (
-                <p className="text-sm text-gray-500 dark:text-gray-400 whitespace-pre-wrap">
-                  {renderWithLinks(todo.notes)}
-                </p>
-              ) : (
-                <p className="text-sm text-gray-300 dark:text-gray-600 italic">No notes</p>
-              )
+              <p className="text-xs text-gray-300 dark:text-gray-700 italic">No notes</p>
             )}
           </div>
 
-          {/* Subtasks — add only (list shown inline above) */}
+          {/* Subtasks */}
           {!todo.completed && (
             <div>
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">
-                  Subtasks
-                  {subtasks.length > 0 && (
-                    <span className="ml-1 font-normal">
-                      ({completedSubtasks}/{subtasks.length})
-                    </span>
-                  )}
+              <div className="flex items-center justify-between mb-1.5">
+                <p className="text-[10px] uppercase tracking-wide text-gray-400 font-medium">
+                  Subtasks{subtasks.length > 0 && <span className="ml-1 font-normal normal-case">({completedSubtasks}/{subtasks.length})</span>}
                 </p>
                 {!showSubtaskInput && (
-                  <button
-                    onClick={() => setShowSubtaskInput(true)}
-                    className="text-xs text-gray-400 hover:text-black dark:hover:text-white transition-default"
-                  >
-                    + Add
-                  </button>
+                  <button onClick={() => setShowSubtaskInput(true)} className="text-[10px] text-gray-400 hover:text-black dark:hover:text-white transition-default">+ Add</button>
                 )}
               </div>
-
               {showSubtaskInput && (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
                   <input
                     ref={subtaskRef}
                     type="text"
@@ -729,28 +857,14 @@ export default function TodoItem({
                     onChange={(e) => setNewSubtask(e.target.value)}
                     onKeyDown={handleSubtaskKeyDown}
                     placeholder="Subtask title..."
-                    className="flex-1 text-sm bg-transparent border-b border-black/20 dark:border-white/20 pb-0.5 text-black dark:text-white placeholder:text-gray-400 focus:outline-none"
+                    className="flex-1 text-sm bg-transparent border-b border-black/15 dark:border-white/15 pb-0.5 text-black dark:text-white placeholder:text-gray-400 focus:outline-none"
                   />
-                  <button
-                    onClick={handleAddSubtask}
-                    className="text-gray-400 hover:text-black dark:hover:text-white transition-default"
-                  >
-                    <Check size={14} />
-                  </button>
-                  <button
-                    onClick={() => {
-                      setNewSubtask("");
-                      setShowSubtaskInput(false);
-                    }}
-                    className="text-gray-400 hover:text-black dark:hover:text-white transition-default"
-                  >
-                    <X size={14} />
-                  </button>
+                  <button onClick={handleAddSubtask} className="text-gray-400 hover:text-black dark:hover:text-white transition-default"><Check size={14} /></button>
+                  <button onClick={() => { setNewSubtask(""); setShowSubtaskInput(false); }} className="text-gray-400 hover:text-black dark:hover:text-white transition-default"><X size={14} /></button>
                 </div>
               )}
-
               {subtasks.length === 0 && !showSubtaskInput && (
-                <p className="text-sm text-gray-300 dark:text-gray-600 italic">No subtasks</p>
+                <p className="text-xs text-gray-300 dark:text-gray-700 italic">No subtasks</p>
               )}
             </div>
           )}
@@ -758,21 +872,11 @@ export default function TodoItem({
           {/* Tags */}
           {!todo.completed && allTags.length > 0 && (
             <div>
-              <p className="text-xs text-gray-400 mb-2 font-medium uppercase tracking-wide">
-                Tags
-              </p>
+              <p className="text-[10px] uppercase tracking-wide text-gray-400 font-medium mb-1.5">Tags</p>
               <div className="flex flex-wrap gap-1.5">
                 {allTags.map((tag) => {
                   const hasTag = todoTagIds.includes(tag.id);
-                  return (
-                    <TagPill
-                      key={tag.id}
-                      name={tag.name}
-                      size="sm"
-                      selected={hasTag}
-                      onClick={() => onTagToggle(todo.id, tag.id, !hasTag)}
-                    />
-                  );
+                  return <TagPill key={tag.id} name={tag.name} size="sm" selected={hasTag} onClick={() => onTagToggle(todo.id, tag.id, !hasTag)} />;
                 })}
               </div>
             </div>
@@ -781,22 +885,14 @@ export default function TodoItem({
           {/* Event assignment */}
           {!todo.completed && onAssignEvent && events.length > 0 && (
             <div>
-              <p className="text-xs text-gray-400 mb-2 font-medium uppercase tracking-wide">
-                Event
-              </p>
+              <p className="text-[10px] uppercase tracking-wide text-gray-400 font-medium mb-1.5">Event</p>
               <select
                 value={todo.event_id ?? ""}
-                onChange={(e) =>
-                  onAssignEvent(todo.id, e.target.value || null)
-                }
-                className="text-xs bg-white/50 dark:bg-white/[0.07] border border-black/10 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-black dark:text-white focus:outline-none focus:border-black/30 dark:focus:border-white/30 transition-default cursor-pointer backdrop-blur-sm"
+                onChange={(e) => onAssignEvent(todo.id, e.target.value || null)}
+                className="text-xs bg-transparent border border-black/10 dark:border-white/10 rounded-lg px-2 py-1.5 text-black dark:text-white focus:outline-none focus:border-black/25 dark:focus:border-white/25 transition-default cursor-pointer"
               >
                 <option value="">No event</option>
-                {events.map((ev) => (
-                  <option key={ev.id} value={ev.id}>
-                    {ev.title}
-                  </option>
-                ))}
+                {events.map((ev) => <option key={ev.id} value={ev.id}>{ev.title}</option>)}
               </select>
             </div>
           )}

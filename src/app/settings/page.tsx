@@ -7,7 +7,7 @@ import Header from "@/components/Header";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { useTodos } from "@/hooks/useTodos";
 import { useTags } from "@/hooks/useTags";
-import { Download, Trash2, User, AlertTriangle, Calendar, FileText, Terminal, Bell, Palette } from "lucide-react";
+import { Download, Trash2, User, AlertTriangle, Calendar, FileText, Terminal, Bell, Palette, ChevronRight } from "lucide-react";
 import { useTheme, TINTS } from "@/components/ThemeProvider";
 import { exportTodosPDF } from "@/lib/pdf-export";
 import CommandReference from "@/components/CommandReference";
@@ -18,6 +18,18 @@ import {
 } from "@/lib/calendar-sync-client";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
+
+type Tab = "profile" | "appearance" | "calendar" | "notifications" | "data" | "commands" | "danger";
+
+const TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
+  { id: "profile", label: "Profile", icon: User },
+  { id: "appearance", label: "Appearance", icon: Palette },
+  { id: "calendar", label: "Calendar", icon: Calendar },
+  { id: "notifications", label: "Notifications", icon: Bell },
+  { id: "data", label: "Data & Export", icon: Download },
+  { id: "commands", label: "Commands", icon: Terminal },
+  { id: "danger", label: "Danger Zone", icon: AlertTriangle },
+];
 
 export default function SettingsPage() {
   const [user, setUser] = useState<SupabaseUser | null>(null);
@@ -32,6 +44,7 @@ export default function SettingsPage() {
   const [calendarLoading, setCalendarLoading] = useState(true);
   const [bulkSyncing, setBulkSyncing] = useState(false);
   const [bulkSyncMsg, setBulkSyncMsg] = useState("");
+  const [activeTab, setActiveTab] = useState<Tab>("profile");
   const router = useRouter();
   const supabase = createClient();
 
@@ -50,7 +63,6 @@ export default function SettingsPage() {
           return;
         }
         setUser(user);
-        // Load profile
         supabase
           .from("profiles")
           .select("*")
@@ -81,10 +93,7 @@ export default function SettingsPage() {
       options: {
         redirectTo: `${window.location.origin}/auth/callback?next=/settings`,
         scopes: "https://www.googleapis.com/auth/calendar",
-        queryParams: {
-          access_type: "offline",
-          prompt: "consent",
-        },
+        queryParams: { access_type: "offline", prompt: "consent" },
       },
     });
     if (error) setSaveMsg(error.message);
@@ -111,12 +120,10 @@ export default function SettingsPage() {
   async function handleDeleteAccount() {
     if (!user) return;
     setDeleting(true);
-    // Delete push subscriptions and calendar sync data
     await supabase.from("push_subscriptions").delete().eq("user_id", user.id);
     await supabase.from("calendar_sync").delete().eq("user_id", user.id);
     await supabase.from("habit_calendar_sync").delete().eq("user_id", user.id);
     await supabase.from("google_tokens").delete().eq("user_id", user.id);
-    // Delete all user data (cascades via RLS / foreign keys)
     await supabase.from("todos").delete().eq("user_id", user.id);
     await supabase.from("tags").delete().eq("user_id", user.id);
     await supabase.from("lists").delete().eq("user_id", user.id);
@@ -144,403 +151,299 @@ export default function SettingsPage() {
     <div className="min-h-screen transition-colors">
       <Header email={user?.email} />
 
-      <main className="max-w-2xl mx-auto px-4 pb-16">
-        <div className="mt-4 mb-8">
-          <h2 className="text-2xl md:text-3xl font-bold text-black dark:text-white">
-            Settings
-          </h2>
-          <p className="text-gray-400 mt-1 text-sm">
-            Manage your account and preferences
-          </p>
+      <main className="max-w-4xl mx-auto px-4 pb-16">
+        <div className="mt-4 mb-6">
+          <h2 className="text-2xl font-bold text-black dark:text-white">Settings</h2>
         </div>
 
-        <div className="space-y-6">
-          {/* Profile */}
-          <section className="glass-card p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <User size={16} className="text-gray-400" />
-              <h3 className="font-semibold text-black dark:text-white">
-                Profile
-              </h3>
+        <div className="flex gap-6">
+          {/* Sidebar nav */}
+          <nav className="w-48 flex-shrink-0 hidden md:block">
+            <div className="space-y-0.5 sticky top-20">
+              {TABS.map((tab) => {
+                const Icon = tab.icon;
+                const isActive = activeTab === tab.id;
+                const isDanger = tab.id === "danger";
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm text-left transition-default ${
+                      isActive
+                        ? isDanger
+                          ? "bg-red-500/10 text-red-400 font-medium"
+                          : "glass-nav-active text-white font-medium"
+                        : isDanger
+                          ? "text-red-400/60 hover:text-red-400 hover:bg-red-500/5"
+                          : "text-gray-500 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5"
+                    }`}
+                  >
+                    <Icon size={14} />
+                    {tab.label}
+                  </button>
+                );
+              })}
             </div>
+          </nav>
 
-            <form onSubmit={handleSaveProfile} className="space-y-4">
-              <div>
-                <label className="text-xs text-gray-400 font-medium block mb-1.5">
-                  Email
-                </label>
-                <p className="text-sm text-black dark:text-white">
-                  {user?.email}
-                </p>
-              </div>
-
-              <div>
-                <label
-                  htmlFor="displayName"
-                  className="text-xs text-gray-400 font-medium block mb-1.5"
-                >
-                  Display name
-                </label>
-                <input
-                  id="displayName"
-                  type="text"
-                  value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
-                  placeholder="Your name"
-                  maxLength={50}
-                  className="w-full bg-transparent border border-black/10 dark:border-white/10 rounded-xl px-3 py-2 text-sm text-black dark:text-white placeholder:text-gray-400 focus:outline-none focus:border-black/30 dark:focus:border-white/30 transition-default"
-                />
-              </div>
-
-              <div className="flex items-center gap-3">
+          {/* Mobile tab bar */}
+          <div className="md:hidden w-full mb-4 overflow-x-auto flex gap-1 pb-2">
+            {TABS.map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
+              return (
                 <button
-                  type="submit"
-                  disabled={saving}
-                  className="px-4 py-2 rounded-xl bg-black dark:bg-white text-white dark:text-black text-sm font-medium hover:opacity-80 transition-default disabled:opacity-50"
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-default ${
+                    isActive
+                      ? "bg-black dark:bg-white text-white dark:text-black font-medium"
+                      : "text-gray-500 hover:text-black dark:hover:text-white"
+                  }`}
                 >
-                  {saving ? "Saving..." : "Save changes"}
+                  <Icon size={12} />
+                  {tab.label}
                 </button>
-                {saveMsg && (
-                  <span className="text-xs text-gray-400">{saveMsg}</span>
-                )}
-              </div>
-            </form>
-          </section>
+              );
+            })}
+          </div>
 
-          {/* Data & Export */}
-          <section className="glass-card p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <Download size={16} className="text-gray-400" />
-              <h3 className="font-semibold text-black dark:text-white">
-                Data & Export
-              </h3>
-            </div>
-
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-black dark:text-white">
-                    Export as JSON
-                  </p>
-                  <p className="text-xs text-gray-400">
-                    All tasks with subtasks, notes, and tags
-                  </p>
-                </div>
-                <button
-                  onClick={() => exportTodos("json")}
-                  className="px-3 py-1.5 rounded-lg border border-black/10 dark:border-white/10 text-sm text-black dark:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-default"
-                >
-                  Export JSON
-                </button>
-              </div>
-
-              <div className="border-t border-black/5 dark:border-white/5 pt-3 flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-black dark:text-white">
-                    Export as CSV
-                  </p>
-                  <p className="text-xs text-gray-400">
-                    Compatible with Excel and Google Sheets
-                  </p>
-                </div>
-                <button
-                  onClick={() => exportTodos("csv")}
-                  className="px-3 py-1.5 rounded-lg border border-black/10 dark:border-white/10 text-sm text-black dark:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-default"
-                >
-                  Export CSV
-                </button>
-              </div>
-
-              <div className="border-t border-black/5 dark:border-white/5 pt-3 flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-black dark:text-white">
-                    Export as PDF
-                  </p>
-                  <p className="text-xs text-gray-400">
-                    Well-designed printable task report
-                  </p>
-                </div>
-                <button
-                  onClick={() =>
-                    exportTodosPDF(todos, { title: "Task Report" })
-                  }
-                  className="px-3 py-1.5 rounded-lg border border-black/10 dark:border-white/10 text-sm text-black dark:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-default flex items-center gap-1.5"
-                >
-                  <FileText size={14} />
-                  Export PDF
-                </button>
-              </div>
-
-              <div className="border-t border-black/5 dark:border-white/5 pt-3 flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-black dark:text-white">
-                    Clear completed tasks
-                  </p>
-                  <p className="text-xs text-gray-400">
-                    {completedCount} completed task
-                    {completedCount !== 1 ? "s" : ""} will be deleted
-                  </p>
-                </div>
-                <button
-                  onClick={() => setShowClearConfirm(true)}
-                  disabled={completedCount === 0}
-                  className="px-3 py-1.5 rounded-lg border border-black/10 dark:border-white/10 text-sm text-black dark:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-default disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  Clear
-                </button>
-              </div>
-            </div>
-          </section>
-
-          {/* Google Calendar */}
-          <section className="glass-card p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <Calendar size={16} className="text-gray-400" />
-              <h3 className="font-semibold text-black dark:text-white">
-                Google Calendar
-              </h3>
-            </div>
-
-            <div className="space-y-4">
-              {/* Connection status */}
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-black dark:text-white">
-                    Calendar sync
-                  </p>
-                  <p className="text-xs text-gray-400">
-                    {calendarLoading
-                      ? "Checking connection..."
-                      : calendarConnected
-                        ? "Connected — syncs to a separate \"Todos\" calendar"
-                        : "Connect to sync tasks, habits & view your schedule"}
-                  </p>
-                </div>
-                {!calendarLoading &&
-                  (calendarConnected ? (
+          {/* Content */}
+          <div className="flex-1 min-w-0">
+            {activeTab === "profile" && (
+              <Section title="Profile" subtitle="Your account information">
+                <form onSubmit={handleSaveProfile} className="space-y-5">
+                  <Field label="Email">
+                    <p className="text-sm text-black dark:text-white">{user?.email}</p>
+                  </Field>
+                  <Field label="Display name">
+                    <input
+                      type="text"
+                      value={displayName}
+                      onChange={(e) => setDisplayName(e.target.value)}
+                      placeholder="Your name"
+                      maxLength={50}
+                      className="w-full max-w-xs bg-transparent border border-black/10 dark:border-white/10 rounded-xl px-3 py-2 text-sm text-black dark:text-white placeholder:text-gray-400 focus:outline-none focus:border-black/30 dark:focus:border-white/30 transition-default"
+                    />
+                  </Field>
+                  <div className="flex items-center gap-3">
                     <button
-                      onClick={handleDisconnectCalendar}
-                      className="px-3 py-1.5 rounded-lg border border-red-500/30 text-sm text-red-500 hover:bg-red-500/10 transition-default"
+                      type="submit"
+                      disabled={saving}
+                      className="px-4 py-2 rounded-xl bg-black dark:bg-white text-white dark:text-black text-sm font-medium hover:opacity-80 transition-default disabled:opacity-50"
                     >
-                      Disconnect
+                      {saving ? "Saving..." : "Save"}
                     </button>
-                  ) : (
+                    {saveMsg && <span className="text-xs text-green-500">{saveMsg}</span>}
+                  </div>
+                </form>
+              </Section>
+            )}
+
+            {activeTab === "appearance" && (
+              <Section title="Appearance" subtitle="Customize the look and feel">
+                <p className="text-xs text-gray-400 mb-4 font-medium">Background tint</p>
+                <div className="grid grid-cols-5 sm:grid-cols-7 gap-3">
+                  {TINTS.map((t) => (
                     <button
-                      onClick={handleConnectCalendar}
-                      className="px-3 py-1.5 rounded-lg border border-black/10 dark:border-white/10 text-sm text-black dark:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-default"
+                      key={t.id}
+                      onClick={() => setTint(t.id)}
+                      className="flex flex-col items-center gap-1.5 transition-default"
+                      title={t.label}
                     >
-                      Connect
+                      <span
+                        className={`w-10 h-10 rounded-full transition-default ${tint === t.id ? "ring-2 ring-offset-2 ring-black dark:ring-white dark:ring-offset-transparent scale-110" : "opacity-60 hover:opacity-100 hover:scale-105"}`}
+                        style={{ background: `linear-gradient(135deg, ${t.light} 0%, ${t.dark} 100%)` }}
+                      />
+                      <span className={`text-[10px] ${tint === t.id ? "text-black dark:text-white font-medium" : "text-gray-500"}`}>
+                        {t.label}
+                      </span>
                     </button>
                   ))}
-              </div>
+                </div>
+                <p className="text-[10px] text-gray-500 mt-4">
+                  Use <kbd className="px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 text-[10px] font-mono">⌘D</kbd> to toggle dark/light mode
+                </p>
+              </Section>
+            )}
 
-              {/* Features description */}
-              {calendarConnected && (
-                <>
-                  <div className="border-t border-black/5 dark:border-white/5 pt-4">
-                    <p className="text-xs text-gray-400 font-medium mb-2">
-                      Sync features
-                    </p>
-                    <ul className="text-xs text-gray-500 dark:text-gray-400 space-y-1">
-                      <li>Tasks with due dates sync as calendar events</li>
-                      <li>Time-based events with start/end times</li>
-                      <li>Habits sync as recurring calendar events</li>
-                      <li>Subtasks shown in event descriptions</li>
-                      <li>Color coded by priority, list, or tags</li>
-                      <li>Reminders before events</li>
-                      <li>Completed tasks marked with checkmark</li>
-                      <li>Google Calendar events shown in calendar panel</li>
-                    </ul>
-                  </div>
+            {activeTab === "calendar" && (
+              <Section title="Google Calendar" subtitle="Sync tasks and events with Google Calendar">
+                <Row
+                  label="Calendar sync"
+                  description={
+                    calendarLoading
+                      ? "Checking connection..."
+                      : calendarConnected
+                        ? "Connected — tasks sync to a \"Todos\" calendar"
+                        : "Connect to sync tasks, habits & view your schedule"
+                  }
+                  action={
+                    !calendarLoading && (
+                      calendarConnected ? (
+                        <ActionButton onClick={handleDisconnectCalendar} variant="danger">Disconnect</ActionButton>
+                      ) : (
+                        <ActionButton onClick={handleConnectCalendar}>Connect</ActionButton>
+                      )
+                    )
+                  }
+                />
 
-                  {/* Bulk sync */}
-                  <div className="border-t border-black/5 dark:border-white/5 pt-4 flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-black dark:text-white">
-                        Sync all tasks & habits
-                      </p>
-                      <p className="text-xs text-gray-400">
-                        {bulkSyncMsg || "Sync all existing tasks and habits to Google Calendar"}
-                      </p>
+                {calendarConnected && (
+                  <>
+                    <Divider />
+                    <div className="py-3">
+                      <p className="text-xs text-gray-400 font-medium mb-2">What syncs</p>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        {[
+                          "Tasks with due dates",
+                          "Start/end times",
+                          "Recurring habits",
+                          "Subtasks in description",
+                          "Priority color coding",
+                          "Completion status",
+                          "Google → app import",
+                          "Reminders",
+                        ].map((f) => (
+                          <p key={f} className="text-[11px] text-gray-500 flex items-center gap-1.5">
+                            <span className="w-1 h-1 rounded-full bg-green-500 flex-shrink-0" />
+                            {f}
+                          </p>
+                        ))}
+                      </div>
                     </div>
-                    <button
-                      onClick={async () => {
-                        setBulkSyncing(true);
-                        setBulkSyncMsg("Syncing...");
-                        const result = await bulkSyncCalendar();
-                        if (result.success) {
-                          setBulkSyncMsg(
-                            `Synced ${result.synced_todos ?? 0} tasks and ${result.synced_habits ?? 0} habits`
-                          );
-                        } else {
-                          setBulkSyncMsg(result.error || "Sync failed");
-                        }
-                        setBulkSyncing(false);
-                        setTimeout(() => setBulkSyncMsg(""), 5000);
-                      }}
-                      disabled={bulkSyncing}
-                      className="px-3 py-1.5 rounded-lg border border-black/10 dark:border-white/10 text-sm text-black dark:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-default disabled:opacity-50"
-                    >
-                      {bulkSyncing ? "Syncing..." : "Sync all"}
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-          </section>
+                    <Divider />
+                    <Row
+                      label="Sync all"
+                      description={bulkSyncMsg || "Push all existing tasks and habits to Google Calendar"}
+                      action={
+                        <ActionButton onClick={async () => {
+                          setBulkSyncing(true);
+                          setBulkSyncMsg("Syncing...");
+                          const result = await bulkSyncCalendar();
+                          if (result.success) {
+                            setBulkSyncMsg(`Synced ${result.synced_todos ?? 0} tasks, ${result.synced_habits ?? 0} habits`);
+                          } else {
+                            setBulkSyncMsg(result.error || "Failed");
+                          }
+                          setBulkSyncing(false);
+                          setTimeout(() => setBulkSyncMsg(""), 5000);
+                        }} disabled={bulkSyncing}>
+                          {bulkSyncing ? "Syncing..." : "Sync all"}
+                        </ActionButton>
+                      }
+                    />
+                  </>
+                )}
+              </Section>
+            )}
 
-          {/* Push Notifications */}
-          <section className="glass-card p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <Bell size={16} className="text-gray-400" />
-              <h3 className="font-semibold text-black dark:text-white">
-                Notifications
-              </h3>
-            </div>
-
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-black dark:text-white">
-                    Push notifications
-                  </p>
-                  <p className="text-xs text-gray-400">
-                    {notifPermission === "denied"
+            {activeTab === "notifications" && (
+              <Section title="Notifications" subtitle="Stay on top of your tasks">
+                <Row
+                  label="Push notifications"
+                  description={
+                    notifPermission === "denied"
                       ? "Blocked — enable in browser settings"
                       : notifSubscribed
                         ? "Active — you'll be notified when tasks are due"
-                        : "Get reminders when tasks are due"}
-                  </p>
-                </div>
-                <button
-                  onClick={notifSubscribed ? unsubscribeNotifications : subscribeNotifications}
-                  disabled={notifPermission === "denied"}
-                  className={`px-3 py-1.5 rounded-lg border text-sm transition-default disabled:opacity-40 disabled:cursor-not-allowed ${
-                    notifSubscribed
-                      ? "border-red-500/30 text-red-500 hover:bg-red-500/10"
-                      : "border-black/10 dark:border-white/10 text-black dark:text-white hover:bg-black/5 dark:hover:bg-white/10"
-                  }`}
-                >
-                  {notifSubscribed ? "Disable" : "Enable"}
-                </button>
-              </div>
+                        : "Get reminders when tasks are due"
+                  }
+                  action={
+                    <ActionButton
+                      onClick={notifSubscribed ? unsubscribeNotifications : subscribeNotifications}
+                      disabled={notifPermission === "denied"}
+                      variant={notifSubscribed ? "danger" : "default"}
+                    >
+                      {notifSubscribed ? "Disable" : "Enable"}
+                    </ActionButton>
+                  }
+                />
 
-              {notifSubscribed && (
-                <div className="border-t border-black/5 dark:border-white/5 pt-4">
-                  <p className="text-xs text-gray-400 font-medium mb-2">
-                    You will be notified when
-                  </p>
-                  <ul className="text-xs text-gray-500 dark:text-gray-400 space-y-1">
-                    <li>A timed task is starting now or in ~15 minutes</li>
-                    <li>All-day tasks are due today (8 AM)</li>
-                    <li>You have overdue tasks (9 AM daily digest)</li>
-                  </ul>
-                  <p className="text-xs text-gray-400 mt-3">
-                    Notification times are based on UTC. Works even when the browser is closed.
-                  </p>
-                </div>
-              )}
-            </div>
-          </section>
+                {notifSubscribed && (
+                  <>
+                    <Divider />
+                    <div className="py-3">
+                      <p className="text-xs text-gray-400 font-medium mb-2">When you&apos;ll be notified</p>
+                      <div className="space-y-1.5">
+                        {[
+                          "Timed tasks starting now or in ~15 min",
+                          "All-day tasks due today (8 AM)",
+                          "Overdue tasks (9 AM daily digest)",
+                        ].map((item) => (
+                          <p key={item} className="text-[11px] text-gray-500 flex items-center gap-1.5">
+                            <span className="w-1 h-1 rounded-full bg-blue-400 flex-shrink-0" />
+                            {item}
+                          </p>
+                        ))}
+                      </div>
+                      <p className="text-[10px] text-gray-600 mt-3">Times based on UTC. Works when browser is closed.</p>
+                    </div>
+                  </>
+                )}
+              </Section>
+            )}
 
-          {/* Appearance */}
-          <section className="glass-card p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <Palette size={16} className="text-gray-400" />
-              <h3 className="font-semibold text-black dark:text-white">Appearance</h3>
-            </div>
-            <p className="text-xs text-gray-400 mb-3">Background tint color</p>
-            <div className="flex items-center gap-2 flex-wrap">
-              {TINTS.map((t) => (
-                <button
-                  key={t.id}
-                  onClick={() => setTint(t.id)}
-                  className={`flex flex-col items-center gap-1.5 transition-default`}
-                  title={t.label}
-                  aria-label={t.label}
-                  aria-pressed={tint === t.id}
-                >
-                  <span
-                    className={`w-8 h-8 rounded-full transition-default ${tint === t.id ? "ring-2 ring-offset-2 ring-black dark:ring-white dark:ring-offset-transparent scale-110" : "opacity-70 hover:opacity-100"}`}
-                    style={{ background: `linear-gradient(135deg, ${t.light} 0%, ${t.dark} 100%)` }}
-                  />
-                  <span className={`text-[10px] ${tint === t.id ? "text-black dark:text-white font-medium" : "text-gray-400"}`}>
-                    {t.label}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </section>
+            {activeTab === "data" && (
+              <Section title="Data & Export" subtitle="Export or clean up your data">
+                <Row
+                  label="Export JSON"
+                  description="All tasks with subtasks, notes, and tags"
+                  action={<ActionButton onClick={() => exportTodos("json")}>Export</ActionButton>}
+                />
+                <Divider />
+                <Row
+                  label="Export CSV"
+                  description="Compatible with Excel and Google Sheets"
+                  action={<ActionButton onClick={() => exportTodos("csv")}>Export</ActionButton>}
+                />
+                <Divider />
+                <Row
+                  label="Export PDF"
+                  description="Printable task report"
+                  action={
+                    <ActionButton onClick={() => exportTodosPDF(todos, { title: "Task Report" })}>
+                      <FileText size={13} className="mr-1.5" />
+                      Export
+                    </ActionButton>
+                  }
+                />
+                <Divider />
+                <Row
+                  label="Clear completed"
+                  description={`${completedCount} completed task${completedCount !== 1 ? "s" : ""} will be deleted`}
+                  action={
+                    <ActionButton onClick={() => setShowClearConfirm(true)} disabled={completedCount === 0}>
+                      Clear
+                    </ActionButton>
+                  }
+                />
+              </Section>
+            )}
 
-          {/* Keyboard shortcuts */}
-          <section className="glass-card p-6">
-            <h3 className="font-semibold text-black dark:text-white mb-4">
-              Keyboard shortcuts
-            </h3>
-            <div className="space-y-2">
-              {[
-                ["N", "Focus new task input"],
-                ["/ or ⌘K", "Focus search"],
-                ["⌘D", "Toggle dark/light mode"],
-                ["?", "Show shortcuts overlay"],
-                ["Enter", "Save edit / Add subtask"],
-                ["Escape", "Cancel / Close panel"],
-              ].map(([key, desc]) => (
-                <div key={key} className="flex items-center justify-between">
-                  <span className="text-sm text-gray-500 dark:text-gray-400">
-                    {desc}
-                  </span>
-                  <kbd className="text-xs px-2 py-0.5 rounded-md bg-black/5 dark:bg-white/10 text-black dark:text-white font-mono">
-                    {key}
-                  </kbd>
-                </div>
-              ))}
-            </div>
-          </section>
+            {activeTab === "commands" && (
+              <Section title="Smart Input Commands" subtitle="Type these shortcuts in the task input to quickly set dates, times, priorities, and tags">
+                <CommandReference />
+              </Section>
+            )}
 
-          {/* Smart Input Commands */}
-          <section className="glass-card p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <Terminal size={16} className="text-gray-400" />
-              <h3 className="font-semibold text-black dark:text-white">
-                Smart Input Commands
-              </h3>
-            </div>
-            <p className="text-xs text-gray-400 mb-4">
-              Type these shortcuts directly in the task input field to quickly set dates, times, priorities, and tags.
-            </p>
-            <CommandReference />
-          </section>
-
-          {/* Danger zone */}
-          <section className="glass-card p-6 border border-red-500/20">
-            <div className="flex items-center gap-2 mb-4">
-              <AlertTriangle size={16} className="text-red-500" />
-              <h3 className="font-semibold text-red-500">Danger zone</h3>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-black dark:text-white">
-                  Delete account
-                </p>
-                <p className="text-xs text-gray-400">
-                  Permanently delete your account and all data. This cannot be
-                  undone.
-                </p>
-              </div>
-              <button
-                onClick={() => setShowDeleteConfirm(true)}
-                className="px-3 py-1.5 rounded-lg border border-red-500/30 text-sm text-red-500 hover:bg-red-500/10 transition-default"
-              >
-                Delete account
-              </button>
-            </div>
-          </section>
+            {activeTab === "danger" && (
+              <Section title="Danger Zone" subtitle="Irreversible actions" danger>
+                <Row
+                  label="Delete account"
+                  description="Permanently delete your account and all data. Cannot be undone."
+                  action={
+                    <ActionButton onClick={() => setShowDeleteConfirm(true)} variant="danger">
+                      Delete account
+                    </ActionButton>
+                  }
+                />
+              </Section>
+            )}
+          </div>
         </div>
       </main>
 
-      {/* Confirm dialogs */}
       <ConfirmDialog
         open={showClearConfirm}
         title="Clear completed tasks"
@@ -557,5 +460,70 @@ export default function SettingsPage() {
         onCancel={() => setShowDeleteConfirm(false)}
       />
     </div>
+  );
+}
+
+/* ──── Reusable sub-components ──── */
+
+function Section({ title, subtitle, danger, children }: { title: string; subtitle?: string; danger?: boolean; children: React.ReactNode }) {
+  return (
+    <div className={`glass-card p-6 ${danger ? "border border-red-500/20" : ""}`}>
+      <h3 className={`text-base font-semibold mb-0.5 ${danger ? "text-red-400" : "text-black dark:text-white"}`}>
+        {title}
+      </h3>
+      {subtitle && <p className="text-xs text-gray-500 mb-5">{subtitle}</p>}
+      {children}
+    </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <label className="text-xs text-gray-400 font-medium block mb-1.5">{label}</label>
+      {children}
+    </div>
+  );
+}
+
+function Row({ label, description, action }: { label: string; description: string; action?: React.ReactNode }) {
+  return (
+    <div className="flex items-center justify-between gap-4 py-2">
+      <div className="min-w-0">
+        <p className="text-sm text-black dark:text-white">{label}</p>
+        <p className="text-xs text-gray-500 mt-0.5">{description}</p>
+      </div>
+      {action && <div className="flex-shrink-0">{action}</div>}
+    </div>
+  );
+}
+
+function Divider() {
+  return <div className="border-t border-black/5 dark:border-white/5" />;
+}
+
+function ActionButton({
+  children,
+  onClick,
+  disabled,
+  variant = "default",
+}: {
+  children: React.ReactNode;
+  onClick?: () => void;
+  disabled?: boolean;
+  variant?: "default" | "danger";
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className={`inline-flex items-center px-3 py-1.5 rounded-lg border text-sm transition-default disabled:opacity-40 disabled:cursor-not-allowed ${
+        variant === "danger"
+          ? "border-red-500/30 text-red-400 hover:bg-red-500/10"
+          : "border-black/10 dark:border-white/10 text-black dark:text-white hover:bg-black/5 dark:hover:bg-white/10"
+      }`}
+    >
+      {children}
+    </button>
   );
 }

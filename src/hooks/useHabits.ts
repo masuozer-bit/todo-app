@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import type {
   Habit,
   HabitCompletion,
+  HabitSkip,
   HabitWithStatus,
   ScheduleType,
 } from "@/lib/types";
@@ -74,6 +75,7 @@ function calculateStreak(
 export function useHabits(userId: string | undefined) {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [completions, setCompletions] = useState<HabitCompletion[]>([]);
+  const [skips, setSkips] = useState<HabitSkip[]>([]);
   const [loading, setLoading] = useState(true);
   const supabase = createClient();
 
@@ -99,6 +101,16 @@ export function useHabits(userId: string | undefined) {
       .gte("completed_date", toDateStr(thirtyDaysAgo));
 
     if (completionsData) setCompletions(completionsData);
+
+    // Fetch skips for today only
+    const todayStr = getTodayStr();
+    const { data: skipsData } = await supabase
+      .from("habit_skips")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("skip_date", todayStr);
+
+    if (skipsData) setSkips(skipsData);
     setLoading(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
@@ -119,8 +131,12 @@ export function useHabits(userId: string | undefined) {
     streak: calculateStreak(habit, completionSet, todayStr),
   }));
 
-  const todaysHabits: HabitWithStatus[] = habitsWithStatus.filter((h) =>
-    isScheduledForDate(h, new Date())
+  const skippedTodaySet = new Set(
+    skips.filter((s) => s.skip_date === todayStr).map((s) => s.habit_id)
+  );
+
+  const todaysHabits: HabitWithStatus[] = habitsWithStatus.filter(
+    (h) => isScheduledForDate(h, new Date()) && !skippedTodaySet.has(h.id)
   );
 
   const addHabit = useCallback(
@@ -208,12 +224,12 @@ export function useHabits(userId: string | undefined) {
 
   const deleteHabit = useCallback(
     async (id: string) => {
+      // Sync calendar BEFORE deleting from DB (cascade may remove sync record)
+      await syncHabitToCalendar("delete", id);
       const { error } = await supabase.from("habits").delete().eq("id", id);
       if (!error) {
         setHabits((prev) => prev.filter((h) => h.id !== id));
         setCompletions((prev) => prev.filter((c) => c.habit_id !== id));
-        // Calendar sync (fire-and-forget)
-        syncHabitToCalendar("delete", id);
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -255,6 +271,44 @@ export function useHabits(userId: string | undefined) {
     [userId, completions]
   );
 
+  const skipHabitForDate = useCallback(
+    async (habitId: string, date?: string) => {
+      if (!userId) return;
+      const skipDate = date || getTodayStr();
+      // Optimistic update — hide immediately
+      const optimisticSkip = {
+        id: `temp-${Date.now()}`,
+        habit_id: habitId,
+        user_id: userId,
+        skip_date: skipDate,
+        created_at: new Date().toISOString(),
+      };
+      setSkips((prev) => [...prev, optimisticSkip]);
+
+      const { data, error } = await supabase
+        .from("habit_skips")
+        .insert({
+          habit_id: habitId,
+          user_id: userId,
+          skip_date: skipDate,
+        })
+        .select()
+        .single();
+      if (error) {
+        console.error("Failed to skip habit:", error);
+        // Revert optimistic update
+        setSkips((prev) => prev.filter((s) => s.id !== optimisticSkip.id));
+      } else if (data) {
+        // Replace optimistic entry with real one
+        setSkips((prev) =>
+          prev.map((s) => (s.id === optimisticSkip.id ? data : s))
+        );
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [userId]
+  );
+
   const reorderHabits = useCallback(
     async (reordered: Habit[]) => {
       setHabits(reordered);
@@ -282,6 +336,7 @@ export function useHabits(userId: string | undefined) {
     updateHabit,
     deleteHabit,
     toggleCompletion,
+    skipHabitForDate,
     reorderHabits,
   };
 }

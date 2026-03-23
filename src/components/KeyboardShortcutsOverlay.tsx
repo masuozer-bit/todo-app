@@ -8,18 +8,51 @@ interface KeyboardShortcutsOverlayProps {
   onClose: () => void;
 }
 
-const SHORTCUTS = [
-  { keys: ["N"], description: "New task" },
-  { keys: ["/"], description: "Focus search" },
-  { keys: ["Cmd", "K"], description: "Focus search" },
-  { keys: ["Cmd", "D"], description: "Toggle dark mode" },
-  { keys: ["?"], description: "Show shortcuts" },
-  { keys: ["Esc"], description: "Close / blur" },
+interface ShortcutGroup {
+  label: string;
+  shortcuts: { keys: string[][]; description: string }[];
+}
+
+const GROUPS: ShortcutGroup[] = [
+  {
+    label: "Navigation",
+    shortcuts: [
+      { keys: [["N"]], description: "New task" },
+      { keys: [["/"], ["⌘", "K"]], description: "Search" },
+      { keys: [["C"]], description: "Toggle calendar & schedule" },
+      { keys: [["S"]], description: "Open week planner" },
+      { keys: [["R"]], description: "New rule" },
+      { keys: [["?"]], description: "Shortcuts" },
+    ],
+  },
+  {
+    label: "Actions",
+    shortcuts: [
+      { keys: [["Enter"]], description: "Save / confirm" },
+      { keys: [["Esc"]], description: "Cancel / close" },
+      { keys: [["⌘", "D"]], description: "Dark / light mode" },
+    ],
+  },
+  {
+    label: "Task Input",
+    shortcuts: [
+      { keys: [["today"], ["tomorrow"]], description: "Set due date" },
+      { keys: [["at 3pm"], ["9:30am"]], description: "Set time" },
+      { keys: [["!high"], ["!med"], ["!low"]], description: "Priority" },
+      { keys: [["#List"]], description: "Assign list" },
+      { keys: [["@Event"]], description: "Assign event" },
+    ],
+  },
 ];
 
 function Key({ children }: { children: string }) {
+  const isWord = children.length > 3;
   return (
-    <kbd className="inline-flex items-center justify-center min-w-[1.5rem] h-6 px-1.5 text-xs font-medium rounded-md bg-black/5 dark:bg-white/10 border border-black/10 dark:border-white/15 text-black dark:text-white">
+    <kbd
+      className={`inline-flex items-center justify-center h-6 text-[11px] font-medium rounded-md bg-white/[0.08] border border-white/[0.12] text-white/80 ${
+        isWord ? "px-2 font-mono" : "min-w-[1.5rem] px-1.5"
+      }`}
+    >
       {children}
     </kbd>
   );
@@ -45,54 +78,70 @@ export default function KeyboardShortcutsOverlay({
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center">
-      {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/40 dark:bg-black/60 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
         onClick={onClose}
       />
 
-      {/* Dialog */}
-      <div className="relative glass-card-raised p-6 w-full max-w-sm mx-4 animate-in fade-in zoom-in-95 duration-200">
-        <div className="flex items-center justify-between mb-5">
-          <h3 className="text-base font-semibold text-black dark:text-white">
+      <div className="relative glass-card-raised p-5 w-full max-w-md mx-4 animate-in fade-in zoom-in-95 duration-200">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-semibold text-white">
             Keyboard Shortcuts
           </h3>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg text-gray-400 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-default"
+            className="p-1 rounded-lg text-gray-500 hover:text-white hover:bg-white/10 transition-default"
             aria-label="Close"
           >
-            <X size={16} />
+            <X size={14} />
           </button>
         </div>
 
-        <div className="space-y-3">
-          {SHORTCUTS.map((shortcut) => (
-            <div
-              key={shortcut.description + shortcut.keys.join("+")}
-              className="flex items-center justify-between"
-            >
-              <span className="text-sm text-gray-500 dark:text-gray-400">
-                {shortcut.description}
-              </span>
-              <div className="flex items-center gap-1">
-                {shortcut.keys.map((key, i) => (
-                  <span key={i} className="flex items-center gap-1">
-                    {i > 0 && (
-                      <span className="text-xs text-gray-300 dark:text-gray-600">
-                        +
-                      </span>
-                    )}
-                    <Key>{key}</Key>
-                  </span>
+        <div className="space-y-4">
+          {GROUPS.map((group) => (
+            <div key={group.label}>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-2">
+                {group.label}
+              </p>
+              <div className="space-y-1.5">
+                {group.shortcuts.map((s) => (
+                  <div
+                    key={s.description}
+                    className="flex items-center justify-between py-1"
+                  >
+                    <span className="text-xs text-gray-400">
+                      {s.description}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      {s.keys.map((combo, ci) => (
+                        <span key={ci} className="flex items-center gap-0.5">
+                          {ci > 0 && (
+                            <span className="text-[10px] text-gray-600 mx-1">
+                              /
+                            </span>
+                          )}
+                          {combo.map((k, ki) => (
+                            <span key={ki} className="flex items-center gap-0.5">
+                              {ki > 0 && (
+                                <span className="text-[10px] text-gray-600">
+                                  +
+                                </span>
+                              )}
+                              <Key>{k}</Key>
+                            </span>
+                          ))}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>
           ))}
         </div>
 
-        <p className="text-xs text-gray-400 mt-5 text-center">
-          Press <Key>?</Key> anytime to toggle this panel
+        <p className="text-[10px] text-gray-600 mt-4 text-center">
+          Press <Key>?</Key> to toggle
         </p>
       </div>
     </div>

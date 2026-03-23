@@ -204,7 +204,7 @@ export default function EventList({
     return (
       <div className="space-y-3">
         {[...Array(3)].map((_, i) => (
-          <div key={i} className="glass-card-subtle p-4 animate-pulse">
+          <div key={i} className="bg-white dark:bg-black rounded-xl p-4 animate-pulse">
             <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded w-1/3 mb-2" />
             <div className="h-3 bg-gray-100 dark:bg-gray-900 rounded w-1/4" />
           </div>

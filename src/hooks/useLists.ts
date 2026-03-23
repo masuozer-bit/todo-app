@@ -25,25 +25,34 @@ export function useLists(userId: string | undefined) {
 
   useEffect(() => { fetchLists(); }, [fetchLists]);
 
-  const addList = useCallback(async (name: string) => {
+  const addList = useCallback(async (name: string, color?: string) => {
     if (!userId) return;
     const maxOrder = lists.length > 0 ? Math.max(...lists.map(l => l.sort_order)) : 0;
+    const insert: Record<string, unknown> = { user_id: userId, name, sort_order: maxOrder + 1 };
+    if (color) insert.color = color;
     const { data } = await supabase
       .from("lists")
-      .insert({ user_id: userId, name, sort_order: maxOrder + 1 })
+      .insert(insert)
       .select().single();
     if (data) setLists(prev => [...prev, data]);
   }, [userId, lists]);
 
-  const updateList = useCallback(async (id: string, name: string) => {
-    await supabase.from("lists").update({ name }).eq("id", id);
-    setLists(prev => prev.map(l => l.id === id ? { ...l, name } : l));
+  const updateList = useCallback(async (id: string, name: string, color?: string | null) => {
+    const update: Record<string, unknown> = { name };
+    if (color !== undefined) update.color = color;
+    await supabase.from("lists").update(update).eq("id", id);
+    setLists(prev => prev.map(l => l.id === id ? { ...l, name, ...(color !== undefined ? { color } : {}) } : l));
 
     // Rename the linked Google Calendar (fire-and-forget)
     const list = listsRef.current.find((l) => l.id === id);
     if (list?.google_calendar_id) {
       renameCalendar(list.google_calendar_id, name);
     }
+  }, []);
+
+  const updateListColor = useCallback(async (id: string, color: string | null) => {
+    await supabase.from("lists").update({ color }).eq("id", id);
+    setLists(prev => prev.map(l => l.id === id ? { ...l, color } : l));
   }, []);
 
   const deleteList = useCallback(async (id: string) => {
@@ -89,5 +98,5 @@ export function useLists(userId: string | undefined) {
     setLists(prev => prev.map(l => l.folder_id === folderId ? { ...l, folder_id: null } : l));
   }, []);
 
-  return { lists, loading, addList, updateList, deleteList, reorderLists, moveListToFolder, unassignFolder };
+  return { lists, loading, addList, updateList, updateListColor, deleteList, reorderLists, moveListToFolder, unassignFolder };
 }

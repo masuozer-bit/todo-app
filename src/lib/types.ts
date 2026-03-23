@@ -26,6 +26,10 @@ export interface Todo {
   notes?: string | null;
   list_id?: string | null;
   event_id?: string | null;
+  google_event_id?: string | null; // linked Google Calendar event ID
+  time_spent?: number | null; // total seconds tracked via live task stopwatch
+  estimated_time?: number | null; // estimated duration in minutes
+  extra_dates?: { date: string; time?: string | null; completed: boolean }[] | null; // additional due dates
   created_at: string;
   updated_at: string;
   tags?: Tag[];
@@ -56,6 +60,7 @@ export interface List {
   id: string;
   user_id: string;
   name: string;
+  color?: string | null;
   sort_order: number;
   folder_id?: string | null;
   google_calendar_id?: string | null;
@@ -112,6 +117,14 @@ export interface HabitCompletion {
   created_at: string;
 }
 
+export interface HabitSkip {
+  id: string;
+  habit_id: string;
+  user_id: string;
+  skip_date: string; // YYYY-MM-DD
+  created_at: string;
+}
+
 export interface HabitWithStatus extends Habit {
   completedToday: boolean;
   streak: number;
@@ -154,6 +167,49 @@ export interface GoogleCalendarEvent {
   colorId?: string;
   status?: string;
   htmlLink?: string;
+}
+
+export interface Rule {
+  id: string;
+  user_id: string;
+  title: string;
+  description?: string | null;
+  category?: string | null;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TaskTemplateData {
+  title: string;
+  priority?: Priority;
+  estimated_time?: number | null;
+  list_id?: string | null;
+  notes?: string | null;
+  start_time?: string | null;
+  end_time?: string | null;
+  subtasks?: string[];
+}
+
+export interface EventTemplateData {
+  title: string;
+  description?: string | null;
+  color?: string | null;
+  list_id?: string | null;
+  start_time?: string | null;
+  end_time?: string | null;
+  tasks: TaskTemplateData[];
+}
+
+export interface Template {
+  id: string;
+  user_id: string;
+  name: string;
+  type: "task" | "event";
+  data: TaskTemplateData | EventTemplateData;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface PushSubscriptionRecord {

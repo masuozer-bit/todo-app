@@ -140,12 +140,7 @@ export default function EventCard({
   }
 
   return (
-    <div className="glass-card-subtle overflow-hidden group">
-      {/* Color accent bar */}
-      <div
-        className="h-1"
-        style={{ backgroundColor: event.color ?? "#6366f1" }}
-      />
+    <div className="bg-white dark:bg-black rounded-xl overflow-hidden group relative" style={{ borderBottom: `4px solid ${event.color ?? "#6366f1"}` }}>
 
       {/* Header */}
       <div className={todos.length === 0 ? "py-2 px-3" : "p-3 md:p-4"}>

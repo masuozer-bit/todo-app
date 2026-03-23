@@ -160,65 +160,55 @@ export default function HabitItem({
     <div
       ref={itemRef}
       data-habit-id={habit.id}
-      className={`glass-card-subtle group transition-default ${
+      className={`group transition-default ${
         isDragging ? "opacity-50 scale-[1.02] shadow-lg" : ""
       } ${habit.completedToday ? "opacity-60" : ""}`}
       style={highlighted ? { outline: "2px solid rgba(139,92,246,0.65)", outlineOffset: "2px" } : undefined}
     >
-      <div className="flex items-start gap-3 p-3 md:p-4 touch-none" {...dragHandleProps}>
-        {/* Checkbox */}
-        <input
-          type="checkbox"
-          checked={habit.completedToday}
-          onChange={() => onToggle(habit.id)}
-          className="custom-checkbox mt-0.5 flex-shrink-0"
-          aria-label={`Mark "${habit.title}" as ${habit.completedToday ? "incomplete" : "complete"} for today`}
-        />
-
-        {/* Content */}
+      {editing ? (
+        <div className="flex items-center gap-2 rounded-xl px-3 py-2 bg-white dark:bg-black">
+          <input
+            ref={editRef}
+            type="text"
+            value={editValue}
+            onChange={(e) => setEditValue(e.target.value)}
+            onBlur={handleSaveTitle}
+            onKeyDown={handleKeyDown}
+            className="flex-1 bg-transparent text-black dark:text-white focus:outline-none text-sm"
+            aria-label="Edit habit title"
+          />
+          <button onClick={handleSaveTitle} className="text-gray-400 hover:text-black dark:hover:text-white transition-default" aria-label="Save">
+            <Check size={16} />
+          </button>
+          <button
+            onMouseDown={() => { cancelledRef.current = true; }}
+            onClick={() => { setEditValue(habit.title); setEditing(false); cancelledRef.current = false; }}
+            className="text-gray-400 hover:text-black dark:hover:text-white transition-default"
+            aria-label="Cancel"
+          >
+            <X size={16} />
+          </button>
+        </div>
+      ) : (
+      <div
+        className="relative rounded-xl px-3 py-2 bg-white dark:bg-black cursor-pointer"
+        onClick={() => onToggle(habit.id)}
+        onDoubleClick={(e) => { e.stopPropagation(); setEditing(true); }}
+        {...dragHandleProps}
+        aria-label={`Mark "${habit.title}" as ${habit.completedToday ? "incomplete" : "complete"} for today`}
+      >
         <div className="flex-1 min-w-0">
-          {/* Title row */}
-          {editing ? (
-            <div className="flex items-center gap-2">
-              <input
-                ref={editRef}
-                type="text"
-                value={editValue}
-                onChange={(e) => setEditValue(e.target.value)}
-                onBlur={handleSaveTitle}
-                onKeyDown={handleKeyDown}
-                className="flex-1 bg-transparent text-black dark:text-white focus:outline-none text-base border-b border-black/20 dark:border-white/20 pb-0.5"
-                aria-label="Edit habit title"
-              />
-              <button onClick={handleSaveTitle} className="text-black/40 dark:text-gray-400 hover:text-black dark:hover:text-white transition-default" aria-label="Save">
-                <Check size={16} />
-              </button>
-              <button
-                onMouseDown={() => { cancelledRef.current = true; }}
-                onClick={() => { setEditValue(habit.title); setEditing(false); cancelledRef.current = false; }}
-                className="text-black/40 dark:text-gray-400 hover:text-black dark:hover:text-white transition-default"
-                aria-label="Cancel"
-              >
-                <X size={16} />
-              </button>
-            </div>
-          ) : (
-            <p
-              className={`text-base cursor-pointer transition-default leading-snug ${
-                habit.completedToday ? "line-through text-black/40 dark:text-gray-500" : "text-black dark:text-white"
-              }`}
-              onClick={() => setEditing(true)}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => { if (e.key === "Enter") setEditing(true); }}
-              aria-label={`Edit "${habit.title}"`}
-            >
-              {habit.title}
-            </p>
-          )}
+          {/* Title */}
+          <p
+            className={`text-sm transition-default leading-snug ${
+              habit.completedToday ? "line-through text-gray-400" : "text-black dark:text-white"
+            }`}
+          >
+            {habit.title}
+          </p>
 
           {/* Meta row: schedule + time + streak */}
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5" onClick={(e) => e.stopPropagation()}>
             {/* Schedule: text opens week view, gear opens edit panel */}
             <span className="flex items-center gap-1">
               <button
@@ -336,7 +326,7 @@ export default function HabitItem({
 
           {/* Schedule editing panel */}
           {editingSchedule && (
-            <div className="mt-2 p-3 bg-black/[0.04] dark:bg-white/[0.04] rounded-lg space-y-3">
+            <div className="mt-2 p-3 bg-black/[0.04] dark:bg-white/[0.04] rounded-lg space-y-3" onClick={(e) => e.stopPropagation()}>
               {/* Rhythm toggle */}
               <div>
                 <p className="text-[10px] font-semibold uppercase tracking-widest text-black/40 dark:text-gray-500 mb-1.5">Rhythm</p>
@@ -433,7 +423,7 @@ export default function HabitItem({
 
           {/* Notes panel */}
           {showNotes && (
-            <div className="mt-2">
+            <div className="mt-2" onClick={(e) => e.stopPropagation()}>
               {editingNotes ? (
                 <div className="space-y-1">
                   <textarea
@@ -477,15 +467,25 @@ export default function HabitItem({
           )}
         </div>
 
-        {/* Delete */}
-        <button
-          onClick={() => onDelete(habit.id)}
-          className="mt-0.5 text-black/25 dark:text-gray-600 opacity-0 group-hover:opacity-100 hover:text-black dark:hover:text-white transition-default flex-shrink-0"
-          aria-label={`Delete "${habit.title}"`}
-        >
-          <Trash2 size={15} />
-        </button>
+        {/* Hover actions — top right corner */}
+        <div className="absolute top-1 right-1 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-default">
+          <button
+            onClick={(e) => { e.stopPropagation(); setEditing(true); }}
+            className="p-1 rounded-lg text-gray-400 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-default"
+            aria-label="Edit habit"
+          >
+            <FileText size={14} />
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onDelete(habit.id); }}
+            className="p-1 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-500/10 transition-default"
+            aria-label={`Delete "${habit.title}"`}
+          >
+            <Trash2 size={14} />
+          </button>
+        </div>
       </div>
+      )}
 
       {showWeekView && (
         <HabitWeekModal

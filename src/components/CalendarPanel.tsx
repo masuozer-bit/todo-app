@@ -21,6 +21,7 @@ interface CalendarPanelProps {
   todos: Todo[];
   selectedDates: string[];
   onSelectDates: (dates: string[]) => void;
+  onGoogleEventsImported?: () => void;
 }
 
 const DAY_LABELS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
@@ -45,6 +46,7 @@ export default function CalendarPanel({
   todos,
   selectedDates,
   onSelectDates,
+  onGoogleEventsImported,
 }: CalendarPanelProps) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -65,7 +67,11 @@ export default function CalendarPanel({
     const result = await fetchCalendarEvents(toDateStr(firstDay), toDateStr(lastDay));
     setGoogleEvents(result.events);
     setEventsLoading(false);
-  }, [viewYear, viewMonth]);
+    // If events were imported from Google Calendar, notify parent to refetch
+    if (result.imported) {
+      onGoogleEventsImported?.();
+    }
+  }, [viewYear, viewMonth, onGoogleEventsImported]);
 
   useEffect(() => { fetchEvents(); }, [fetchEvents]);
 

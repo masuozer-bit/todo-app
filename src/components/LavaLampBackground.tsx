@@ -1,16 +1,14 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import type { Tint } from "./ThemeProvider";
+import { hexToHsv } from "./ColorWheelPicker";
 
-const TINT_HEX: Record<Tint, string> = {
-  lavender: "#3a0e8c",
-  warm:     "#7a1e05",
-  sage:     "#074d22",
-  rose:     "#7a0a28",
-  ocean:    "#083a85",
-  neutral:  "#202028",
-};
+// Darken a hex color for use as lava blob fill (low brightness, saturated)
+function blobColorFromHex(hex: string): string {
+  const [h, s] = hexToHsv(hex);
+  // dark, saturated version of the picked color
+  return `hsl(${h}, ${Math.min(s * 1.2, 85)}%, 22%)`;
+}
 
 /*
   Movement algorithm: each blob's position is a sum of three sine waves
@@ -58,7 +56,7 @@ const evalWave = (ws: [Wave,Wave,Wave], t: number) =>
   ws[1].amp * Math.sin(ws[1].freq * t + ws[1].phase) +
   ws[2].amp * Math.sin(ws[2].freq * t + ws[2].phase);
 
-export default function LavaLampBackground({ tint }: { tint: Tint }) {
+export default function LavaLampBackground({ tint }: { tint: string }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const tintRef   = useRef(tint);
   tintRef.current = tint;
@@ -99,7 +97,7 @@ export default function LavaLampBackground({ tint }: { tint: Tint }) {
       ctx.fillStyle = "#000";
       ctx.fillRect(0, 0, w, h);
 
-      ctx.fillStyle = TINT_HEX[tintRef.current];
+      ctx.fillStyle = blobColorFromHex(tintRef.current);
 
       for (const b of blobs) {
         const x  = (b.cx + evalWave(b.wx, t)) * w;

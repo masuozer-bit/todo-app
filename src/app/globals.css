@@ -27,93 +27,20 @@
     color: #FFFFFF;
   }
 
-  /* ─── Tint: Lavender (default) ─── */
-  html.tint-lavender body,
+  /* ─── Tint: driven by CSS vars set from ThemeProvider ─── */
   body {
-    background-color: #EDEBF5;
+    background-color: var(--tint-bg, #EDEBF5);
     background-image:
-      radial-gradient(ellipse at 20% -5%, rgba(175, 160, 235, 0.55) 0%, transparent 55%),
-      radial-gradient(ellipse at 80% 95%, rgba(155, 175, 232, 0.38) 0%, transparent 50%),
-      radial-gradient(ellipse at 50% 40%, rgba(215, 210, 248, 0.25) 0%, transparent 65%),
-      radial-gradient(ellipse at 35% 70%, rgba(195, 185, 240, 0.15) 0%, transparent 40%);
+      radial-gradient(ellipse at 20% -5%,  var(--tint-blob-1, rgba(175,160,235,0.55)) 0%, transparent 55%),
+      radial-gradient(ellipse at 80% 95%,  var(--tint-blob-2, rgba(155,175,232,0.38)) 0%, transparent 50%),
+      radial-gradient(ellipse at 50% 40%,  var(--tint-blob-3, rgba(215,210,248,0.25)) 0%, transparent 65%);
   }
-  html.dark.tint-lavender body,
   html.dark body {
-    background-color: #05040B;
+    background-color: var(--tint-bg, #05040B);
     background-image:
-      radial-gradient(ellipse at 15% -5%, rgba(90, 65, 180, 0.35) 0%, transparent 50%),
-      radial-gradient(ellipse at 85% 90%, rgba(35, 55, 135, 0.25) 0%, transparent 50%),
-      radial-gradient(ellipse at 50% 50%, rgba(50, 35, 100, 0.14) 0%, transparent 70%);
-  }
-
-  /* ─── Tint: Warm ─── */
-  html.tint-warm body {
-    background-color: #F5F0E8;
-    background-image:
-      radial-gradient(ellipse at 20% -5%, rgba(235, 210, 170, 0.50) 0%, transparent 50%),
-      radial-gradient(ellipse at 80% 95%, rgba(220, 195, 155, 0.32) 0%, transparent 45%);
-  }
-  html.dark.tint-warm body {
-    background-color: #070503;
-    background-image:
-      radial-gradient(ellipse at 15% -5%, rgba(140, 85, 25, 0.35) 0%, transparent 45%),
-      radial-gradient(ellipse at 85% 90%, rgba(110, 65, 18, 0.25) 0%, transparent 45%);
-  }
-
-  /* ─── Tint: Sage ─── */
-  html.tint-sage body {
-    background-color: #EBF4EE;
-    background-image:
-      radial-gradient(ellipse at 20% -5%, rgba(155, 215, 178, 0.48) 0%, transparent 50%),
-      radial-gradient(ellipse at 80% 95%, rgba(135, 200, 162, 0.30) 0%, transparent 45%);
-  }
-  html.dark.tint-sage body {
-    background-color: #030806;
-    background-image:
-      radial-gradient(ellipse at 15% -5%, rgba(28, 115, 60, 0.35) 0%, transparent 45%),
-      radial-gradient(ellipse at 85% 90%, rgba(18, 88, 40, 0.25) 0%, transparent 45%);
-  }
-
-  /* ─── Tint: Rose ─── */
-  html.tint-rose body {
-    background-color: #F4EAEF;
-    background-image:
-      radial-gradient(ellipse at 20% -5%, rgba(230, 172, 195, 0.48) 0%, transparent 50%),
-      radial-gradient(ellipse at 80% 95%, rgba(215, 158, 178, 0.30) 0%, transparent 45%);
-  }
-  html.dark.tint-rose body {
-    background-color: #080306;
-    background-image:
-      radial-gradient(ellipse at 15% -5%, rgba(140, 28, 65, 0.35) 0%, transparent 45%),
-      radial-gradient(ellipse at 85% 90%, rgba(115, 18, 48, 0.25) 0%, transparent 45%);
-  }
-
-  /* ─── Tint: Ocean ─── */
-  html.tint-ocean body {
-    background-color: #EAF0F7;
-    background-image:
-      radial-gradient(ellipse at 20% -5%, rgba(145, 188, 235, 0.50) 0%, transparent 50%),
-      radial-gradient(ellipse at 80% 95%, rgba(128, 175, 222, 0.32) 0%, transparent 45%);
-  }
-  html.dark.tint-ocean body {
-    background-color: #03050C;
-    background-image:
-      radial-gradient(ellipse at 15% -5%, rgba(22, 65, 142, 0.38) 0%, transparent 45%),
-      radial-gradient(ellipse at 85% 90%, rgba(12, 48, 118, 0.28) 0%, transparent 45%);
-  }
-
-  /* ─── Tint: Neutral ─── */
-  html.tint-neutral body {
-    background-color: #F2F2F2;
-    background-image:
-      radial-gradient(ellipse at 20% -5%, rgba(185, 185, 185, 0.30) 0%, transparent 50%),
-      radial-gradient(ellipse at 80% 95%, rgba(165, 165, 165, 0.20) 0%, transparent 45%);
-  }
-  html.dark.tint-neutral body {
-    background-color: #060606;
-    background-image:
-      radial-gradient(ellipse at 15% -5%, rgba(70, 70, 70, 0.28) 0%, transparent 45%),
-      radial-gradient(ellipse at 85% 90%, rgba(55, 55, 55, 0.18) 0%, transparent 45%);
+      radial-gradient(ellipse at 15% -5%,  var(--tint-blob-1, rgba(90,65,180,0.35))   0%, transparent 50%),
+      radial-gradient(ellipse at 85% 90%,  var(--tint-blob-2, rgba(35,55,135,0.25))   0%, transparent 50%),
+      radial-gradient(ellipse at 50% 50%,  var(--tint-blob-3, rgba(50,35,100,0.14))   0%, transparent 70%);
   }
 }
 

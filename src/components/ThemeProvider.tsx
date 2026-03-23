@@ -10,24 +10,67 @@ import {
 } from "react";
 
 import { createClient } from "@/lib/supabase/client";
+import { hexToHsv } from "./ColorWheelPicker";
 
 type Theme = "light" | "dark";
-export type Tint = "lavender" | "warm" | "sage" | "rose" | "ocean" | "neutral";
 
-export const TINTS: { id: Tint; label: string; light: string; dark: string }[] = [
-  { id: "lavender", label: "Lavender", light: "#C4C0E8", dark: "#5540A0" },
-  { id: "warm",     label: "Warm",     light: "#E8C89A", dark: "#A05820" },
-  { id: "sage",     label: "Sage",     light: "#9ACFAD", dark: "#207840" },
-  { id: "rose",     label: "Rose",     light: "#E8AABC", dark: "#A02045" },
-  { id: "ocean",    label: "Ocean",    light: "#9AB8E4", dark: "#1E4FA0" },
-  { id: "neutral",  label: "Neutral",  light: "#C0C0C0", dark: "#606060" },
+// Still exported for compat — now just a hex string alias
+export type Tint = string;
+
+// Preset quick-pick swatches
+export const PRESET_TINTS: { id: string; label: string; hex: string }[] = [
+  { id: "lavender", label: "Lavender", hex: "#5540A0" },
+  { id: "warm",     label: "Warm",     hex: "#A05820" },
+  { id: "sage",     label: "Sage",     hex: "#207840" },
+  { id: "rose",     label: "Rose",     hex: "#A02045" },
+  { id: "ocean",    label: "Ocean",    hex: "#1E4FA0" },
+  { id: "neutral",  label: "Neutral",  hex: "#606060" },
 ];
+
+// Old name → hex for backward compat
+const LEGACY_MAP: Record<string, string> = {
+  lavender: "#5540A0",
+  warm:     "#A05820",
+  sage:     "#207840",
+  rose:     "#A02045",
+  ocean:    "#1E4FA0",
+  neutral:  "#606060",
+};
+
+function resolveStoredTint(raw: string | null): string {
+  if (!raw) return "#5540A0";
+  if (raw.startsWith("#")) return raw;
+  return LEGACY_MAP[raw] ?? "#5540A0";
+}
+
+// ── Derive CSS vars from a hex color ────────────────────────────────────────
+
+function applyTintColor(hex: string, isDark: boolean) {
+  const [h, s] = hexToHsv(hex);
+  const root   = document.documentElement;
+
+  if (isDark) {
+    const sc = Math.min(s * 0.4, 20);
+    root.style.setProperty("--tint-bg",     `hsl(${h}, ${sc}%, 4%)`);
+    root.style.setProperty("--tint-blob-1", `hsla(${h}, ${Math.min(s * 2.5, 80)}%, 36%, 0.40)`);
+    root.style.setProperty("--tint-blob-2", `hsla(${(h + 20) % 360}, ${Math.min(s * 2.0, 68)}%, 28%, 0.28)`);
+    root.style.setProperty("--tint-blob-3", `hsla(${(h + 10) % 360}, ${Math.min(s * 1.5, 55)}%, 20%, 0.15)`);
+  } else {
+    const sc = Math.min(s * 0.45, 20);
+    root.style.setProperty("--tint-bg",     `hsl(${h}, ${sc}%, 94%)`);
+    root.style.setProperty("--tint-blob-1", `hsla(${h}, ${Math.min(s * 1.6, 68)}%, 79%, 0.58)`);
+    root.style.setProperty("--tint-blob-2", `hsla(${(h + 15) % 360}, ${Math.min(s * 1.3, 60)}%, 76%, 0.40)`);
+    root.style.setProperty("--tint-blob-3", `hsla(${(h + 5) % 360}, ${Math.min(s * 1.1, 52)}%, 82%, 0.28)`);
+  }
+}
+
+// ── Context ──────────────────────────────────────────────────────────────────
 
 interface ThemeContextType {
   theme: Theme;
   toggleTheme: () => void;
-  tint: Tint;
-  setTint: (t: Tint) => void;
+  tint: string; // hex color
+  setTint: (hex: string) => void;
   lavaLamp: boolean;
   setLavaLamp: (v: boolean) => void;
 }
@@ -35,7 +78,7 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType>({
   theme: "light",
   toggleTheme: () => {},
-  tint: "lavender",
+  tint: "#5540A0",
   setTint: () => {},
   lavaLamp: false,
   setLavaLamp: () => {},
@@ -45,33 +88,29 @@ export function useTheme() {
   return useContext(ThemeContext);
 }
 
-function applyTint(tint: Tint) {
-  const html = document.documentElement;
-  TINTS.forEach((t) => html.classList.remove(`tint-${t.id}`));
-  html.classList.add(`tint-${tint}`);
-}
+// ── Provider ─────────────────────────────────────────────────────────────────
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setTheme] = useState<Theme>("light");
-  const [tint, setTintState] = useState<Tint>("lavender");
+  const [theme, setTheme]         = useState<Theme>("light");
+  const [tint, setTintState]      = useState<string>("#5540A0");
   const [lavaLamp, setLavaLampState] = useState(false);
 
   useEffect(() => {
-    // Apply theme
+    // Theme
     const storedTheme = localStorage.getItem("theme") as Theme | null;
+    const isDark = storedTheme === "dark";
     if (storedTheme) {
       setTheme(storedTheme);
-      document.documentElement.classList.toggle("dark", storedTheme === "dark");
+      document.documentElement.classList.toggle("dark", isDark);
     }
 
-    // Apply tint
-    const storedTint = (localStorage.getItem("tint") as Tint | null) ?? "lavender";
-    setTintState(storedTint);
-    applyTint(storedTint);
+    // Tint
+    const hex = resolveStoredTint(localStorage.getItem("tint"));
+    setTintState(hex);
+    applyTintColor(hex, isDark);
 
-    // Apply lava lamp
-    const storedLava = localStorage.getItem("lava-lamp") === "1";
-    setLavaLampState(storedLava);
+    // Lava lamp
+    setLavaLampState(localStorage.getItem("lava-lamp") === "1");
 
     // Sync theme from DB
     const supabase = createClient();
@@ -84,16 +123,17 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
           .single()
           .then(({ data }) => {
             if (data?.theme_preference) {
-              setTheme(data.theme_preference as Theme);
-              localStorage.setItem("theme", data.theme_preference);
-              document.documentElement.classList.toggle(
-                "dark",
-                data.theme_preference === "dark"
-              );
+              const dbTheme = data.theme_preference as Theme;
+              setTheme(dbTheme);
+              localStorage.setItem("theme", dbTheme);
+              document.documentElement.classList.toggle("dark", dbTheme === "dark");
+              // Re-apply tint vars with correct dark mode
+              applyTintColor(hex, dbTheme === "dark");
             }
           });
       }
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const toggleTheme = useCallback(() => {
@@ -101,24 +141,24 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     setTheme(next);
     localStorage.setItem("theme", next);
     document.documentElement.classList.toggle("dark", next === "dark");
+    applyTintColor(tint, next === "dark");
 
     const supabase = createClient();
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (user) {
-        supabase
-          .from("profiles")
-          .update({ theme_preference: next })
-          .eq("id", user.id)
-          .then(() => {});
+        supabase.from("profiles").update({ theme_preference: next }).eq("id", user.id).then(() => {});
       }
     });
-  }, [theme]);
+  }, [theme, tint]);
 
-  const setTint = useCallback((t: Tint) => {
-    setTintState(t);
-    localStorage.setItem("tint", t);
-    applyTint(t);
-  }, []);
+  const setTint = useCallback(
+    (hex: string) => {
+      setTintState(hex);
+      localStorage.setItem("tint", hex);
+      applyTintColor(hex, theme === "dark");
+    },
+    [theme]
+  );
 
   const setLavaLamp = useCallback((v: boolean) => {
     setLavaLampState(v);

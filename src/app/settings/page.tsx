@@ -8,7 +8,8 @@ import ConfirmDialog from "@/components/ConfirmDialog";
 import { useTodos } from "@/hooks/useTodos";
 import { useTags } from "@/hooks/useTags";
 import { Download, Trash2, User, AlertTriangle, Calendar, FileText, Terminal, Bell, Palette, ChevronRight } from "lucide-react";
-import { useTheme, TINTS } from "@/components/ThemeProvider";
+import { useTheme, PRESET_TINTS } from "@/components/ThemeProvider";
+import ColorWheelPicker from "@/components/ColorWheelPicker";
 import { exportTodosPDF } from "@/lib/pdf-export";
 import CommandReference from "@/components/CommandReference";
 import {
@@ -242,24 +243,39 @@ export default function SettingsPage() {
 
             {activeTab === "appearance" && (
               <Section title="Appearance" subtitle="Customize the look and feel">
-                <p className="text-xs text-gray-400 mb-4 font-medium">Background tint</p>
-                <div className="grid grid-cols-5 sm:grid-cols-7 gap-3">
-                  {TINTS.map((t) => (
-                    <button
-                      key={t.id}
-                      onClick={() => setTint(t.id)}
-                      className="flex flex-col items-center gap-1.5 transition-default"
-                      title={t.label}
-                    >
-                      <span
-                        className={`w-10 h-10 rounded-full transition-default ${tint === t.id ? "ring-2 ring-offset-2 ring-black dark:ring-white dark:ring-offset-transparent scale-110" : "opacity-60 hover:opacity-100 hover:scale-105"}`}
-                        style={{ background: `linear-gradient(135deg, ${t.light} 0%, ${t.dark} 100%)` }}
-                      />
-                      <span className={`text-[10px] ${tint === t.id ? "text-black dark:text-white font-medium" : "text-gray-500"}`}>
+                {/* Preset quick picks */}
+                <p className="text-xs text-gray-400 mb-3 font-medium">Presets</p>
+                <div className="flex flex-wrap gap-2 mb-5">
+                  {PRESET_TINTS.map((t) => {
+                    const isActive = tint.toLowerCase() === t.hex.toLowerCase();
+                    return (
+                      <button
+                        key={t.id}
+                        onClick={() => setTint(t.hex)}
+                        title={t.label}
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs transition-default border ${
+                          isActive
+                            ? "border-black/30 dark:border-white/30 bg-black/5 dark:bg-white/10 text-black dark:text-white font-medium"
+                            : "border-black/10 dark:border-white/10 text-gray-500 hover:text-black dark:hover:text-white hover:border-black/20 dark:hover:border-white/20"
+                        }`}
+                      >
+                        <span
+                          className="w-3.5 h-3.5 rounded-full flex-shrink-0"
+                          style={{ background: t.hex }}
+                        />
                         {t.label}
-                      </span>
-                    </button>
-                  ))}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Color wheel */}
+                <p className="text-xs text-gray-400 mb-3 font-medium">Custom color</p>
+                <div className="rounded-2xl glass-card-subtle p-4">
+                  <ColorWheelPicker
+                    value={tint}
+                    onChange={(hex) => setTint(hex)}
+                  />
                 </div>
                 {/* Lava Lamp toggle — dark mode only */}
                 <div className="mt-6 flex items-center justify-between">

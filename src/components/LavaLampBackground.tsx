@@ -108,7 +108,7 @@ export default function LavaLampBackground({ tint, opacity = 0.58 }: { tint: str
       /* Smoothly lerp the displayed mouse toward the real position.
          Low alpha = very lazy follow → the influence feels dreamy, not snappy. */
       const m = mouseRef.current;
-      const alpha = 0.04;
+      const alpha = 0.018;
       m.x += (m.tx - m.x) * alpha;
       m.y += (m.ty - m.y) * alpha;
 
@@ -119,7 +119,7 @@ export default function LavaLampBackground({ tint, opacity = 0.58 }: { tint: str
 
       /* Influence radius: blobs within 45% of the screen diagonal feel the cursor */
       const diagPx  = Math.sqrt(w * w + h * h);
-      const influence = diagPx * 0.45;
+      const influence = diagPx * 0.30;
 
       for (const b of blobs) {
         let x  = (b.cx + evalWave(b.wx, t)) * w;
@@ -136,7 +136,7 @@ export default function LavaLampBackground({ tint, opacity = 0.58 }: { tint: str
             /* strength peaks near the cursor, fades smoothly to 0 at influence edge */
             const t2 = 1 - dist / influence;
             /* max pull: ~3% of screen diagonal — barely noticeable but present */
-            const pull = diagPx * 0.03 * t2 * t2;
+            const pull = diagPx * 0.007 * t2 * t2;
             x += (dx / dist) * pull;
             y += (dy / dist) * pull;
           }

@@ -52,7 +52,7 @@ export default function SettingsPage() {
   const { tags } = useTags(user?.id);
   const { todos, clearCompleted, exportTodos } = useTodos(user?.id, tags);
   const { permission: notifPermission, isSubscribed: notifSubscribed, subscribe: subscribeNotifications, unsubscribe: unsubscribeNotifications } = usePushNotifications();
-  const { tint, setTint, lavaLamp, setLavaLamp, theme } = useTheme();
+  const { tint, setTint, lavaLamp, setLavaLamp, lavaColor, setLavaColor, theme } = useTheme();
 
   useEffect(() => {
     supabase.auth
@@ -295,6 +295,25 @@ export default function SettingsPage() {
                     />
                   </button>
                 </div>
+
+                {/* Lava blob color picker */}
+                {theme === "dark" && (
+                  <div className="mt-4">
+                    <p className="text-xs text-gray-400 mb-3 font-medium">Bubble color</p>
+                    <div className="rounded-2xl glass-card-subtle p-4">
+                      <ColorWheelPicker
+                        value={lavaColor}
+                        onChange={(hex) => setLavaColor(hex)}
+                      />
+                    </div>
+                    <button
+                      onClick={() => setLavaColor(tint)}
+                      className="mt-2 text-[11px] text-gray-400 hover:text-black dark:hover:text-white transition-default"
+                    >
+                      Reset to app color
+                    </button>
+                  </div>
+                )}
 
                 <p className="text-[10px] text-gray-500 mt-4">
                   Use <kbd className="px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 text-[10px] font-mono">⌘D</kbd> to toggle dark/light mode

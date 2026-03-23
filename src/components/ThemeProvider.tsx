@@ -73,6 +73,8 @@ interface ThemeContextType {
   setTint: (hex: string) => void;
   lavaLamp: boolean;
   setLavaLamp: (v: boolean) => void;
+  lavaColor: string; // hex color for lava blobs (defaults to tint)
+  setLavaColor: (hex: string) => void;
 }
 
 const ThemeContext = createContext<ThemeContextType>({
@@ -82,6 +84,8 @@ const ThemeContext = createContext<ThemeContextType>({
   setTint: () => {},
   lavaLamp: false,
   setLavaLamp: () => {},
+  lavaColor: "#5540A0",
+  setLavaColor: () => {},
 });
 
 export function useTheme() {
@@ -91,9 +95,10 @@ export function useTheme() {
 // ── Provider ─────────────────────────────────────────────────────────────────
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setTheme]         = useState<Theme>("light");
-  const [tint, setTintState]      = useState<string>("#5540A0");
+  const [theme, setTheme]            = useState<Theme>("light");
+  const [tint, setTintState]         = useState<string>("#5540A0");
   const [lavaLamp, setLavaLampState] = useState(false);
+  const [lavaColor, setLavaColorState] = useState<string>("#5540A0");
 
   useEffect(() => {
     // Theme
@@ -111,6 +116,10 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
     // Lava lamp
     setLavaLampState(localStorage.getItem("lava-lamp") === "1");
+
+    // Lava color (defaults to tint if not set)
+    const storedLavaColor = localStorage.getItem("lava-color");
+    setLavaColorState(storedLavaColor ?? hex);
 
     // Sync theme from DB
     const supabase = createClient();
@@ -165,8 +174,13 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     localStorage.setItem("lava-lamp", v ? "1" : "0");
   }, []);
 
+  const setLavaColor = useCallback((hex: string) => {
+    setLavaColorState(hex);
+    localStorage.setItem("lava-color", hex);
+  }, []);
+
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme, tint, setTint, lavaLamp, setLavaLamp }}>
+    <ThemeContext.Provider value={{ theme, toggleTheme, tint, setTint, lavaLamp, setLavaLamp, lavaColor, setLavaColor }}>
       {children}
     </ThemeContext.Provider>
   );

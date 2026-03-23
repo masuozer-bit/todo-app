@@ -52,45 +52,13 @@ const PRIORITY_CONFIG: {
   value: Priority;
   label: string;
   dot: string;
-  active: string;
 }[] = [
-  {
-    value: "none",
-    label: "None",
-    dot: "bg-gray-300 dark:bg-gray-600",
-    active:
-      "bg-black/5 dark:bg-white/10 text-black dark:text-white border-black/10 dark:border-white/10",
-  },
-  {
-    value: "low",
-    label: "Low",
-    dot: "bg-blue-500",
-    active:
-      "bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800/40",
-  },
-  {
-    value: "medium",
-    label: "Med",
-    dot: "bg-amber-500",
-    active:
-      "bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800/40",
-  },
-  {
-    value: "high",
-    label: "High",
-    dot: "bg-red-500",
-    active:
-      "bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 border-red-200 dark:border-red-800/40",
-  },
+  { value: "none", label: "None", dot: "bg-gray-300 dark:bg-gray-600" },
+  { value: "low",  label: "Low",  dot: "bg-blue-500" },
+  { value: "medium", label: "Med", dot: "bg-amber-500" },
+  { value: "high", label: "High", dot: "bg-red-500" },
 ];
 
-const PRIORITY_COLORS: Record<Priority, string> = {
-  high: "bg-red-100 dark:bg-red-950/40 text-red-600 dark:text-red-400 border-red-200 dark:border-red-800/40",
-  medium:
-    "bg-amber-100 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800/40",
-  low: "bg-blue-100 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800/40",
-  none: "",
-};
 
 interface Suggestion {
   trigger: string;
@@ -450,30 +418,34 @@ export default function TodoInput({
               </span>
             )}
             {parsed?.due_date && (
-              <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-md border bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800/40">
+              <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-md border border-black/10 dark:border-white/10 bg-black/[0.03] dark:bg-white/[0.06] text-black/60 dark:text-gray-300">
                 <Calendar size={10} />
                 {formatDateLabel(parsed.due_date)}
               </span>
             )}
             {parsed?.start_time && (
-              <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-md border bg-green-50 dark:bg-green-950/40 text-green-600 dark:text-green-400 border-green-200 dark:border-green-800/40">
+              <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-md border border-black/10 dark:border-white/10 bg-black/[0.03] dark:bg-white/[0.06] text-black/60 dark:text-gray-300">
                 <Clock size={10} />
                 {formatTimeLabel(parsed.start_time)}
               </span>
             )}
-            {parsed?.priority && parsed.priority !== "none" && (
-              <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-md border ${PRIORITY_COLORS[parsed.priority]}`}>
-                {parsed.priority.charAt(0).toUpperCase() + parsed.priority.slice(1)}
-              </span>
-            )}
+            {parsed?.priority && parsed.priority !== "none" && (() => {
+              const pc = PRIORITY_CONFIG.find(p => p.value === parsed.priority);
+              return (
+                <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-md border border-black/10 dark:border-white/10 bg-black/[0.03] dark:bg-white/[0.06] text-black/60 dark:text-gray-300">
+                  {pc && <span className={`w-1.5 h-1.5 rounded-full ${pc.dot}`} />}
+                  {parsed.priority.charAt(0).toUpperCase() + parsed.priority.slice(1)}
+                </span>
+              );
+            })()}
             {parsed?.tagNames?.map((name) => (
-              <span key={name} className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-md border bg-gray-100 dark:bg-gray-800/40 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700/40">
+              <span key={name} className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-md border border-black/10 dark:border-white/10 bg-black/[0.03] dark:bg-white/[0.06] text-black/60 dark:text-gray-300">
                 <Hash size={10} />
                 {name}
               </span>
             ))}
             {listId && lists.find((l) => l.id === listId) && (
-              <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-md border bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 border-purple-200 dark:border-purple-800/40">
+              <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-md border border-black/10 dark:border-white/10 bg-black/[0.03] dark:bg-white/[0.06] text-black/60 dark:text-gray-300">
                 <ListIcon size={10} />
                 {lists.find((l) => l.id === listId)!.name}
                 <button type="button" onClick={() => setListId(activeListId ?? null)} className="ml-0.5 opacity-60 hover:opacity-100">
@@ -482,7 +454,7 @@ export default function TodoInput({
               </span>
             )}
             {eventId && events.find((e) => e.id === eventId) && (
-              <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-md border bg-orange-50 dark:bg-orange-950/40 text-orange-600 dark:text-orange-400 border-orange-200 dark:border-orange-800/40">
+              <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-md border border-black/10 dark:border-white/10 bg-black/[0.03] dark:bg-white/[0.06] text-black/60 dark:text-gray-300">
                 <CalendarRange size={10} />
                 {events.find((e) => e.id === eventId)!.title}
                 <button type="button" onClick={() => setEventId(null)} className="ml-0.5 opacity-60 hover:opacity-100">
@@ -506,7 +478,7 @@ export default function TodoInput({
                   onClick={() => setPriority(p.value)}
                   className={`flex items-center justify-center gap-1.5 px-0 py-1.5 rounded-lg border text-xs transition-default flex-1 ${
                     priority === p.value
-                      ? p.active + " font-medium"
+                      ? "border-black/25 dark:border-white/25 bg-black/5 dark:bg-white/10 font-medium text-black dark:text-white"
                       : "border-black/8 dark:border-white/8 text-gray-400 hover:text-black dark:hover:text-white hover:border-black/15 dark:hover:border-white/15"
                   }`}
                 >
@@ -611,7 +583,7 @@ export default function TodoInput({
                     <select
                       value={listId ?? ""}
                       onChange={(e) => setListId(e.target.value || null)}
-                      className="text-xs bg-white/60 dark:bg-white/[0.07] border border-black/10 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-black dark:text-white focus:outline-none focus:border-black/25 dark:focus:border-white/25 transition-default cursor-pointer"
+                      className="text-xs bg-transparent border border-black/10 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-black dark:text-white focus:outline-none focus:border-black/25 dark:focus:border-white/25 transition-default cursor-pointer"
                     >
                       <option value="">No list</option>
                       {lists.map((list) => (
@@ -630,7 +602,7 @@ export default function TodoInput({
                           if (ev?.list_id) setListId(ev.list_id);
                         }
                       }}
-                      className="text-xs bg-white/60 dark:bg-white/[0.07] border border-black/10 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-black dark:text-white focus:outline-none focus:border-black/25 dark:focus:border-white/25 transition-default cursor-pointer"
+                      className="text-xs bg-transparent border border-black/10 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-black dark:text-white focus:outline-none focus:border-black/25 dark:focus:border-white/25 transition-default cursor-pointer"
                     >
                       <option value="">No event</option>
                       {events.map((ev) => (

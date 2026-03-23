@@ -3,11 +3,13 @@
 import { useEffect, useRef } from "react";
 import { hexToHsv } from "./ColorWheelPicker";
 
-// Darken a hex color for use as lava blob fill (low brightness, saturated)
+// The CSS blur+contrast goo trick requires the dominant RGB channel to exceed
+// ~118/255 (~0.46) so it survives contrast(14). Use 65% lightness to guarantee
+// that. Canvas opacity keeps the overall look subtle.
 function blobColorFromHex(hex: string): string {
   const [h, s] = hexToHsv(hex);
-  // dark, saturated version of the picked color
-  return `hsl(${h}, ${Math.min(s * 1.2, 85)}%, 22%)`;
+  const sat = Math.max(s, 55); // minimum saturation so neutral greys still have colour
+  return `hsl(${h}, ${Math.min(sat * 1.4, 92)}%, 65%)`;
 }
 
 /*

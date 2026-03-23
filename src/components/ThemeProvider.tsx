@@ -28,6 +28,8 @@ interface ThemeContextType {
   toggleTheme: () => void;
   tint: Tint;
   setTint: (t: Tint) => void;
+  lavaLamp: boolean;
+  setLavaLamp: (v: boolean) => void;
 }
 
 const ThemeContext = createContext<ThemeContextType>({
@@ -35,6 +37,8 @@ const ThemeContext = createContext<ThemeContextType>({
   toggleTheme: () => {},
   tint: "lavender",
   setTint: () => {},
+  lavaLamp: false,
+  setLavaLamp: () => {},
 });
 
 export function useTheme() {
@@ -50,6 +54,7 @@ function applyTint(tint: Tint) {
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<Theme>("light");
   const [tint, setTintState] = useState<Tint>("lavender");
+  const [lavaLamp, setLavaLampState] = useState(false);
 
   useEffect(() => {
     // Apply theme
@@ -63,6 +68,10 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     const storedTint = (localStorage.getItem("tint") as Tint | null) ?? "lavender";
     setTintState(storedTint);
     applyTint(storedTint);
+
+    // Apply lava lamp
+    const storedLava = localStorage.getItem("lava-lamp") === "1";
+    setLavaLampState(storedLava);
 
     // Sync theme from DB
     const supabase = createClient();
@@ -111,8 +120,13 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     applyTint(t);
   }, []);
 
+  const setLavaLamp = useCallback((v: boolean) => {
+    setLavaLampState(v);
+    localStorage.setItem("lava-lamp", v ? "1" : "0");
+  }, []);
+
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme, tint, setTint }}>
+    <ThemeContext.Provider value={{ theme, toggleTheme, tint, setTint, lavaLamp, setLavaLamp }}>
       {children}
     </ThemeContext.Provider>
   );

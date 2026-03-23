@@ -51,7 +51,7 @@ export default function SettingsPage() {
   const { tags } = useTags(user?.id);
   const { todos, clearCompleted, exportTodos } = useTodos(user?.id, tags);
   const { permission: notifPermission, isSubscribed: notifSubscribed, subscribe: subscribeNotifications, unsubscribe: unsubscribeNotifications } = usePushNotifications();
-  const { tint, setTint } = useTheme();
+  const { tint, setTint, lavaLamp, setLavaLamp, theme } = useTheme();
 
   useEffect(() => {
     supabase.auth
@@ -261,6 +261,25 @@ export default function SettingsPage() {
                     </button>
                   ))}
                 </div>
+                {/* Lava Lamp toggle — dark mode only */}
+                <div className="mt-6 flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-medium text-black dark:text-white">Lava lamp background</p>
+                    <p className="text-[11px] text-gray-400 mt-0.5">Animated glowing blobs behind glass cards{theme !== "dark" ? " (dark mode only)" : ""}</p>
+                  </div>
+                  <button
+                    onClick={() => setLavaLamp(!lavaLamp)}
+                    className={`relative inline-flex h-6 w-11 flex-shrink-0 rounded-full transition-colors duration-200 focus:outline-none ${lavaLamp && theme === "dark" ? "bg-indigo-500" : "bg-black/10 dark:bg-white/10"}`}
+                    role="switch"
+                    aria-checked={lavaLamp}
+                    disabled={theme !== "dark"}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transform transition-transform duration-200 mt-0.5 ${lavaLamp && theme === "dark" ? "translate-x-5" : "translate-x-0.5"}`}
+                    />
+                  </button>
+                </div>
+
                 <p className="text-[10px] text-gray-500 mt-4">
                   Use <kbd className="px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 text-[10px] font-mono">⌘D</kbd> to toggle dark/light mode
                 </p>

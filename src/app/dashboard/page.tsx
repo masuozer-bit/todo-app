@@ -34,6 +34,7 @@ import { useTemplates } from "@/hooks/useTemplates";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { useTheme } from "@/components/ThemeProvider";
+import LavaLampBackground from "@/components/LavaLampBackground";
 import {
   DndContext,
   closestCenter,
@@ -348,7 +349,7 @@ export default function DashboardPage() {
   });
   const router = useRouter();
   const supabase = createClient();
-  const { toggleTheme } = useTheme();
+  const { toggleTheme, theme, tint, lavaLamp } = useTheme();
 
   // Toast helpers
   const addToast = useCallback((toast: Omit<ToastData, "id">) => {
@@ -996,6 +997,9 @@ export default function DashboardPage() {
 
   return (
     <>
+    {/* Lava lamp animated background (dark mode only) */}
+    {theme === "dark" && lavaLamp && <LavaLampBackground tint={tint} />}
+
     {/* Focus Mode overlay (mobile only) */}
     {isMobile && focusMode && (
       <FocusModeView
@@ -1010,7 +1014,7 @@ export default function DashboardPage() {
         {...focusModeHandlers}
       />
     )}
-    <div className="h-screen overflow-hidden transition-colors">
+    <div className="h-screen overflow-hidden transition-colors relative" style={{ zIndex: 1 }}>
       <div className={`mx-auto px-4 pt-6 pb-0 flex gap-6 h-full ${!habitsView && !eventsView ? "max-w-[1380px]" : "max-w-5xl"}`}>
         {/* Sidebar — desktop */}
         <aside className="hidden md:flex md:flex-col w-48 flex-shrink-0 pt-4 overflow-y-auto overflow-x-hidden pb-4" style={{ maxHeight: "calc(100vh - 24px)" }}>

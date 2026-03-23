@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { hexToHsv } from "./ColorWheelPicker";
+import { hexToHsv } from "@/lib/color-utils";
 
 // The CSS blur+contrast goo trick requires the dominant RGB channel to exceed
 // ~118/255 (~0.46) so it survives contrast(14). Use 65% lightness to guarantee

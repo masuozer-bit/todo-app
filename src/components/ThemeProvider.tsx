@@ -10,7 +10,7 @@ import {
 } from "react";
 
 import { createClient } from "@/lib/supabase/client";
-import { hexToHsv } from "./ColorWheelPicker";
+import { hexToHsv } from "@/lib/color-utils";
 
 type Theme = "light" | "dark";
 

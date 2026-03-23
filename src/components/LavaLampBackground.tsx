@@ -58,7 +58,7 @@ const evalWave = (ws: [Wave,Wave,Wave], t: number) =>
   ws[1].amp * Math.sin(ws[1].freq * t + ws[1].phase) +
   ws[2].amp * Math.sin(ws[2].freq * t + ws[2].phase);
 
-export default function LavaLampBackground({ tint }: { tint: string }) {
+export default function LavaLampBackground({ tint, opacity = 0.58 }: { tint: string; opacity?: number }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const tintRef   = useRef(tint);
   tintRef.current = tint;
@@ -148,7 +148,7 @@ export default function LavaLampBackground({ tint }: { tint: string }) {
           Together these produce the classic "metaball / goo" silhouette.
         */
         filter:        "blur(30px) contrast(14)",
-        opacity:       0.58,
+        opacity,
       }}
     />
   );

@@ -349,7 +349,7 @@ export default function DashboardPage() {
   });
   const router = useRouter();
   const supabase = createClient();
-  const { toggleTheme, theme, tint, lavaLamp, lavaColor } = useTheme();
+  const { toggleTheme, theme, tint, lavaLamp, lavaColor, lavaOpacity } = useTheme();
 
   // Toast helpers
   const addToast = useCallback((toast: Omit<ToastData, "id">) => {
@@ -998,7 +998,7 @@ export default function DashboardPage() {
   return (
     <>
     {/* Lava lamp animated background (dark mode only) */}
-    {theme === "dark" && lavaLamp && <LavaLampBackground tint={lavaColor} />}
+    {theme === "dark" && lavaLamp && <LavaLampBackground tint={lavaColor} opacity={lavaOpacity} />}
 
     {/* Focus Mode overlay (mobile only) */}
     {isMobile && focusMode && (

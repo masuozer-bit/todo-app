@@ -75,6 +75,8 @@ interface ThemeContextType {
   setLavaLamp: (v: boolean) => void;
   lavaColor: string; // hex color for lava blobs (defaults to tint)
   setLavaColor: (hex: string) => void;
+  lavaOpacity: number; // 0–1
+  setLavaOpacity: (v: number) => void;
 }
 
 const ThemeContext = createContext<ThemeContextType>({
@@ -86,6 +88,8 @@ const ThemeContext = createContext<ThemeContextType>({
   setLavaLamp: () => {},
   lavaColor: "#5540A0",
   setLavaColor: () => {},
+  lavaOpacity: 0.58,
+  setLavaOpacity: () => {},
 });
 
 export function useTheme() {
@@ -98,7 +102,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme]            = useState<Theme>("light");
   const [tint, setTintState]         = useState<string>("#5540A0");
   const [lavaLamp, setLavaLampState] = useState(false);
-  const [lavaColor, setLavaColorState] = useState<string>("#5540A0");
+  const [lavaColor, setLavaColorState]     = useState<string>("#5540A0");
+  const [lavaOpacity, setLavaOpacityState] = useState<number>(0.58);
 
   useEffect(() => {
     // Theme
@@ -120,6 +125,10 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     // Lava color (defaults to tint if not set)
     const storedLavaColor = localStorage.getItem("lava-color");
     setLavaColorState(storedLavaColor ?? hex);
+
+    // Lava opacity
+    const storedOpacity = localStorage.getItem("lava-opacity");
+    if (storedOpacity !== null) setLavaOpacityState(parseFloat(storedOpacity));
 
     // Sync theme from DB
     const supabase = createClient();
@@ -179,8 +188,13 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     localStorage.setItem("lava-color", hex);
   }, []);
 
+  const setLavaOpacity = useCallback((v: number) => {
+    setLavaOpacityState(v);
+    localStorage.setItem("lava-opacity", String(v));
+  }, []);
+
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme, tint, setTint, lavaLamp, setLavaLamp, lavaColor, setLavaColor }}>
+    <ThemeContext.Provider value={{ theme, toggleTheme, tint, setTint, lavaLamp, setLavaLamp, lavaColor, setLavaColor, lavaOpacity, setLavaOpacity }}>
       {children}
     </ThemeContext.Provider>
   );

@@ -52,7 +52,7 @@ export default function SettingsPage() {
   const { tags } = useTags(user?.id);
   const { todos, clearCompleted, exportTodos } = useTodos(user?.id, tags);
   const { permission: notifPermission, isSubscribed: notifSubscribed, subscribe: subscribeNotifications, unsubscribe: unsubscribeNotifications } = usePushNotifications();
-  const { tint, setTint, lavaLamp, setLavaLamp, lavaColor, setLavaColor, theme } = useTheme();
+  const { tint, setTint, lavaLamp, setLavaLamp, lavaColor, setLavaColor, lavaOpacity, setLavaOpacity, theme } = useTheme();
 
   useEffect(() => {
     supabase.auth
@@ -312,6 +312,23 @@ export default function SettingsPage() {
                     >
                       Reset to app color
                     </button>
+
+                    {/* Opacity slider */}
+                    <div className="mt-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-xs text-gray-400 font-medium">Opacity</p>
+                        <span className="text-xs font-mono text-black dark:text-white">{Math.round(lavaOpacity * 100)}%</span>
+                      </div>
+                      <input
+                        type="range"
+                        min={0.1}
+                        max={1}
+                        step={0.01}
+                        value={lavaOpacity}
+                        onChange={(e) => setLavaOpacity(parseFloat(e.target.value))}
+                        className="w-full accent-white h-1.5 rounded-full cursor-pointer"
+                      />
+                    </div>
                   </div>
                 )}
 

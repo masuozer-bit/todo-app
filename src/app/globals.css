@@ -424,22 +424,24 @@
     left: 0;
     right: 0;
     height: 3px;
+    /* Subtle radiant: just the list colour fading in/out, no bright white peak */
     background: linear-gradient(
       90deg,
       transparent        0%,
-      var(--list-color)  25%,
-      #ffffff            50%,
-      var(--list-color)  75%,
+      var(--list-color)  35%,
+      var(--list-color)  65%,
       transparent        100%
     );
-    background-size: 250% 100%;
-    animation: strip-shimmer 2.8s ease-in-out infinite;
+    background-size: 240% 100%;
+    opacity: 0.75;
+    animation: strip-shimmer 5.5s ease-in-out infinite;
     pointer-events: none;
   }
 
   @keyframes strip-shimmer {
-    0%   { background-position:  110% 0; }
-    100% { background-position: -110% 0; }
+    0%   { background-position:  130% 0; opacity: 0.55; }
+    50%  { opacity: 0.85; }
+    100% { background-position: -130% 0; opacity: 0.55; }
   }
 
   /* Dragging state */

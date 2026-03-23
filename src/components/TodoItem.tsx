@@ -543,9 +543,18 @@ export default function TodoItem({
         </div>
       )}
 
-      {/* Expanded panel */}
-      {expanded && (
-        <div className="px-3 pb-3 pt-2.5 space-y-3 border-t border-black/5 dark:border-white/5" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
+      {/* Expanded panel — grid trick: 0fr→1fr animates height so the strip follows */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateRows: expanded ? "1fr" : "0fr",
+          transition: "grid-template-rows 280ms ease",
+        }}
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
+      >
+      <div style={{ overflow: "hidden" }}>
+        <div className="px-3 pb-3 pt-2.5 space-y-3 border-t border-black/5 dark:border-white/5">
 
           {/* Priority */}
           {!todo.completed && (
@@ -895,7 +904,8 @@ export default function TodoItem({
             </div>
           )}
         </div>
-      )}
+      </div>
+      </div>
 
       {/* Animated list colour strip — always at bottom of card */}
       {listColor && <div className="list-strip" aria-hidden="true" />}

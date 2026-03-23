@@ -1,102 +1,181 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import type { Tint } from "./ThemeProvider";
 
-/* Per-tint blob colours (dark mode only) */
-const TINT_COLORS: Record<Tint, [string, string, string, string, string]> = {
-  lavender: [
-    "rgba(120, 50, 230, 0.72)",
-    "rgba(60,  45, 190, 0.58)",
-    "rgba(160, 120, 255, 0.48)",
-    "rgba(100, 30, 210, 0.62)",
-    "rgba(200, 170, 255, 0.38)",
-  ],
-  warm: [
-    "rgba(210, 110,   5, 0.70)",
-    "rgba(175,  75,   8, 0.58)",
-    "rgba(240, 155,  10, 0.50)",
-    "rgba(155,  65,   0, 0.65)",
-    "rgba(250, 185,  35, 0.38)",
-  ],
-  sage: [
-    "rgba(  4, 145, 100, 0.68)",
-    "rgba(  3, 115,  80, 0.56)",
-    "rgba( 50, 205, 145, 0.48)",
-    "rgba(  5,  90,  65, 0.62)",
-    "rgba( 80, 220, 160, 0.38)",
-  ],
-  rose: [
-    "rgba(220,  25,  68, 0.68)",
-    "rgba(185,  18,  90, 0.56)",
-    "rgba(240,  55,  95, 0.48)",
-    "rgba(155,  14,  55, 0.62)",
-    "rgba(255, 100, 135, 0.38)",
-  ],
-  ocean: [
-    "rgba( 12, 158, 228, 0.68)",
-    "rgba(  2, 100, 158, 0.56)",
-    "rgba(  5, 175, 210, 0.48)",
-    "rgba(  1,  72, 120, 0.62)",
-    "rgba( 50, 200, 240, 0.38)",
-  ],
-  neutral: [
-    "rgba(100, 108, 120, 0.58)",
-    "rgba( 70,  80,  95, 0.48)",
-    "rgba(150, 158, 170, 0.42)",
-    "rgba( 52,  60,  75, 0.55)",
-    "rgba(180, 188, 200, 0.32)",
-  ],
+/* Blob fill colour per tint – saturated so blur+contrast renders well */
+const TINT_HEX: Record<Tint, string> = {
+  lavender: "#3a0e8c",
+  warm:     "#7a1e05",
+  sage:     "#074d22",
+  rose:     "#7a0a28",
+  ocean:    "#083a85",
+  neutral:  "#1e1e2e",
 };
 
 interface Blob {
-  size: number;
-  top: string;
-  left: string;
-  animation: string;
-  delay: string;
-  colorIdx: number;
+  x: number; y: number;           // absolute pixels
+  rx: number; ry: number;         // radii (ellipse, so we can stretch)
+  vx: number; vy: number;
+  /** stretch target: 1 = circle, >1 = tall, <1 = wide */
+  stretchTarget: number;
+  stretch: number;
+  stretchV: number;
+  stretchTimer: number;
 }
 
-const BLOBS: Blob[] = [
-  { size: 660, top: "-8%",  left: "-8%",  animation: "lava-1", delay: "0s",    colorIdx: 0 },
-  { size: 560, top: "35%",  left: "65%",  animation: "lava-2", delay: "-9s",   colorIdx: 1 },
-  { size: 500, top: "60%",  left: "10%",  animation: "lava-3", delay: "-17s",  colorIdx: 2 },
-  { size: 440, top: "5%",   left: "45%",  animation: "lava-4", delay: "-6s",   colorIdx: 3 },
-  { size: 390, top: "75%",  left: "55%",  animation: "lava-1", delay: "-22s",  colorIdx: 4 },
-];
+function randBetween(a: number, b: number) {
+  return a + Math.random() * (b - a);
+}
+
+function makeBlobs(w: number, h: number): Blob[] {
+  const blobs: Blob[] = [];
+
+  // 4 large primary blobs
+  for (let i = 0; i < 4; i++) {
+    const r = randBetween(120, 220);
+    blobs.push({
+      x: randBetween(r, w - r),
+      y: randBetween(h * 0.3, h - r),
+      rx: r, ry: r,
+      vx: randBetween(-0.35, 0.35),
+      vy: randBetween(-0.5, -0.2),   // slight upward tendency
+      stretch: 1, stretchTarget: 1, stretchV: 0,
+      stretchTimer: randBetween(0, 300),
+    });
+  }
+
+  // 5 medium blobs
+  for (let i = 0; i < 5; i++) {
+    const r = randBetween(65, 115);
+    blobs.push({
+      x: randBetween(r, w - r),
+      y: randBetween(h * 0.1, h - r),
+      rx: r, ry: r,
+      vx: randBetween(-0.55, 0.55),
+      vy: randBetween(-0.6, 0.3),
+      stretch: 1, stretchTarget: 1, stretchV: 0,
+      stretchTimer: randBetween(0, 300),
+    });
+  }
+
+  // 5 small satellite blobs
+  for (let i = 0; i < 5; i++) {
+    const r = randBetween(28, 58);
+    blobs.push({
+      x: randBetween(r, w - r),
+      y: randBetween(0, h),
+      rx: r, ry: r,
+      vx: randBetween(-0.7, 0.7),
+      vy: randBetween(-0.8, 0.4),
+      stretch: 1, stretchTarget: 1, stretchV: 0,
+      stretchTimer: randBetween(0, 300),
+    });
+  }
+
+  return blobs;
+}
 
 export default function LavaLampBackground({ tint }: { tint: Tint }) {
-  const colors = TINT_COLORS[tint];
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const tintRef   = useRef(tint);
+  tintRef.current = tint;
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    let w = window.innerWidth;
+    let h = window.innerHeight;
+    canvas.width  = w;
+    canvas.height = h;
+
+    const ctx = canvas.getContext("2d")!;
+    let blobs = makeBlobs(w, h);
+    let animId = 0;
+
+    const onResize = () => {
+      w = window.innerWidth;
+      h = window.innerHeight;
+      canvas.width  = w;
+      canvas.height = h;
+      blobs = makeBlobs(w, h);
+    };
+    window.addEventListener("resize", onResize);
+
+    const GRAVITY   =  0.012;   // gentle pull toward bottom
+    const BUOYANCY  = -0.022;   // blobs at bottom get pushed up
+    const DAMPING   =  0.998;
+
+    const draw = () => {
+      /* ── clear with black ── */
+      ctx.fillStyle = "#000";
+      ctx.fillRect(0, 0, w, h);
+
+      ctx.fillStyle = TINT_HEX[tintRef.current];
+
+      for (const b of blobs) {
+        /* ── physics ── */
+        const bottomness = b.y / h;               // 0 top, 1 bottom
+        b.vy += GRAVITY * bottomness - BUOYANCY * (1 - bottomness);
+        b.vx *= DAMPING;
+        b.vy *= DAMPING;
+
+        b.x += b.vx;
+        b.y += b.vy;
+
+        /* bounce off walls */
+        if (b.x - b.rx < 0)  { b.x = b.rx;      b.vx =  Math.abs(b.vx); }
+        if (b.x + b.rx > w)  { b.x = w - b.rx;  b.vx = -Math.abs(b.vx); }
+        if (b.y - b.ry < 0)  { b.y = b.ry;      b.vy =  Math.abs(b.vy); }
+        if (b.y + b.ry > h)  { b.y = h - b.ry;  b.vy = -Math.abs(b.vy); }
+
+        /* ── organic stretch ── */
+        b.stretchTimer--;
+        if (b.stretchTimer <= 0) {
+          b.stretchTarget = randBetween(0.65, 1.7);   // tall or wide
+          b.stretchTimer  = randBetween(180, 480);
+        }
+        const dStretch = (b.stretchTarget - b.stretch) * 0.012;
+        b.stretch += dStretch;
+        b.stretchV *= 0.9;
+
+        /* apply stretch preserving area roughly */
+        const baseR = b.rx;  // use rx as base radius
+        const ry = baseR * b.stretch;
+        const rx = baseR / Math.sqrt(b.stretch);   // area-conserving squeeze
+
+        /* ── draw ellipse ── */
+        ctx.beginPath();
+        ctx.ellipse(b.x, b.y, rx, ry, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      animId = requestAnimationFrame(draw);
+    };
+
+    draw();
+    return () => {
+      cancelAnimationFrame(animId);
+      window.removeEventListener("resize", onResize);
+    };
+  }, []);   // run once; tint is read via ref
 
   return (
-    <div
+    <canvas
+      ref={canvasRef}
       aria-hidden="true"
       style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 0,
+        position:      "fixed",
+        inset:         0,
+        zIndex:        0,
+        width:         "100%",
+        height:        "100%",
         pointerEvents: "none",
-        overflow: "hidden",
+        /* The magic: blur spreads colour, contrast snaps edges back → goo shapes */
+        filter:  "blur(32px) contrast(16)",
+        opacity: 0.55,
       }}
-    >
-      {BLOBS.map((blob, i) => (
-        <div
-          key={i}
-          style={{
-            position: "absolute",
-            width:  blob.size,
-            height: blob.size,
-            top:    blob.top,
-            left:   blob.left,
-            borderRadius: "50%",
-            background: `radial-gradient(circle, ${colors[blob.colorIdx]} 0%, transparent 68%)`,
-            filter: "blur(110px)",
-            animation: `${blob.animation} ${22 + i * 5}s ease-in-out infinite`,
-            animationDelay: blob.delay,
-            willChange: "transform",
-          }}
-        />
-      ))}
-    </div>
+    />
   );
 }

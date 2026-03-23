@@ -140,7 +140,7 @@ export default function EventCard({
   }
 
   return (
-    <div className="glass-card overflow-hidden group relative" style={{ borderBottom: `4px solid ${event.color ?? "#6366f1"}` }}>
+    <div className="glass-card overflow-hidden group relative list-colored" style={{ "--list-color": event.color ?? "#6366f1" } as React.CSSProperties}>
 
       {/* Header */}
       <div className={todos.length === 0 ? "py-2 px-3" : "p-3 md:p-4"}>
@@ -435,6 +435,8 @@ export default function EventCard({
           )}
         </div>
       )}
+      {/* Animated colour strip — always at bottom */}
+      <div className="list-strip" aria-hidden="true" />
     </div>
   );
 }

@@ -239,7 +239,8 @@ export default function TodoItem({
     <div
       ref={itemRef}
       data-todo-id={todo.id}
-      className="group transition-default glass-card overflow-hidden"
+      className={`group transition-default glass-card overflow-hidden relative ${listColor ? "list-colored" : ""}`}
+      style={listColor ? { "--list-color": listColor } as React.CSSProperties : undefined}
     >
       {/* The pill — this IS the card */}
       {editing ? (
@@ -278,10 +279,7 @@ export default function TodoItem({
         <div
           className={`relative px-3 py-2 cursor-pointer transition-default ${
             isDragging ? "opacity-50 scale-[1.02] shadow-lg" : ""
-          } ${todo.completed ? "opacity-60" : ""} ${highlighted ? "ring-2 ring-blue-500/60 ring-offset-1" : ""} ${
-            listColor ? "list-colored" : ""
-          }`}
-          style={listColor ? { "--list-color": listColor } as React.CSSProperties : undefined}
+          } ${todo.completed ? "opacity-60" : ""} ${highlighted ? "ring-2 ring-blue-500/60 ring-offset-1" : ""}`}
           onClick={handleToggle}
           onDoubleClick={(e) => { e.stopPropagation(); if (!todo.completed) setEditing(true); }}
           {...dragHandleProps}
@@ -898,6 +896,9 @@ export default function TodoItem({
           )}
         </div>
       )}
+
+      {/* Animated list colour strip — always at bottom of card */}
+      {listColor && <div className="list-strip" aria-hidden="true" />}
     </div>
   );
 }

@@ -417,9 +417,29 @@
     color-scheme: dark;
   }
 
-  /* List-colored task pills — left accent stripe */
-  .list-colored {
-    border-bottom: 4px solid var(--list-color) !important;
+  /* ── Animated list-colour strip at bottom of card ── */
+  .list-strip {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(
+      90deg,
+      transparent        0%,
+      var(--list-color)  25%,
+      #ffffff            50%,
+      var(--list-color)  75%,
+      transparent        100%
+    );
+    background-size: 250% 100%;
+    animation: strip-shimmer 2.8s ease-in-out infinite;
+    pointer-events: none;
+  }
+
+  @keyframes strip-shimmer {
+    0%   { background-position:  110% 0; }
+    100% { background-position: -110% 0; }
   }
 
   /* Dragging state */

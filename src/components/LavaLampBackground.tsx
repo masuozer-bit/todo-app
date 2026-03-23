@@ -63,6 +63,9 @@ export default function LavaLampBackground({ tint, opacity = 0.58 }: { tint: str
   const tintRef   = useRef(tint);
   tintRef.current = tint;
 
+  // Smoothed mouse position in normalised coords (0–1), starts off-screen
+  const mouseRef = useRef({ x: -2, y: -2, tx: -2, ty: -2 });
+
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -80,15 +83,21 @@ export default function LavaLampBackground({ tint, opacity = 0.58 }: { tint: str
 
     /* ── canvas sizing ── */
     const resize = () => {
-      /* Use CSS pixels matching the viewport so it works at any zoom level */
       canvas.width  = window.innerWidth;
       canvas.height = window.innerHeight;
     };
     resize();
     window.addEventListener("resize", resize);
 
+    /* ── mouse tracking (normalised to 0-1) ── */
+    const onMouse = (e: MouseEvent) => {
+      mouseRef.current.tx = e.clientX / window.innerWidth;
+      mouseRef.current.ty = e.clientY / window.innerHeight;
+    };
+    window.addEventListener("mousemove", onMouse);
+
     const ctx   = canvas.getContext("2d")!;
-    let   t     = Math.random() * 50_000; // random start → no two sessions look the same
+    let   t     = Math.random() * 50_000;
     let   animId = 0;
 
     const draw = () => {
@@ -96,21 +105,47 @@ export default function LavaLampBackground({ tint, opacity = 0.58 }: { tint: str
       const w = canvas.width;
       const h = canvas.height;
 
+      /* Smoothly lerp the displayed mouse toward the real position.
+         Low alpha = very lazy follow → the influence feels dreamy, not snappy. */
+      const m = mouseRef.current;
+      const alpha = 0.04;
+      m.x += (m.tx - m.x) * alpha;
+      m.y += (m.ty - m.y) * alpha;
+
       ctx.fillStyle = "#000";
       ctx.fillRect(0, 0, w, h);
 
       ctx.fillStyle = blobColorFromHex(tintRef.current);
 
-      for (const b of blobs) {
-        const x  = (b.cx + evalWave(b.wx, t)) * w;
-        const y  = (b.cy + evalWave(b.wy, t)) * h;
-        const rot = Math.sin(b.wr.freq * t + b.wr.phase) * b.wr.amp;
+      /* Influence radius: blobs within 45% of the screen diagonal feel the cursor */
+      const diagPx  = Math.sqrt(w * w + h * h);
+      const influence = diagPx * 0.45;
 
-        /* stretch: values >1 = tall teardrop, <1 = wide disc */
+      for (const b of blobs) {
+        let x  = (b.cx + evalWave(b.wx, t)) * w;
+        let y  = (b.cy + evalWave(b.wy, t)) * h;
+
+        /* Apply a tiny cursor attraction — falls off with distance squared */
+        if (m.x >= 0) {
+          const mx   = m.x * w;
+          const my   = m.y * h;
+          const dx   = mx - x;
+          const dy   = my - y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < influence && dist > 1) {
+            /* strength peaks near the cursor, fades smoothly to 0 at influence edge */
+            const t2 = 1 - dist / influence;
+            /* max pull: ~3% of screen diagonal — barely noticeable but present */
+            const pull = diagPx * 0.03 * t2 * t2;
+            x += (dx / dist) * pull;
+            y += (dy / dist) * pull;
+          }
+        }
+
+        const rot = Math.sin(b.wr.freq * t + b.wr.phase) * b.wr.amp;
         const stretch = Math.max(0.45, Math.min(2.4,
           1 + b.ws.amp * Math.sin(b.ws.freq * t + b.ws.phase)
         ));
-        /* preserve approximate area during stretch */
         const rx = b.r / Math.sqrt(stretch);
         const ry = b.r * Math.sqrt(stretch);
 
@@ -126,6 +161,7 @@ export default function LavaLampBackground({ tint, opacity = 0.58 }: { tint: str
     return () => {
       cancelAnimationFrame(animId);
       window.removeEventListener("resize", resize);
+      window.removeEventListener("mousemove", onMouse);
     };
   }, []);
 

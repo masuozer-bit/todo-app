@@ -239,11 +239,11 @@ export default function TodoItem({
     <div
       ref={itemRef}
       data-todo-id={todo.id}
-      className="group transition-default"
+      className="group transition-default glass-card overflow-hidden"
     >
       {/* The pill — this IS the card */}
       {editing ? (
-        <div className="flex items-center gap-2 rounded-xl px-3 py-2 bg-white dark:bg-black">
+        <div className="flex items-center gap-2 px-3 py-2">
           <input
             ref={editRef}
             type="text"
@@ -276,11 +276,11 @@ export default function TodoItem({
         </div>
       ) : (
         <div
-          className={`relative rounded-xl px-3 py-2 cursor-pointer transition-default ${
+          className={`relative px-3 py-2 cursor-pointer transition-default ${
             isDragging ? "opacity-50 scale-[1.02] shadow-lg" : ""
           } ${todo.completed ? "opacity-60" : ""} ${highlighted ? "ring-2 ring-blue-500/60 ring-offset-1" : ""} ${
             listColor ? "list-colored" : ""
-          } bg-white dark:bg-black`}
+          }`}
           style={listColor ? { "--list-color": listColor } as React.CSSProperties : undefined}
           onClick={handleToggle}
           onDoubleClick={(e) => { e.stopPropagation(); if (!todo.completed) setEditing(true); }}

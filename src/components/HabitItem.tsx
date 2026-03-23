@@ -160,13 +160,13 @@ export default function HabitItem({
     <div
       ref={itemRef}
       data-habit-id={habit.id}
-      className={`group transition-default ${
+      className={`group transition-default glass-card overflow-hidden ${
         isDragging ? "opacity-50 scale-[1.02] shadow-lg" : ""
       } ${habit.completedToday ? "opacity-60" : ""}`}
       style={highlighted ? { outline: "2px solid rgba(139,92,246,0.65)", outlineOffset: "2px" } : undefined}
     >
       {editing ? (
-        <div className="flex items-center gap-2 rounded-xl px-3 py-2 bg-white dark:bg-black">
+        <div className="flex items-center gap-2 px-3 py-2">
           <input
             ref={editRef}
             type="text"
@@ -191,7 +191,7 @@ export default function HabitItem({
         </div>
       ) : (
       <div
-        className="relative rounded-xl px-3 py-2 bg-white dark:bg-black cursor-pointer"
+        className="relative px-3 py-2 cursor-pointer"
         onClick={() => onToggle(habit.id)}
         onDoubleClick={(e) => { e.stopPropagation(); setEditing(true); }}
         {...dragHandleProps}

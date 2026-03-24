@@ -980,6 +980,16 @@ export default function DashboardPage() {
     });
   }
 
+  // Habits to show alongside tasks — filtered by list when in list view,
+  // hidden in overdue/habits/events views
+  const visibleHabits = (() => {
+    if (habitsView || eventsView || quickFilter === "overdue") return [];
+    if (activeListId) {
+      return todaysHabits.filter((h) => h.list_id === activeListId);
+    }
+    return todaysHabits;
+  })();
+
   const activeTodoCount = visibleTodos.filter((t) => !t.completed).length;
   const completedTodoCount = visibleTodos.filter((t) => t.completed).length;
   const totalTodoCount = activeTodoCount + completedTodoCount;
@@ -1324,30 +1334,6 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Show-habits-in-tasks toggle — only when not in habitsView/eventsView */}
-            {!habitsView && !eventsView && todaysHabits.length > 0 && (
-              <button
-                onClick={() => {
-                  const next = !showHabitsInTasks;
-                  setShowHabitsInTasks(next);
-                  try { localStorage.setItem("showHabitsInTasks", String(next)); } catch {}
-                }}
-                className={`hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-default glass-card-subtle ${
-                  showHabitsInTasks
-                    ? "text-black dark:text-white"
-                    : "text-black/40 dark:text-gray-500 hover:text-black dark:hover:text-white"
-                }`}
-                aria-label={showHabitsInTasks ? "Hide habits in task view" : "Show habits in task view"}
-              >
-                <Repeat size={13} />
-                <span>Habits</span>
-                {showHabitsInTasks && (
-                  <span className="text-black/40 dark:text-gray-500 text-[10px]">
-                    {todaysHabits.filter((h) => h.completedToday).length}/{todaysHabits.length}
-                  </span>
-                )}
-              </button>
-            )}
           </div>
 
 
@@ -1553,8 +1539,8 @@ export default function DashboardPage() {
                 : quickFilter === "overdue" ? "overdue"
                 : undefined
               }
-              habits={todaysHabits}
-              showHabits={showHabitsInTasks}
+              habits={visibleHabits}
+              showHabits={visibleHabits.length > 0}
               onToggleHabit={toggleCompletion}
               highlightedTodoId={highlightedTodoId}
               wideMode={!showCalendar}

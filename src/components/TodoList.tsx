@@ -16,7 +16,7 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { Search, X, Filter, CheckSquare, Trash2, Maximize2, ChevronRight, ChevronDown, PanelTopClose, Repeat, Flame, Clock } from "lucide-react";
+import { Search, X, Filter, CheckSquare, Trash2, Maximize2, ChevronRight, ChevronDown, PanelTopClose, Repeat, Flame, Clock, Check } from "lucide-react";
 import type { Todo, Tag, Priority, List, Event, HabitWithStatus } from "@/lib/types";
 import SortableItem from "./SortableItem";
 import ManualSortWrapper from "./ManualSortWrapper";
@@ -639,6 +639,8 @@ export default function TodoList({
 
   // Render a compact inline habit row
   function renderHabitRow(habit: HabitWithStatus) {
+    const list = lists?.find((l) => l.id === habit.list_id);
+    const listColor = list?.color ?? null;
     const time12 = habit.time
       ? (() => {
           const [h, m] = habit.time!.split(":").map(Number);
@@ -646,35 +648,52 @@ export default function TodoList({
           return `${h % 12 || 12}:${String(m).padStart(2, "0")} ${ampm}`;
         })()
       : null;
+    const scheduleLabel = habit.schedule_type === "weekly"
+      ? habit.schedule_days.map((d) => ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][d]).join(", ")
+      : habit.schedule_interval === 1 ? "Daily" : `Every ${habit.schedule_interval}d`;
+
     return (
       <div
         key={habit.id}
-        className={`glass-card-subtle flex items-center gap-3 px-3 py-2.5 transition-default ${
-          habit.completedToday ? "opacity-50" : ""
-        }`}
+        className={`group relative glass-card overflow-hidden transition-default ${habit.completedToday ? "opacity-60" : ""}`}
+        style={listColor ? { "--list-color": listColor } as React.CSSProperties : undefined}
       >
-        <input
-          type="checkbox"
-          checked={habit.completedToday}
-          onChange={() => onToggleHabit?.(habit.id)}
-          className="custom-checkbox flex-shrink-0"
-          aria-label={`Habit: ${habit.title}`}
-        />
-        <Repeat size={12} className="text-black/30 dark:text-gray-600 flex-shrink-0" />
-        <span className={`flex-1 text-sm min-w-0 truncate ${habit.completedToday ? "line-through text-black/40 dark:text-gray-500" : "text-black dark:text-white"}`}>
-          {habit.title}
-        </span>
-        <div className="flex items-center gap-2 flex-shrink-0">
-          {time12 && (
+        {listColor && <div className="list-strip" aria-hidden="true" />}
+        <div className="flex items-center gap-2 px-3 py-2">
+          {/* Circular check button */}
+          <button
+            onClick={() => onToggleHabit?.(habit.id)}
+            className={`w-4 h-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-default ${
+              habit.completedToday
+                ? "bg-green-500/80 border-green-500/80"
+                : "border-black/25 dark:border-white/25 hover:border-green-500/60"
+            }`}
+            aria-label={`${habit.completedToday ? "Uncheck" : "Complete"} habit: ${habit.title}`}
+          >
+            {habit.completedToday && <Check size={9} strokeWidth={3} className="text-white" />}
+          </button>
+          {/* Title */}
+          <span className={`flex-1 text-sm min-w-0 truncate transition-default ${
+            habit.completedToday ? "line-through text-black/40 dark:text-gray-500" : "text-black dark:text-white"
+          }`}>
+            {habit.title}
+          </span>
+          {/* Badges */}
+          <div className="flex items-center gap-2 flex-shrink-0">
             <span className="flex items-center gap-1 text-[10px] text-black/40 dark:text-gray-500">
-              <Clock size={9} />{time12}
+              <Repeat size={9} />{scheduleLabel}
             </span>
-          )}
-          {habit.streak > 0 && (
-            <span className="flex items-center gap-0.5 text-[10px] text-orange-500 dark:text-orange-400">
-              <Flame size={9} />{habit.streak}
-            </span>
-          )}
+            {time12 && (
+              <span className="flex items-center gap-1 text-[10px] text-black/40 dark:text-gray-500">
+                <Clock size={9} />{time12}
+              </span>
+            )}
+            {habit.streak > 0 && (
+              <span className="flex items-center gap-0.5 text-[10px] text-orange-500 dark:text-orange-400">
+                <Flame size={9} />{habit.streak}
+              </span>
+            )}
+          </div>
         </div>
       </div>
     );
@@ -1023,19 +1042,10 @@ export default function TodoList({
         </div>
       )}
 
-      {/* Inline habits section — shown when showHabits toggle is on */}
+      {/* Habit pills — shown as regular task pills */}
       {showHabits && habits.length > 0 && (
-        <div className="mb-5">
-          <div className="flex items-center gap-2 mb-3">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-black/40 dark:text-gray-500 whitespace-nowrap">Habits</span>
-            <span className="text-[10px] text-black/25 dark:text-gray-600 tabular-nums whitespace-nowrap">
-              {habits.filter((h) => h.completedToday).length}/{habits.length}
-            </span>
-            <div className="flex-1 h-px bg-black/[0.07] dark:bg-white/[0.07]" />
-          </div>
-          <div className="space-y-1.5">
-            {habits.map((habit) => renderHabitRow(habit))}
-          </div>
+        <div className="space-y-1.5 mb-1.5">
+          {habits.map((habit) => renderHabitRow(habit))}
         </div>
       )}
 

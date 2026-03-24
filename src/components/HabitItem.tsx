@@ -2,12 +2,14 @@
 
 import { useState, useRef, useEffect } from "react";
 import { Trash2, Check, X, Flame, Repeat, Clock, FileText, ChevronDown, Settings2, Minus, Plus } from "lucide-react";
-import type { HabitWithStatus, HabitCompletion, ScheduleType } from "@/lib/types";
+import type { HabitWithStatus, HabitCompletion, ScheduleType, List } from "@/lib/types";
 import HabitWeekModal from "./HabitWeekModal";
+import { CustomSelect } from "./Pickers";
 
 interface HabitItemProps {
   habit: HabitWithStatus;
   completions?: HabitCompletion[];
+  lists?: List[];
   onToggle: (habitId: string) => void;
   onUpdate: (
     id: string,
@@ -19,6 +21,7 @@ interface HabitItemProps {
       time?: string | null;
       end_time?: string | null;
       notes?: string | null;
+      list_id?: string | null;
     }
   ) => void;
   onDelete: (id: string) => void;
@@ -48,6 +51,7 @@ function formatTime12(time24: string): string {
 export default function HabitItem({
   habit,
   completions = [],
+  lists = [],
   onToggle,
   onUpdate,
   onDelete,
@@ -74,6 +78,7 @@ export default function HabitItem({
   const [editScheduleType, setEditScheduleType] = useState<ScheduleType>(habit.schedule_type);
   const [editScheduleDays, setEditScheduleDays] = useState<number[]>(habit.schedule_days);
   const [editScheduleInterval, setEditScheduleInterval] = useState(habit.schedule_interval || 1);
+  const [editListId, setEditListId] = useState(habit.list_id ?? "");
   const editRef = useRef<HTMLInputElement>(null);
   const notesRef = useRef<HTMLTextAreaElement>(null);
   const cancelledRef = useRef(false);
@@ -87,7 +92,8 @@ export default function HabitItem({
     setEditScheduleType(habit.schedule_type);
     setEditScheduleDays(habit.schedule_days);
     setEditScheduleInterval(habit.schedule_interval || 1);
-  }, [habit.title, habit.time, habit.end_time, habit.notes, habit.schedule_type, habit.schedule_days, habit.schedule_interval]);
+    setEditListId(habit.list_id ?? "");
+  }, [habit.title, habit.time, habit.end_time, habit.notes, habit.schedule_type, habit.schedule_days, habit.schedule_interval, habit.list_id]);
 
   useEffect(() => {
     if (editing) {
@@ -299,6 +305,21 @@ export default function HabitItem({
                 <Flame size={10} />
                 {habit.streak}
               </span>
+            )}
+
+            {/* List picker */}
+            {lists.length > 0 && (
+              <CustomSelect
+                value={editListId}
+                onChange={(v) => {
+                  setEditListId(v);
+                  onUpdate(habit.id, { list_id: v || null });
+                }}
+                options={[
+                  { value: "", label: "No list" },
+                  ...lists.map((l) => ({ value: l.id, label: l.name, color: l.color ?? undefined })),
+                ]}
+              />
             )}
 
             {/* Notes toggle */}

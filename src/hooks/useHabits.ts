@@ -147,7 +147,8 @@ export function useHabits(userId: string | undefined) {
       scheduleInterval: number,
       time?: string | null,
       notes?: string | null,
-      end_time?: string | null
+      end_time?: string | null,
+      list_id?: string | null
     ) => {
       if (!userId) return;
       const maxOrder =
@@ -164,6 +165,7 @@ export function useHabits(userId: string | undefined) {
           time: time || null,
           end_time: end_time || null,
           notes: notes || null,
+          list_id: list_id || null,
         })
         .select()
         .single();
@@ -194,6 +196,7 @@ export function useHabits(userId: string | undefined) {
         time?: string | null;
         end_time?: string | null;
         notes?: string | null;
+        list_id?: string | null;
       }
     ) => {
       const { error } = await supabase

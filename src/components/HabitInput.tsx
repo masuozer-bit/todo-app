@@ -2,9 +2,11 @@
 
 import { useState, useRef } from "react";
 import { Plus, ChevronDown, ChevronUp, Minus, Clock, FileText } from "lucide-react";
-import type { ScheduleType } from "@/lib/types";
+import type { ScheduleType, List } from "@/lib/types";
+import { CustomSelect } from "./Pickers";
 
 interface HabitInputProps {
+  lists?: List[];
   onAdd: (
     title: string,
     scheduleType: ScheduleType,
@@ -12,7 +14,8 @@ interface HabitInputProps {
     scheduleInterval: number,
     time?: string | null,
     notes?: string | null,
-    end_time?: string | null
+    end_time?: string | null,
+    list_id?: string | null
   ) => void;
 }
 
@@ -25,7 +28,7 @@ function formatTime12(time24: string): string {
   return `${h12}:${String(m).padStart(2, "0")} ${ampm}`;
 }
 
-export default function HabitInput({ onAdd }: HabitInputProps) {
+export default function HabitInput({ onAdd, lists = [] }: HabitInputProps) {
   const [title, setTitle] = useState("");
   const [showOptions, setShowOptions] = useState(false);
   const [scheduleType, setScheduleType] = useState<ScheduleType>("interval");
@@ -34,6 +37,7 @@ export default function HabitInput({ onAdd }: HabitInputProps) {
   const [time, setTime] = useState("");
   const [endTime, setEndTime] = useState("");
   const [notes, setNotes] = useState("");
+  const [listId, setListId] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
   function handleSubmit(e: React.FormEvent) {
@@ -47,7 +51,8 @@ export default function HabitInput({ onAdd }: HabitInputProps) {
       scheduleType === "interval" ? scheduleInterval : 1,
       time || null,
       notes.trim() || null,
-      endTime || null
+      endTime || null,
+      listId || null
     );
     setTitle("");
     setScheduleType("interval");
@@ -56,6 +61,7 @@ export default function HabitInput({ onAdd }: HabitInputProps) {
     setTime("");
     setEndTime("");
     setNotes("");
+    setListId("");
     setShowOptions(false);
     inputRef.current?.focus();
   }
@@ -224,6 +230,21 @@ export default function HabitInput({ onAdd }: HabitInputProps) {
                 )}
               </div>
             </div>
+
+            {/* List */}
+            {lists.length > 0 && (
+              <div>
+                <p className="text-xs text-black/50 dark:text-gray-400 font-medium mb-1.5">List</p>
+                <CustomSelect
+                  value={listId}
+                  onChange={setListId}
+                  options={[
+                    { value: "", label: "No list" },
+                    ...lists.map((l) => ({ value: l.id, label: l.name, color: l.color ?? undefined })),
+                  ]}
+                />
+              </div>
+            )}
 
             {/* Notes */}
             <div>

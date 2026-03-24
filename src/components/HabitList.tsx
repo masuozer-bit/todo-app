@@ -19,12 +19,13 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { X, CalendarOff, Trash2 } from "lucide-react";
-import type { HabitWithStatus, Habit, HabitCompletion, ScheduleType } from "@/lib/types";
+import type { HabitWithStatus, Habit, HabitCompletion, ScheduleType, List } from "@/lib/types";
 import HabitItem from "./HabitItem";
 
 function SortableHabitItem({
   habit,
   completions,
+  lists,
   onToggle,
   onUpdate,
   onDelete,
@@ -32,6 +33,7 @@ function SortableHabitItem({
 }: {
   habit: HabitWithStatus;
   completions: HabitCompletion[];
+  lists?: List[];
   onToggle: (id: string) => void;
   onUpdate: (
     id: string,
@@ -43,6 +45,7 @@ function SortableHabitItem({
       time?: string | null;
       end_time?: string | null;
       notes?: string | null;
+      list_id?: string | null;
     }
   ) => void;
   onDelete: (id: string) => void;
@@ -67,6 +70,7 @@ function SortableHabitItem({
       <HabitItem
         habit={habit}
         completions={completions}
+        lists={lists}
         onToggle={onToggle}
         onUpdate={onUpdate}
         onDelete={onDelete}
@@ -81,6 +85,7 @@ function SortableHabitItem({
 interface HabitListProps {
   habits: HabitWithStatus[];
   completions?: HabitCompletion[];
+  lists?: List[];
   onToggle: (habitId: string) => void;
   onUpdate: (
     id: string,
@@ -92,6 +97,7 @@ interface HabitListProps {
       time?: string | null;
       end_time?: string | null;
       notes?: string | null;
+      list_id?: string | null;
     }
   ) => void;
   onDelete: (id: string) => void;
@@ -104,6 +110,7 @@ interface HabitListProps {
 export default function HabitList({
   habits,
   completions = [],
+  lists = [],
   onToggle,
   onUpdate,
   onDelete,
@@ -203,6 +210,7 @@ export default function HabitList({
                   key={habit.id}
                   habit={habit}
                   completions={completions.filter((c) => c.habit_id === habit.id)}
+                  lists={lists}
                   onToggle={onToggle}
                   onUpdate={onUpdate}
                   onDelete={(id) => setDeleteId(id)}

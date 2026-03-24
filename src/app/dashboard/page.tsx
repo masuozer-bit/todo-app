@@ -1374,7 +1374,7 @@ export default function DashboardPage() {
               {eventsView ? (
                 <EventInput onAdd={addEvent} lists={lists} />
               ) : habitsView ? (
-                <HabitInput onAdd={addHabit} />
+                <HabitInput onAdd={addHabit} lists={lists} />
               ) : (
                 <TodoInput
                   onAdd={addTodo}
@@ -1500,6 +1500,7 @@ export default function DashboardPage() {
             <HabitList
               habits={todaysHabits}
               completions={habitCompletions}
+              lists={lists}
               onToggle={toggleCompletion}
               onUpdate={updateHabit}
               onDelete={deleteHabit}

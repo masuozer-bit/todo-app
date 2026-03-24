@@ -105,6 +105,7 @@ export interface Habit {
   time?: string | null;     // "HH:MM" 24-hour format, e.g. "09:00"
   end_time?: string | null; // "HH:MM" 24-hour format — end of the habit time block
   notes?: string | null; // free-form notes
+  list_id?: string | null;  // optional list association
   created_at: string;
   updated_at: string;
 }

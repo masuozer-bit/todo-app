@@ -53,7 +53,7 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Plus, Inbox, Trash2, Edit2, Check, X, Repeat, Menu, Sun, CalendarDays, CalendarRange, Target, AlertCircle, FolderPlus, Folder, Shield, Palette, Clock, ChevronRight } from "lucide-react";
+import { Plus, Inbox, Trash2, Edit2, Check, X, Repeat, Menu, Sun, CalendarDays, CalendarRange, Target, AlertCircle, FolderPlus, Folder, Shield, Palette, Clock, ChevronRight, LayoutTemplate } from "lucide-react";
 import { getToday } from "@/lib/date-helpers";
 import { fetchCalendarEvents } from "@/lib/calendar-sync-client";
 import type { User } from "@supabase/supabase-js";
@@ -1150,6 +1150,12 @@ export default function DashboardPage() {
               <button onClick={switchToHabits} className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-sm transition-default ${habitsView ? "glass-nav-active font-medium" : "text-black dark:text-white glass-nav-hover border border-transparent"}`}>
                 <Repeat size={14} className="flex-shrink-0" />
                 <span className="flex-1 text-left truncate">Habits</span>
+              </button>
+
+              <button onClick={() => setShowTemplates(true)} className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-sm transition-default text-black dark:text-white glass-nav-hover border border-transparent">
+                <LayoutTemplate size={14} className="flex-shrink-0" />
+                <span className="flex-1 text-left truncate">Templates</span>
+                <span className="text-[10px] text-gray-400 font-mono">T</span>
               </button>
             </div>
 

@@ -300,7 +300,6 @@ export default function TodoItem({
             isDragging ? "opacity-50 scale-[1.02] shadow-lg" : ""
           } ${todo.completed ? "opacity-60" : ""} ${highlighted ? "ring-2 ring-blue-500/60 ring-offset-1" : ""}`}
           onClick={handleToggle}
-          onDoubleClick={(e) => { e.stopPropagation(); if (!todo.completed) setEditing(true); }}
           {...dragHandleProps}
           aria-label={`Mark "${todo.title}" as ${todo.completed ? "incomplete" : "complete"}`}
         >
@@ -472,7 +471,7 @@ export default function TodoItem({
               {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
             </button>
             <button
-              onClick={(e) => { e.stopPropagation(); if (!todo.completed) setEditing(true); }}
+              onClick={(e) => { e.stopPropagation(); setExpanded(true); }}
               className="p-1 rounded-lg text-gray-400 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-default"
               aria-label="Edit task"
             >
@@ -594,7 +593,25 @@ export default function TodoItem({
           <div className="flex items-start gap-3 px-5 pt-5 pb-4 border-b border-white/8 flex-shrink-0">
             <div className="flex-1 min-w-0">
               <p className="text-[10px] uppercase tracking-widest text-white/30 font-medium mb-1">Task</p>
-              <p className="text-base font-semibold text-white leading-snug">{todo.title}</p>
+              {editing ? (
+                <input
+                  ref={editRef}
+                  type="text"
+                  value={editValue}
+                  onChange={(e) => setEditValue(e.target.value)}
+                  onBlur={handleSave}
+                  onKeyDown={(e) => { e.stopPropagation(); handleKeyDown(e); }}
+                  className="w-full bg-transparent text-white text-base font-semibold focus:outline-none border-b border-white/25 pb-0.5"
+                  aria-label="Edit task title"
+                />
+              ) : (
+                <p
+                  className="text-base font-semibold text-white cursor-text hover:text-white/80 transition-default"
+                  onClick={() => { if (!todo.completed) setEditing(true); }}
+                >
+                  {todo.title}
+                </p>
+              )}
             </div>
             <button
               onClick={() => setExpanded(false)}

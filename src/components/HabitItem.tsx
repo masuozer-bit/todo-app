@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Trash2, Check, X, Flame, Repeat, Clock, FileText, ChevronDown, Settings2, Minus, Plus } from "lucide-react";
+import { createPortal } from "react-dom";
+import { Trash2, Check, X, Flame, Repeat, FileText, ChevronDown, Settings2, Minus, Plus } from "lucide-react";
 import type { HabitWithStatus, HabitCompletion, ScheduleType, List } from "@/lib/types";
 import HabitWeekModal from "./HabitWeekModal";
-import { CustomSelect } from "./Pickers";
+import { CustomSelect, TimePicker } from "./Pickers";
 
 interface HabitItemProps {
   habit: HabitWithStatus;
@@ -79,7 +80,10 @@ export default function HabitItem({
   const [editScheduleDays, setEditScheduleDays] = useState<number[]>(habit.schedule_days);
   const [editScheduleInterval, setEditScheduleInterval] = useState(habit.schedule_interval || 1);
   const [editListId, setEditListId] = useState(habit.list_id ?? "");
+  const [domReady, setDomReady] = useState(false);
   const editRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => { setDomReady(true); }, []);
   const notesRef = useRef<HTMLTextAreaElement>(null);
   const cancelledRef = useRef(false);
 
@@ -163,6 +167,7 @@ export default function HabitItem({
   const hasNotes = !!(habit.notes?.trim());
 
   return (
+  <>
     <div
       ref={itemRef}
       data-habit-id={habit.id}
@@ -236,66 +241,27 @@ export default function HabitItem({
               </button>
             </span>
 
-            {/* Time — click to edit inline */}
-            <button
-              type="button"
-              onClick={() => {
-                const inp = document.getElementById(`habit-time-${habit.id}`) as HTMLInputElement | null;
-                inp?.showPicker?.();
-                inp?.click();
-              }}
-              className="flex items-center gap-1 text-xs text-black/40 dark:text-gray-500 hover:text-black dark:hover:text-white transition-default"
-              aria-label={habit.time ? "Edit start time" : "Add time"}
-            >
-              <Clock size={10} />
-              {habit.time ? (
-                <>
-                  {formatTime12(habit.time)}
-                  {habit.end_time && (
-                    <span className="opacity-70">–{formatTime12(habit.end_time)}</span>
-                  )}
-                </>
-              ) : (
-                <span className="opacity-50">Add time</span>
-              )}
-            </button>
-            {/* Hidden start time input */}
-            <input
-              id={`habit-time-${habit.id}`}
-              type="time"
+            {/* Start time */}
+            <TimePicker
               value={editTime}
-              onChange={(e) => {
-                setEditTime(e.target.value);
-                handleSaveTime(e.target.value);
+              placeholder="Add time"
+              onChange={(v) => {
+                setEditTime(v);
+                handleSaveTime(v);
+                if (!v) { setEditEndTime(""); handleSaveEndTime(""); }
               }}
-              className="sr-only"
-              aria-label="Set habit start time"
             />
             {/* End time — only shown when start time is set */}
-            {habit.time && (
+            {editTime && (
               <>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const inp = document.getElementById(`habit-end-time-${habit.id}`) as HTMLInputElement | null;
-                    inp?.showPicker?.();
-                    inp?.click();
-                  }}
-                  className="flex items-center gap-1 text-xs text-black/40 dark:text-gray-500 hover:text-black dark:hover:text-white transition-default"
-                  aria-label={habit.end_time ? "Edit end time" : "Add end time"}
-                >
-                  {!habit.end_time && <span className="opacity-40 text-[10px]">+ end</span>}
-                </button>
-                <input
-                  id={`habit-end-time-${habit.id}`}
-                  type="time"
+                <span className="text-[10px] text-black/25 dark:text-gray-700">→</span>
+                <TimePicker
                   value={editEndTime}
-                  onChange={(e) => {
-                    setEditEndTime(e.target.value);
-                    handleSaveEndTime(e.target.value);
+                  placeholder="End time"
+                  onChange={(v) => {
+                    setEditEndTime(v);
+                    handleSaveEndTime(v);
                   }}
-                  className="sr-only"
-                  aria-label="Set habit end time"
                 />
               </>
             )}
@@ -508,13 +474,15 @@ export default function HabitItem({
       </div>
       )}
 
-      {showWeekView && (
-        <HabitWeekModal
-          habit={habit}
-          completions={completions}
-          onClose={() => setShowWeekView(false)}
-        />
-      )}
     </div>
+    {domReady && showWeekView && createPortal(
+      <HabitWeekModal
+        habit={habit}
+        completions={completions}
+        onClose={() => setShowWeekView(false)}
+      />,
+      document.body
+    )}
+  </>
   );
 }

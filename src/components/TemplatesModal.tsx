@@ -246,13 +246,11 @@ function TaskRow({
               <TimePicker
                 value={draft.start_time}
                 onChange={(v) => onChange({ ...draft, start_time: v })}
-                placeholder="Start time"
               />
               {draft.start_time && (
                 <TimePicker
                   value={draft.end_time}
                   onChange={(v) => onChange({ ...draft, end_time: v })}
-                  placeholder="End time"
                 />
               )}
             </div>
@@ -431,13 +429,11 @@ function EventRow({
               <TimePicker
                 value={draft.start_time}
                 onChange={(v) => onChange({ ...draft, start_time: v })}
-                placeholder="Start time"
               />
               {draft.start_time && (
                 <TimePicker
                   value={draft.end_time}
                   onChange={(v) => onChange({ ...draft, end_time: v })}
-                  placeholder="End time"
                 />
               )}
             </div>

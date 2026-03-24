@@ -13,6 +13,7 @@ import {
   CalendarRange,
 } from "lucide-react";
 import type { Tag, Priority, List, Event } from "@/lib/types";
+import { CustomSelect, DatePicker, TimePicker } from "./Pickers";
 import {
   getToday,
   getTomorrow,
@@ -508,13 +509,7 @@ export default function TodoInput({
                     {q.label}
                   </button>
                 ))}
-                <input
-                  type="date"
-                  value={dueDate}
-                  onChange={(e) => setDueDate(e.target.value)}
-                  title="Custom due date"
-                  className="text-xs bg-transparent border border-black/8 dark:border-white/8 rounded-lg px-2.5 py-1.5 text-black dark:text-white focus:outline-none focus:border-black/25 dark:focus:border-white/25 transition-default"
-                />
+                <DatePicker value={dueDate} onChange={setDueDate} placeholder="Custom date" />
                 {dueDate && (
                   <button
                     type="button"
@@ -529,22 +524,11 @@ export default function TodoInput({
               {/* Time — only visible when date is set */}
               {dueDate && (
                 <div className="flex items-center gap-2 pl-0.5">
-                  <Clock size={11} className="text-gray-400 flex-shrink-0" />
-                  <input
-                    type="time"
-                    value={startTime}
-                    onChange={(e) => setStartTime(e.target.value)}
-                    className="text-xs bg-transparent border border-black/8 dark:border-white/8 rounded-lg px-2.5 py-1.5 text-black dark:text-white focus:outline-none focus:border-black/25 dark:focus:border-white/25 transition-default"
-                  />
+                  <TimePicker value={startTime} onChange={setStartTime} />
                   {startTime && (
                     <>
                       <span className="text-xs text-gray-400">→</span>
-                      <input
-                        type="time"
-                        value={endTime}
-                        onChange={(e) => setEndTime(e.target.value)}
-                        className="text-xs bg-transparent border border-black/8 dark:border-white/8 rounded-lg px-2.5 py-1.5 text-black dark:text-white focus:outline-none focus:border-black/25 dark:focus:border-white/25 transition-default"
-                      />
+                      <TimePicker value={endTime} onChange={setEndTime} />
                     </>
                   )}
                 </div>
@@ -561,15 +545,7 @@ export default function TodoInput({
                     </button>
                   </span>
                 ) : (
-                  <div className="flex items-center gap-2">
-                    <span className="text-[11px] text-gray-400">Start date</span>
-                    <input
-                      type="date"
-                      value={startDate}
-                      onChange={(e) => setStartDate(e.target.value)}
-                      className="text-xs bg-transparent border border-black/8 dark:border-white/8 rounded-lg px-2.5 py-1.5 text-black dark:text-white focus:outline-none focus:border-black/25 dark:focus:border-white/25 transition-default"
-                    />
-                  </div>
+                  <DatePicker value={startDate} onChange={setStartDate} placeholder="Start date" />
                 )}
               </div>
             </div>
@@ -580,35 +556,26 @@ export default function TodoInput({
                 <p className="text-[10px] uppercase tracking-wide text-gray-400 font-medium">Assign to</p>
                 <div className="flex flex-wrap gap-2">
                   {lists.length > 0 && (
-                    <select
+                    <CustomSelect
                       value={listId ?? ""}
-                      onChange={(e) => setListId(e.target.value || null)}
-                      className="text-xs bg-transparent border border-black/10 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-black dark:text-white focus:outline-none focus:border-black/25 dark:focus:border-white/25 transition-default cursor-pointer"
-                    >
-                      <option value="">No list</option>
-                      {lists.map((list) => (
-                        <option key={list.id} value={list.id}>{list.name}</option>
-                      ))}
-                    </select>
+                      onChange={(v) => setListId(v || null)}
+                      options={[{ value: "", label: "No list" }, ...lists.map((l) => ({ value: l.id, label: l.name, color: l.color ?? undefined }))]}
+                      className="min-w-[110px]"
+                    />
                   )}
                   {events.length > 0 && (
-                    <select
+                    <CustomSelect
                       value={eventId ?? ""}
-                      onChange={(e) => {
-                        const id = e.target.value || null;
-                        setEventId(id);
+                      onChange={(id) => {
+                        setEventId(id || null);
                         if (id) {
                           const ev = events.find((x) => x.id === id);
                           if (ev?.list_id) setListId(ev.list_id);
                         }
                       }}
-                      className="text-xs bg-transparent border border-black/10 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-black dark:text-white focus:outline-none focus:border-black/25 dark:focus:border-white/25 transition-default cursor-pointer"
-                    >
-                      <option value="">No event</option>
-                      {events.map((ev) => (
-                        <option key={ev.id} value={ev.id}>{ev.title}</option>
-                      ))}
-                    </select>
+                      options={[{ value: "", label: "No event" }, ...events.map((ev) => ({ value: ev.id, label: ev.title }))]}
+                      className="min-w-[110px]"
+                    />
                   )}
                 </div>
               </div>

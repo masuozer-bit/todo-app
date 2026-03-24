@@ -17,6 +17,7 @@ import {
   Clock,
 } from "lucide-react";
 import type { Todo, Tag, Priority, List, Event } from "@/lib/types";
+import { CustomSelect, DatePicker, TimePicker } from "./Pickers";
 import { getToday, getTomorrow, getNextMonday, getNextWeek } from "@/lib/date-helpers";
 import TagPill from "./TagPill";
 
@@ -607,39 +608,25 @@ export default function TodoItem({
                 ))}
               </div>
               <div className="flex items-center gap-1.5 flex-wrap">
-                <input
-                  type="date"
+                <DatePicker
                   value={todo.due_date ?? ""}
-                  onChange={(e) =>
-                    onUpdate(todo.id, {
-                      due_date: e.target.value || null,
-                      ...(e.target.value ? {} : { start_time: null, end_time: null }),
-                    })
-                  }
-                  className="text-xs bg-transparent border border-black/10 dark:border-white/10 rounded-lg px-2 py-1.5 text-black dark:text-white focus:outline-none focus:border-black/25 dark:focus:border-white/25 transition-default"
+                  onChange={(v) => onUpdate(todo.id, { due_date: v || null, ...(v ? {} : { start_time: null, end_time: null }) })}
                 />
                 {todo.due_date && (
                   <>
-                    <input
-                      type="time"
+                    <TimePicker
                       value={todo.start_time ?? ""}
-                      onChange={(e) => onUpdate(todo.id, { start_time: e.target.value || null })}
-                      className="text-xs bg-transparent border border-black/10 dark:border-white/10 rounded-lg px-2 py-1.5 text-black dark:text-white focus:outline-none focus:border-black/25 dark:focus:border-white/25 transition-default"
+                      onChange={(v) => onUpdate(todo.id, { start_time: v || null })}
                     />
                     {todo.start_time && (
-                      <input
-                        type="time"
-                        value={todo.end_time ?? ""}
-                        onChange={(e) => onUpdate(todo.id, { end_time: e.target.value || null })}
-                        className="text-xs bg-transparent border border-black/10 dark:border-white/10 rounded-lg px-2 py-1.5 text-black dark:text-white focus:outline-none focus:border-black/25 dark:focus:border-white/25 transition-default"
-                      />
+                      <>
+                        <span className="text-xs text-gray-400">→</span>
+                        <TimePicker
+                          value={todo.end_time ?? ""}
+                          onChange={(v) => onUpdate(todo.id, { end_time: v || null })}
+                        />
+                      </>
                     )}
-                    <button
-                      onClick={() => onUpdate(todo.id, { due_date: null, start_time: null, end_time: null })}
-                      className="text-gray-400 hover:text-black dark:hover:text-white transition-default"
-                    >
-                      <X size={13} />
-                    </button>
                   </>
                 )}
               </div>
@@ -650,22 +637,11 @@ export default function TodoItem({
           {!todo.completed && (
             <div>
               <p className="text-[10px] uppercase tracking-wide text-gray-400 font-medium mb-1.5">Start date</p>
-              <div className="flex items-center gap-1.5">
-                <input
-                  type="date"
-                  value={todo.start_date ?? ""}
-                  onChange={(e) => onUpdate(todo.id, { start_date: e.target.value || null })}
-                  className="text-xs bg-transparent border border-black/10 dark:border-white/10 rounded-lg px-2 py-1.5 text-black dark:text-white focus:outline-none focus:border-black/25 dark:focus:border-white/25 transition-default"
-                />
-                {todo.start_date && (
-                  <button
-                    onClick={() => onUpdate(todo.id, { start_date: null })}
-                    className="text-gray-400 hover:text-black dark:hover:text-white transition-default"
-                  >
-                    <X size={13} />
-                  </button>
-                )}
-              </div>
+              <DatePicker
+                value={todo.start_date ?? ""}
+                onChange={(v) => onUpdate(todo.id, { start_date: v || null })}
+                placeholder="Pick start date"
+              />
             </div>
           )}
 
@@ -675,16 +651,12 @@ export default function TodoItem({
               {lists.length > 0 && (
                 <div className="flex-1 min-w-0">
                   <p className="text-[10px] uppercase tracking-wide text-gray-400 font-medium mb-1.5">List</p>
-                  <select
+                  <CustomSelect
                     value={todo.list_id ?? ""}
-                    onChange={(e) => onUpdate(todo.id, { list_id: e.target.value || null })}
-                    className="w-full text-xs bg-transparent border border-black/10 dark:border-white/10 rounded-lg px-2 py-1.5 text-black dark:text-white focus:outline-none focus:border-black/25 dark:focus:border-white/25 transition-default cursor-pointer"
-                  >
-                    <option value="">No list</option>
-                    {lists.map((list) => (
-                      <option key={list.id} value={list.id}>{list.name}</option>
-                    ))}
-                  </select>
+                    onChange={(v) => onUpdate(todo.id, { list_id: v || null })}
+                    options={[{ value: "", label: "No list" }, ...lists.map((l) => ({ value: l.id, label: l.name, color: l.color ?? undefined }))]}
+                    className="w-full"
+                  />
                 </div>
               )}
               <div className="flex-1 min-w-0">
@@ -893,14 +865,12 @@ export default function TodoItem({
           {!todo.completed && onAssignEvent && events.length > 0 && (
             <div>
               <p className="text-[10px] uppercase tracking-wide text-gray-400 font-medium mb-1.5">Event</p>
-              <select
+              <CustomSelect
                 value={todo.event_id ?? ""}
-                onChange={(e) => onAssignEvent(todo.id, e.target.value || null)}
-                className="text-xs bg-transparent border border-black/10 dark:border-white/10 rounded-lg px-2 py-1.5 text-black dark:text-white focus:outline-none focus:border-black/25 dark:focus:border-white/25 transition-default cursor-pointer"
-              >
-                <option value="">No event</option>
-                {events.map((ev) => <option key={ev.id} value={ev.id}>{ev.title}</option>)}
-              </select>
+                onChange={(v) => onAssignEvent(todo.id, v || null)}
+                options={[{ value: "", label: "No event" }, ...events.map((ev) => ({ value: ev.id, label: ev.title }))]}
+                className="w-full"
+              />
             </div>
           )}
         </div>

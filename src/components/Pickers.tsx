@@ -39,11 +39,13 @@ export function CustomSelect({
   onChange,
   options,
   className = "",
+  placeholder,
 }: {
   value: string;
   onChange: (v: string) => void;
   options: SelectOption[];
   className?: string;
+  placeholder?: string;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -62,7 +64,7 @@ export function CustomSelect({
         {selected?.color && (
           <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: selected.color }} />
         )}
-        <span className="flex-1 text-left truncate">{selected?.label ?? "—"}</span>
+        <span className="flex-1 text-left truncate">{selected?.label ?? placeholder ?? "—"}</span>
         <ChevronDown
           size={11}
           className={`flex-shrink-0 text-gray-400 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
@@ -268,10 +270,12 @@ export function TimePicker({
   value,
   onChange,
   className = "",
+  placeholder,
 }: {
   value: string;
   onChange: (v: string) => void;
   className?: string;
+  placeholder?: string;
 }) {
   const [open, setOpen] = useState(false);
   const ref    = useRef<HTMLDivElement>(null);
@@ -310,7 +314,7 @@ export function TimePicker({
 
   const displayVal = value
     ? `${String(selH).padStart(2, "0")}:${String(selM).padStart(2, "0")}`
-    : "Time";
+    : (placeholder ?? "Time");
 
   return (
     <div ref={ref} className={`relative ${className}`}>

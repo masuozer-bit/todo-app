@@ -898,6 +898,7 @@ export default function TemplatesModal({
                           value={applyDate}
                           onChange={setApplyDate}
                           placeholder="Pick a date..."
+                          dropUp
                         />
                       </div>
                       <button

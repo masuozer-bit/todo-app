@@ -104,11 +104,13 @@ export function DatePicker({
   onChange,
   placeholder = "Pick date",
   className = "",
+  dropUp = false,
 }: {
   value: string;
   onChange: (v: string) => void;
   placeholder?: string;
   className?: string;
+  dropUp?: boolean;
 }) {
   const today      = new Date();
   const todayStr   = toYMD(today);
@@ -180,7 +182,7 @@ export function DatePicker({
 
       {open && (
         <div
-          className="absolute z-[60] top-full left-0 mt-1 glass-card-raised rounded-xl shadow-2xl p-3 w-64"
+          className={`absolute z-[60] glass-card-raised rounded-xl shadow-2xl p-3 w-64 ${dropUp ? "bottom-full left-0 mb-1" : "top-full left-0 mt-1"}`}
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
         >

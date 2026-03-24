@@ -1,5 +1,6 @@
 "use client";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { ChevronLeft, ChevronRight, ChevronDown, Check, X, Calendar, Clock } from "lucide-react";
 
 /* ─── helpers ──────────────────────────────────────────── */
@@ -48,17 +49,31 @@ export function CustomSelect({
   placeholder?: string;
 }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  useClickOutside(ref, () => setOpen(false));
+  const [popupPos, setPopupPos] = useState<{ top: number; left: number; width: number }>({ top: 0, left: 0, width: 140 });
+  const [domReady, setDomReady] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const popupRef = useRef<HTMLDivElement>(null);
+  useEffect(() => { setDomReady(true); }, []);
+  useClickOutside(popupRef, () => setOpen(false));
 
   const selected = options.find((o) => o.value === value);
 
+  const handleOpen = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!open && triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      setPopupPos({ top: rect.bottom + 4, left: rect.left, width: Math.max(rect.width, 140) });
+    }
+    setOpen((o) => !o);
+  }, [open]);
+
   return (
-    <div ref={ref} className={`relative ${className}`}>
+    <div className={`relative ${className}`}>
       <button
+        ref={triggerRef}
         type="button"
         onPointerDown={(e) => e.stopPropagation()}
-        onClick={(e) => { e.stopPropagation(); setOpen((o) => !o); }}
+        onClick={handleOpen}
         className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 text-black dark:text-white hover:border-black/25 dark:hover:border-white/25 transition-default w-full"
       >
         {selected?.color && (
@@ -71,13 +86,18 @@ export function CustomSelect({
         />
       </button>
 
-      {open && (
-        <div className="absolute z-[60] top-full left-0 mt-1 w-full min-w-[140px] glass-card-raised rounded-xl overflow-hidden py-1 shadow-2xl">
+      {domReady && open && createPortal(
+        <div
+          ref={popupRef}
+          className="glass-card-raised rounded-xl overflow-hidden py-1 shadow-2xl"
+          style={{ position: "fixed", zIndex: 9999, top: popupPos.top, left: popupPos.left, minWidth: popupPos.width }}
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+        >
           {options.map((opt) => (
             <button
               key={opt.value}
               type="button"
-              onPointerDown={(e) => e.stopPropagation()}
               onClick={(e) => { e.stopPropagation(); onChange(opt.value); setOpen(false); }}
               className={`w-full flex items-center gap-2 px-3 py-2 text-xs text-left transition-default hover:bg-white/10 ${
                 opt.value === value ? "text-white" : "text-white/60"
@@ -90,7 +110,8 @@ export function CustomSelect({
               {opt.value === value && <Check size={11} className="flex-shrink-0 text-white/50" />}
             </button>
           ))}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
@@ -119,8 +140,12 @@ export function DatePicker({
   const [open, setOpen]           = useState(false);
   const [viewYear, setViewYear]   = useState((parsed ?? today).getFullYear());
   const [viewMonth, setViewMonth] = useState((parsed ?? today).getMonth());
-  const ref = useRef<HTMLDivElement>(null);
-  useClickOutside(ref, () => setOpen(false));
+  const [popupPos, setPopupPos]   = useState<{ top: number; left: number }>({ top: 0, left: 0 });
+  const [domReady, setDomReady]   = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const popupRef   = useRef<HTMLDivElement>(null);
+  useEffect(() => { setDomReady(true); }, []);
+  useClickOutside(popupRef, () => setOpen(false));
 
   /* sync view to external value changes */
   useEffect(() => {
@@ -155,11 +180,22 @@ export function DatePicker({
     : placeholder;
 
   return (
-    <div ref={ref} className={`relative ${className}`}>
+    <div className={`relative ${className}`}>
       <button
+        ref={triggerRef}
         type="button"
         onPointerDown={(e) => e.stopPropagation()}
-        onClick={(e) => { e.stopPropagation(); setOpen((o) => !o); }}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (!open && triggerRef.current) {
+            const r = triggerRef.current.getBoundingClientRect();
+            setPopupPos(dropUp
+              ? { top: r.top - 4, left: r.left }   // will be adjusted below
+              : { top: r.bottom + 4, left: r.left }
+            );
+          }
+          setOpen((o) => !o);
+        }}
         className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border transition-default ${
           value
             ? "border-black/20 dark:border-white/20 bg-black/5 dark:bg-white/5 text-black dark:text-white"
@@ -180,9 +216,17 @@ export function DatePicker({
         )}
       </button>
 
-      {open && (
+      {domReady && open && createPortal(
         <div
-          className={`absolute z-[60] glass-card-raised rounded-xl shadow-2xl p-3 w-64 ${dropUp ? "bottom-full left-0 mb-1" : "top-full left-0 mt-1"}`}
+          ref={popupRef}
+          className="glass-card-raised rounded-xl shadow-2xl p-3 w-64"
+          style={{
+            position: "fixed",
+            zIndex: 9999,
+            top: dropUp ? undefined : popupPos.top,
+            bottom: dropUp ? `calc(100vh - ${popupPos.top}px)` : undefined,
+            left: popupPos.left,
+          }}
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
         >
@@ -259,7 +303,8 @@ export function DatePicker({
               );
             })}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
@@ -280,10 +325,14 @@ export function TimePicker({
   placeholder?: string;
 }) {
   const [open, setOpen] = useState(false);
-  const ref    = useRef<HTMLDivElement>(null);
+  const [popupPos, setPopupPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
+  const [domReady, setDomReady] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const popupRef   = useRef<HTMLDivElement>(null);
   const hRef   = useRef<HTMLDivElement>(null);
   const mRef   = useRef<HTMLDivElement>(null);
-  useClickOutside(ref, () => setOpen(false));
+  useEffect(() => { setDomReady(true); }, []);
+  useClickOutside(popupRef, () => setOpen(false));
 
   const parse = (v: string) => {
     if (!v) return { h: 9, m: 0 };
@@ -319,11 +368,19 @@ export function TimePicker({
     : (placeholder ?? "Time");
 
   return (
-    <div ref={ref} className={`relative ${className}`}>
+    <div className={`relative ${className}`}>
       <button
+        ref={triggerRef}
         type="button"
         onPointerDown={(e) => e.stopPropagation()}
-        onClick={(e) => { e.stopPropagation(); setOpen((o) => !o); }}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (!open && triggerRef.current) {
+            const r = triggerRef.current.getBoundingClientRect();
+            setPopupPos({ top: r.bottom + 4, left: r.left });
+          }
+          setOpen((o) => !o);
+        }}
         className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border transition-default ${
           value
             ? "border-black/20 dark:border-white/20 bg-black/5 dark:bg-white/5 text-black dark:text-white"
@@ -344,10 +401,11 @@ export function TimePicker({
         )}
       </button>
 
-      {open && (
+      {domReady && open && createPortal(
         <div
-          className="absolute z-[60] top-full left-0 mt-1 glass-card-raised rounded-xl shadow-2xl p-2 flex gap-1.5"
-          style={{ width: 120 }}
+          ref={popupRef}
+          className="glass-card-raised rounded-xl shadow-2xl p-2 flex gap-1.5"
+          style={{ position: "fixed", zIndex: 9999, top: popupPos.top, left: popupPos.left, width: 120 }}
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
         >
@@ -398,7 +456,8 @@ export function TimePicker({
               </div>
             ))}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

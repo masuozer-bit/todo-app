@@ -189,6 +189,7 @@ export interface TaskTemplateData {
   start_time?: string | null;
   end_time?: string | null;
   subtasks?: string[];
+  day?: number | null; // relative day number (1 = start date, 2 = start+1, …)
 }
 
 export interface EventTemplateData {
@@ -198,15 +199,22 @@ export interface EventTemplateData {
   list_id?: string | null;
   start_time?: string | null;
   end_time?: string | null;
+  start_day?: number | null; // relative start day for the event
+  end_day?: number | null;   // relative end day for the event
   tasks: TaskTemplateData[];
+}
+
+export interface PlanTemplateData {
+  tasks: TaskTemplateData[];   // each has day?: number (1 = start date)
+  events: EventTemplateData[]; // each has start_day?, end_day?
 }
 
 export interface Template {
   id: string;
   user_id: string;
   name: string;
-  type: "task" | "event";
-  data: TaskTemplateData | EventTemplateData;
+  type: "task" | "event" | "plan";
+  data: TaskTemplateData | EventTemplateData | PlanTemplateData;
   sort_order: number;
   created_at: string;
   updated_at: string;

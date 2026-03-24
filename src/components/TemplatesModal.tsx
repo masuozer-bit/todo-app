@@ -1,25 +1,34 @@
 "use client";
 
 import { useState } from "react";
-import { X, Plus, Trash2, ChevronLeft, ChevronDown, ChevronUp } from "lucide-react";
-import type { Template, TaskTemplateData, EventTemplateData, List, Priority } from "@/lib/types";
+import { X, Plus, ChevronDown, ChevronUp, LayoutTemplate } from "lucide-react";
+import type {
+  Template,
+  TaskTemplateData,
+  EventTemplateData,
+  PlanTemplateData,
+  List,
+  Priority,
+} from "@/lib/types";
+import { CustomSelect, TimePicker, DatePicker } from "./Pickers";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type View =
   | { mode: "list" }
   | { mode: "detail"; template: Template }
-  | { mode: "form"; templateType: "task" | "event"; editing?: Template };
+  | { mode: "create"; editing?: Template };
 
 const PRIORITIES: Priority[] = ["high", "medium", "low", "none"];
 const PRIORITY_DOT: Record<Priority, string> = {
   high: "bg-red-500",
   medium: "bg-amber-500",
   low: "bg-blue-500",
-  none: "bg-gray-300 dark:bg-gray-600",
+  none: "bg-gray-500",
 };
 
 interface TaskDraft {
+  _id: string;
   title: string;
   priority: Priority;
   estimated_time: string;
@@ -28,20 +37,37 @@ interface TaskDraft {
   start_time: string;
   end_time: string;
   subtasks: string[];
+  day: string;
 }
 
 interface EventDraft {
+  _id: string;
   title: string;
   description: string;
   color: string;
   list_id: string;
   start_time: string;
   end_time: string;
-  tasks: TaskDraft[];
+  start_day: string;
+  end_day: string;
 }
 
-function emptyTask(): TaskDraft {
-  return { title: "", priority: "none", estimated_time: "", list_id: "", notes: "", start_time: "", end_time: "", subtasks: [] };
+function uid() {
+  return Math.random().toString(36).slice(2);
+}
+
+function emptyTask(day = "1"): TaskDraft {
+  return {
+    _id: uid(), title: "", priority: "none", estimated_time: "",
+    list_id: "", notes: "", start_time: "", end_time: "", subtasks: [], day,
+  };
+}
+
+function emptyEvent(): EventDraft {
+  return {
+    _id: uid(), title: "", description: "", color: "", list_id: "",
+    start_time: "", end_time: "", start_day: "1", end_day: "1",
+  };
 }
 
 function taskDraftToData(d: TaskDraft): TaskTemplateData {
@@ -54,19 +80,7 @@ function taskDraftToData(d: TaskDraft): TaskTemplateData {
     start_time: d.start_time || null,
     end_time: d.end_time || null,
     subtasks: d.subtasks.filter(Boolean),
-  };
-}
-
-function taskDataToDraft(d: TaskTemplateData): TaskDraft {
-  return {
-    title: d.title,
-    priority: d.priority ?? "none",
-    estimated_time: d.estimated_time?.toString() ?? "",
-    list_id: d.list_id ?? "",
-    notes: d.notes ?? "",
-    start_time: d.start_time ?? "",
-    end_time: d.end_time ?? "",
-    subtasks: d.subtasks ?? [],
+    day: d.day ? parseInt(d.day) : 1,
   };
 }
 
@@ -78,44 +92,73 @@ function eventDraftToData(d: EventDraft): EventTemplateData {
     list_id: d.list_id || null,
     start_time: d.start_time || null,
     end_time: d.end_time || null,
-    tasks: d.tasks.map(taskDraftToData),
+    start_day: d.start_day ? parseInt(d.start_day) : 1,
+    end_day: d.end_day ? parseInt(d.end_day) : 1,
+    tasks: [],
   };
 }
 
-function eventDataToDraft(d: EventTemplateData): EventDraft {
+function planDataToDrafts(data: PlanTemplateData): { tasks: TaskDraft[]; events: EventDraft[] } {
   return {
-    title: d.title,
-    description: d.description ?? "",
-    color: d.color ?? "",
-    list_id: d.list_id ?? "",
-    start_time: d.start_time ?? "",
-    end_time: d.end_time ?? "",
-    tasks: d.tasks.map(taskDataToDraft),
+    tasks: data.tasks.map((t) => ({
+      _id: uid(), title: t.title, priority: t.priority ?? "none",
+      estimated_time: t.estimated_time?.toString() ?? "",
+      list_id: t.list_id ?? "", notes: t.notes ?? "",
+      start_time: t.start_time ?? "", end_time: t.end_time ?? "",
+      subtasks: t.subtasks ?? [], day: t.day?.toString() ?? "1",
+    })),
+    events: data.events.map((e) => ({
+      _id: uid(), title: e.title, description: e.description ?? "",
+      color: e.color ?? "", list_id: e.list_id ?? "",
+      start_time: e.start_time ?? "", end_time: e.end_time ?? "",
+      start_day: e.start_day?.toString() ?? "1",
+      end_day: e.end_day?.toString() ?? "1",
+    })),
   };
 }
 
-// ─── Shared input style ───────────────────────────────────────────────────────
+function fmtEst(minutes: number): string {
+  if (minutes < 60) return `${minutes}m`;
+  return `${Math.floor(minutes / 60)}h${minutes % 60 > 0 ? ` ${minutes % 60}m` : ""}`;
+}
+
+const EVENT_COLORS = [
+  { value: "#3b82f6", label: "Blue" },
+  { value: "#8b5cf6", label: "Purple" },
+  { value: "#10b981", label: "Green" },
+  { value: "#f59e0b", label: "Amber" },
+  { value: "#ef4444", label: "Red" },
+  { value: "#ec4899", label: "Pink" },
+  { value: "#06b6d4", label: "Cyan" },
+  { value: "#f97316", label: "Orange" },
+];
 
 const INPUT =
-  "text-xs bg-transparent border border-black/10 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-black dark:text-white focus:outline-none focus:border-black/30 dark:focus:border-white/30 transition-colors";
+  "text-xs bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 text-white placeholder:text-white/30 focus:outline-none focus:border-white/30 transition-colors";
+const LABEL = "text-[10px] text-white/40 uppercase tracking-wide mb-1.5";
 
-// ─── TaskForm (used inside event template editor) ─────────────────────────────
+// ─── TaskRow ──────────────────────────────────────────────────────────────────
 
-function TaskForm({
+function TaskRow({
   draft,
   onChange,
-  lists,
-  index,
   onRemove,
+  lists,
 }: {
   draft: TaskDraft;
   onChange: (d: TaskDraft) => void;
-  lists: List[];
-  index: number;
   onRemove: () => void;
+  lists: List[];
 }) {
   const [expanded, setExpanded] = useState(false);
   const [newSub, setNewSub] = useState("");
+
+  const estNum = draft.estimated_time ? parseInt(draft.estimated_time) : 0;
+  const estLabel = estNum > 0 ? fmtEst(estNum) : null;
+  const listOpts = [
+    { value: "", label: "No list" },
+    ...lists.map((l) => ({ value: l.id, label: l.name, color: l.color ?? undefined })),
+  ];
 
   function addSub() {
     if (!newSub.trim()) return;
@@ -123,41 +166,47 @@ function TaskForm({
     setNewSub("");
   }
 
-  const estNum = draft.estimated_time ? parseInt(draft.estimated_time) : 0;
-  const estLabel = estNum > 0
-    ? estNum < 60 ? `${estNum}m` : `${Math.floor(estNum / 60)}h${estNum % 60 > 0 ? ` ${estNum % 60}m` : ""}`
-    : null;
-
   return (
-    <div className="border border-black/8 dark:border-white/8 rounded-xl overflow-hidden">
-      {/* Header row */}
+    <div className="border border-white/8 rounded-xl overflow-hidden bg-white/3">
       <div className="flex items-center gap-2 px-3 py-2">
         <button
           onClick={() => setExpanded((v) => !v)}
-          className="text-gray-400 hover:text-black dark:hover:text-white transition-colors flex-shrink-0"
+          className="text-white/30 hover:text-white/70 transition-colors flex-shrink-0"
         >
           {expanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
         </button>
         <input
-          type="text"
           value={draft.title}
           onChange={(e) => onChange({ ...draft, title: e.target.value })}
-          placeholder={`Task ${index + 1} title...`}
-          className="flex-1 bg-transparent text-sm text-black dark:text-white placeholder:text-gray-400 focus:outline-none min-w-0"
+          placeholder="Task title..."
+          className="flex-1 bg-transparent text-sm text-white placeholder:text-white/30 focus:outline-none min-w-0"
         />
+        <div className="flex items-center gap-1 flex-shrink-0">
+          <span className="text-[10px] text-white/30">Day</span>
+          <input
+            type="number"
+            min={1}
+            value={draft.day}
+            onChange={(e) => onChange({ ...draft, day: e.target.value })}
+            className="w-10 text-xs bg-white/5 border border-white/10 rounded px-1.5 py-0.5 text-white focus:outline-none focus:border-white/30 text-center"
+          />
+        </div>
         <span className={`w-2 h-2 rounded-full flex-shrink-0 ${PRIORITY_DOT[draft.priority]}`} />
-        {estLabel && <span className="text-[10px] text-black/40 dark:text-gray-600 tabular-nums flex-shrink-0">{estLabel}</span>}
-        <button onClick={onRemove} className="text-gray-400 hover:text-red-400 transition-colors flex-shrink-0">
+        {estLabel && (
+          <span className="text-[10px] text-white/30 tabular-nums flex-shrink-0">{estLabel}</span>
+        )}
+        <button
+          onClick={onRemove}
+          className="text-white/30 hover:text-red-400 transition-colors flex-shrink-0"
+        >
           <X size={12} />
         </button>
       </div>
 
-      {/* Expanded settings */}
       {expanded && (
-        <div className="px-3 pb-3 space-y-3 border-t border-black/5 dark:border-white/5 pt-3">
-          {/* Priority */}
+        <div className="px-3 pb-3 space-y-3 border-t border-white/5 pt-3">
           <div>
-            <p className="text-[10px] text-gray-400 uppercase tracking-wide mb-1.5">Priority</p>
+            <p className={LABEL}>Priority</p>
             <div className="flex gap-1.5 flex-wrap">
               {PRIORITIES.map((p) => (
                 <button
@@ -165,8 +214,8 @@ function TaskForm({
                   onClick={() => onChange({ ...draft, priority: p })}
                   className={`flex items-center gap-1 text-xs px-2 py-1 rounded-lg border transition-colors ${
                     draft.priority === p
-                      ? "border-black/30 dark:border-white/30 bg-black/5 dark:bg-white/10 text-black dark:text-white"
-                      : "border-black/10 dark:border-white/10 text-gray-400 hover:border-black/20 dark:hover:border-white/20"
+                      ? "border-white/30 bg-white/10 text-white"
+                      : "border-white/10 text-white/40 hover:border-white/20"
                   }`}
                 >
                   <span className={`w-1.5 h-1.5 rounded-full ${PRIORITY_DOT[p]}`} />
@@ -176,9 +225,8 @@ function TaskForm({
             </div>
           </div>
 
-          {/* Estimated time */}
           <div>
-            <p className="text-[10px] text-gray-400 uppercase tracking-wide mb-1.5">Estimated time</p>
+            <p className={LABEL}>Estimated time (minutes)</p>
             <div className="flex items-center gap-2">
               <input
                 type="number"
@@ -188,35 +236,42 @@ function TaskForm({
                 onChange={(e) => onChange({ ...draft, estimated_time: e.target.value })}
                 className={`w-24 ${INPUT}`}
               />
-              {estLabel && <span className="text-xs text-black/40 dark:text-gray-500">{estLabel}</span>}
+              {estLabel && <span className="text-xs text-white/30">{estLabel}</span>}
             </div>
           </div>
 
-          {/* Time */}
           <div>
-            <p className="text-[10px] text-gray-400 uppercase tracking-wide mb-1.5">Default time</p>
-            <div className="flex items-center gap-2">
-              <input type="time" value={draft.start_time} onChange={(e) => onChange({ ...draft, start_time: e.target.value })} className={INPUT} />
+            <p className={LABEL}>Default time</p>
+            <div className="flex items-center gap-2 flex-wrap">
+              <TimePicker
+                value={draft.start_time}
+                onChange={(v) => onChange({ ...draft, start_time: v })}
+                placeholder="Start time"
+              />
               {draft.start_time && (
-                <input type="time" value={draft.end_time} onChange={(e) => onChange({ ...draft, end_time: e.target.value })} className={INPUT} />
+                <TimePicker
+                  value={draft.end_time}
+                  onChange={(v) => onChange({ ...draft, end_time: v })}
+                  placeholder="End time"
+                />
               )}
             </div>
           </div>
 
-          {/* List */}
           {lists.length > 0 && (
             <div>
-              <p className="text-[10px] text-gray-400 uppercase tracking-wide mb-1.5">List</p>
-              <select value={draft.list_id} onChange={(e) => onChange({ ...draft, list_id: e.target.value })} className={`${INPUT} cursor-pointer`}>
-                <option value="">No list</option>
-                {lists.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
-              </select>
+              <p className={LABEL}>List</p>
+              <CustomSelect
+                value={draft.list_id}
+                onChange={(v) => onChange({ ...draft, list_id: v })}
+                options={listOpts}
+                placeholder="No list"
+              />
             </div>
           )}
 
-          {/* Notes */}
           <div>
-            <p className="text-[10px] text-gray-400 uppercase tracking-wide mb-1.5">Notes</p>
+            <p className={LABEL}>Notes</p>
             <textarea
               value={draft.notes}
               onChange={(e) => onChange({ ...draft, notes: e.target.value })}
@@ -226,17 +281,18 @@ function TaskForm({
             />
           </div>
 
-          {/* Subtasks */}
           <div>
-            <p className="text-[10px] text-gray-400 uppercase tracking-wide mb-1.5">Subtasks</p>
+            <p className={LABEL}>Subtasks</p>
             <div className="space-y-1 mb-1.5">
               {draft.subtasks.map((s, i) => (
                 <div key={i} className="flex items-center gap-2">
-                  <span className="w-1 h-1 rounded-full bg-black/20 dark:bg-white/20 flex-shrink-0" />
-                  <span className="flex-1 text-xs text-black dark:text-white">{s}</span>
+                  <span className="w-1 h-1 rounded-full bg-white/20 flex-shrink-0" />
+                  <span className="flex-1 text-xs text-white/70">{s}</span>
                   <button
-                    onClick={() => onChange({ ...draft, subtasks: draft.subtasks.filter((_, j) => j !== i) })}
-                    className="text-gray-400 hover:text-red-400 transition-colors"
+                    onClick={() =>
+                      onChange({ ...draft, subtasks: draft.subtasks.filter((_, j) => j !== i) })
+                    }
+                    className="text-white/30 hover:text-red-400 transition-colors"
                   >
                     <X size={10} />
                   </button>
@@ -248,11 +304,16 @@ function TaskForm({
                 type="text"
                 value={newSub}
                 onChange={(e) => setNewSub(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addSub(); } }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    addSub();
+                  }
+                }}
                 placeholder="Add subtask..."
                 className={`flex-1 ${INPUT}`}
               />
-              <button onClick={addSub} className="text-gray-400 hover:text-black dark:hover:text-white transition-colors">
+              <button onClick={addSub} className="text-white/30 hover:text-white transition-colors">
                 <Plus size={14} />
               </button>
             </div>
@@ -263,18 +324,161 @@ function TaskForm({
   );
 }
 
-// ─── Main component ───────────────────────────────────────────────────────────
+// ─── EventRow ─────────────────────────────────────────────────────────────────
+
+function EventRow({
+  draft,
+  onChange,
+  onRemove,
+  lists,
+}: {
+  draft: EventDraft;
+  onChange: (d: EventDraft) => void;
+  onRemove: () => void;
+  lists: List[];
+}) {
+  const [expanded, setExpanded] = useState(false);
+
+  const listOpts = [
+    { value: "", label: "No list" },
+    ...lists.map((l) => ({ value: l.id, label: l.name, color: l.color ?? undefined })),
+  ];
+  const colorOpts = [
+    { value: "", label: "Default" },
+    ...EVENT_COLORS.map((c) => ({ value: c.value, label: c.label, color: c.value })),
+  ];
+
+  return (
+    <div className="border border-white/8 rounded-xl overflow-hidden bg-white/3">
+      <div className="flex items-center gap-2 px-3 py-2">
+        <button
+          onClick={() => setExpanded((v) => !v)}
+          className="text-white/30 hover:text-white/70 transition-colors flex-shrink-0"
+        >
+          {expanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+        </button>
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          {draft.color && (
+            <span
+              className="w-2 h-2 rounded-full flex-shrink-0"
+              style={{ background: draft.color }}
+            />
+          )}
+          <input
+            value={draft.title}
+            onChange={(e) => onChange({ ...draft, title: e.target.value })}
+            placeholder="Event title..."
+            className="flex-1 bg-transparent text-sm text-white placeholder:text-white/30 focus:outline-none min-w-0"
+          />
+        </div>
+        <div className="flex items-center gap-1 flex-shrink-0">
+          <span className="text-[10px] text-white/30">Day</span>
+          <input
+            type="number"
+            min={1}
+            value={draft.start_day}
+            onChange={(e) =>
+              onChange({ ...draft, start_day: e.target.value, end_day: e.target.value })
+            }
+            className="w-10 text-xs bg-white/5 border border-white/10 rounded px-1.5 py-0.5 text-white focus:outline-none focus:border-white/30 text-center"
+          />
+          {draft.start_day !== draft.end_day && (
+            <>
+              <span className="text-[10px] text-white/20">→</span>
+              <input
+                type="number"
+                min={parseInt(draft.start_day) || 1}
+                value={draft.end_day}
+                onChange={(e) => onChange({ ...draft, end_day: e.target.value })}
+                className="w-10 text-xs bg-white/5 border border-white/10 rounded px-1.5 py-0.5 text-white focus:outline-none focus:border-white/30 text-center"
+              />
+            </>
+          )}
+        </div>
+        <button
+          onClick={onRemove}
+          className="text-white/30 hover:text-red-400 transition-colors flex-shrink-0"
+        >
+          <X size={12} />
+        </button>
+      </div>
+
+      {expanded && (
+        <div className="px-3 pb-3 space-y-3 border-t border-white/5 pt-3">
+          <div>
+            <p className={LABEL}>Color</p>
+            <CustomSelect
+              value={draft.color}
+              onChange={(v) => onChange({ ...draft, color: v })}
+              options={colorOpts}
+              placeholder="Default color"
+            />
+          </div>
+          {lists.length > 0 && (
+            <div>
+              <p className={LABEL}>List</p>
+              <CustomSelect
+                value={draft.list_id}
+                onChange={(v) => onChange({ ...draft, list_id: v })}
+                options={listOpts}
+                placeholder="No list"
+              />
+            </div>
+          )}
+          <div>
+            <p className={LABEL}>Default time</p>
+            <div className="flex items-center gap-2 flex-wrap">
+              <TimePicker
+                value={draft.start_time}
+                onChange={(v) => onChange({ ...draft, start_time: v })}
+                placeholder="Start time"
+              />
+              {draft.start_time && (
+                <TimePicker
+                  value={draft.end_time}
+                  onChange={(v) => onChange({ ...draft, end_time: v })}
+                  placeholder="End time"
+                />
+              )}
+            </div>
+          </div>
+          <div>
+            <p className={LABEL}>End day (if multi-day)</p>
+            <input
+              type="number"
+              min={parseInt(draft.start_day) || 1}
+              value={draft.end_day}
+              onChange={(e) => onChange({ ...draft, end_day: e.target.value })}
+              className={`w-24 ${INPUT}`}
+            />
+          </div>
+          <div>
+            <p className={LABEL}>Description</p>
+            <textarea
+              value={draft.description}
+              onChange={(e) => onChange({ ...draft, description: e.target.value })}
+              placeholder="Description..."
+              rows={2}
+              className={`w-full ${INPUT} resize-none`}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Main ─────────────────────────────────────────────────────────────────────
 
 interface TemplatesModalProps {
   open: boolean;
   onClose: () => void;
   templates: Template[];
   lists: List[];
-  onAdd: (t: { name: string; type: "task" | "event"; data: TaskTemplateData | EventTemplateData }) => void;
-  onUpdate: (id: string, updates: { name?: string; data?: TaskTemplateData | EventTemplateData }) => void;
+  onAdd: (t: { name: string; type: "plan"; data: PlanTemplateData }) => void;
+  onUpdate: (id: string, updates: { name?: string; data?: PlanTemplateData }) => void;
   onDelete: (id: string) => void;
-  onApplyTask: (data: TaskTemplateData) => void;
-  onApplyEvent: (data: EventTemplateData, date: string) => void;
+  onApply: (template: Template, startDate: string) => void;
 }
 
 export default function TemplatesModal({
@@ -285,591 +489,461 @@ export default function TemplatesModal({
   onAdd,
   onUpdate,
   onDelete,
-  onApplyTask,
-  onApplyEvent,
+  onApply,
 }: TemplatesModalProps) {
   const [view, setView] = useState<View>({ mode: "list" });
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [applyDate, setApplyDate] = useState("");
-  const [showApplyDate, setShowApplyDate] = useState(false);
-
-  // Form state
   const [templateName, setTemplateName] = useState("");
-  const [taskDraft, setTaskDraft] = useState<TaskDraft>(emptyTask());
-  const [eventDraft, setEventDraft] = useState<EventDraft>({
-    title: "", description: "", color: "", list_id: "", start_time: "", end_time: "", tasks: [],
-  });
-  const [newSub, setNewSub] = useState("");
+  const [taskDrafts, setTaskDrafts] = useState<TaskDraft[]>([]);
+  const [eventDrafts, setEventDrafts] = useState<EventDraft[]>([]);
 
   if (!open) return null;
 
-  const taskTemplates = templates.filter((t) => t.type === "task");
-  const eventTemplates = templates.filter((t) => t.type === "event");
-
-  function openCreate(type: "task" | "event") {
+  function openCreate() {
     setTemplateName("");
-    setTaskDraft(emptyTask());
-    setEventDraft({ title: "", description: "", color: "", list_id: "", start_time: "", end_time: "", tasks: [] });
-    setNewSub("");
-    setView({ mode: "form", templateType: type });
+    setTaskDrafts([]);
+    setEventDrafts([]);
+    setView({ mode: "create" });
   }
 
   function openEdit(t: Template) {
     setTemplateName(t.name);
-    if (t.type === "task") {
-      setTaskDraft(taskDataToDraft(t.data as TaskTemplateData));
+    if (t.type === "plan") {
+      const { tasks, events } = planDataToDrafts(t.data as PlanTemplateData);
+      setTaskDrafts(tasks);
+      setEventDrafts(events);
+    } else if (t.type === "task") {
+      const data = t.data as TaskTemplateData;
+      setTaskDrafts([
+        {
+          _id: uid(), title: data.title, priority: data.priority ?? "none",
+          estimated_time: data.estimated_time?.toString() ?? "",
+          list_id: data.list_id ?? "", notes: data.notes ?? "",
+          start_time: data.start_time ?? "", end_time: data.end_time ?? "",
+          subtasks: data.subtasks ?? [], day: data.day?.toString() ?? "1",
+        },
+      ]);
+      setEventDrafts([]);
     } else {
-      setEventDraft(eventDataToDraft(t.data as EventTemplateData));
+      const data = t.data as EventTemplateData;
+      setEventDrafts([
+        {
+          _id: uid(), title: data.title, description: data.description ?? "",
+          color: data.color ?? "", list_id: data.list_id ?? "",
+          start_time: data.start_time ?? "", end_time: data.end_time ?? "",
+          start_day: data.start_day?.toString() ?? "1",
+          end_day: data.end_day?.toString() ?? "1",
+        },
+      ]);
+      setTaskDrafts(
+        (data.tasks ?? []).map((tsk) => ({
+          _id: uid(), title: tsk.title, priority: tsk.priority ?? "none",
+          estimated_time: tsk.estimated_time?.toString() ?? "",
+          list_id: tsk.list_id ?? "", notes: tsk.notes ?? "",
+          start_time: tsk.start_time ?? "", end_time: tsk.end_time ?? "",
+          subtasks: tsk.subtasks ?? [], day: tsk.day?.toString() ?? "1",
+        }))
+      );
     }
-    setNewSub("");
-    setView({ mode: "form", templateType: t.type, editing: t });
+    setView({ mode: "create", editing: t });
   }
 
   function handleSave() {
-    if (view.mode !== "form") return;
     const name = templateName.trim();
     if (!name) return;
-    const data = view.templateType === "task" ? taskDraftToData(taskDraft) : eventDraftToData(eventDraft);
-    if (!data.title.trim()) return;
-    if (view.editing) {
-      onUpdate(view.editing.id, { name, data });
+    const planData: PlanTemplateData = {
+      tasks: taskDrafts.filter((t) => t.title.trim()).map(taskDraftToData),
+      events: eventDrafts.filter((e) => e.title.trim()).map(eventDraftToData),
+    };
+    const editing = view.mode === "create" ? view.editing : undefined;
+    if (editing) {
+      onUpdate(editing.id, { name, data: planData });
     } else {
-      onAdd({ name, type: view.templateType, data });
+      onAdd({ name, type: "plan", data: planData });
     }
     setView({ mode: "list" });
   }
 
-  function handleApply(t: Template) {
-    if (t.type === "task") {
-      onApplyTask(t.data as TaskTemplateData);
-      onClose();
-    } else {
-      setShowApplyDate(true);
+  function getMaxDay(t: Template): number {
+    if (t.type === "plan") {
+      const data = t.data as PlanTemplateData;
+      return Math.max(
+        1,
+        ...data.tasks.map((x) => x.day ?? 1),
+        ...data.events.flatMap((e) => [e.start_day ?? 1, e.end_day ?? 1])
+      );
     }
+    if (t.type === "event") {
+      const data = t.data as EventTemplateData;
+      return Math.max(
+        1,
+        data.start_day ?? 1,
+        data.end_day ?? 1,
+        ...(data.tasks ?? []).map((x) => x.day ?? 1)
+      );
+    }
+    return 1;
   }
-
-  function handleApplyEvent(t: Template) {
-    if (!applyDate) return;
-    onApplyEvent(t.data as EventTemplateData, applyDate);
-    setApplyDate("");
-    setShowApplyDate(false);
-    onClose();
-  }
-
-  function addSubToTask() {
-    if (!newSub.trim()) return;
-    setTaskDraft((d) => ({ ...d, subtasks: [...d.subtasks, newSub.trim()] }));
-    setNewSub("");
-  }
-
-  const taskEstNum = taskDraft.estimated_time ? parseInt(taskDraft.estimated_time) : 0;
-  const taskEstLabel = taskEstNum > 0
-    ? taskEstNum < 60 ? `${taskEstNum}m` : `${Math.floor(taskEstNum / 60)}h${taskEstNum % 60 > 0 ? ` ${taskEstNum % 60}m` : ""}`
-    : null;
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 dark:bg-black/60 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
       onClick={onClose}
     >
       <div
-        className="bg-white dark:bg-[#111] rounded-2xl shadow-2xl w-full max-w-3xl max-h-[85vh] flex overflow-hidden"
+        className="glass-card-raised rounded-2xl shadow-2xl w-full max-w-3xl max-h-[85vh] flex overflow-hidden"
+        style={{ background: "rgba(15,15,20,0.92)", border: "1px solid rgba(255,255,255,0.1)" }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* ── Left: template list ── */}
-        <div className="w-52 border-r border-black/8 dark:border-white/8 flex flex-col overflow-hidden flex-shrink-0">
-          <div className="px-4 py-3 border-b border-black/8 dark:border-white/8 flex items-center justify-between">
-            <p className="text-sm font-semibold text-black dark:text-white">Templates</p>
-            <button onClick={onClose} className="text-gray-400 hover:text-black dark:hover:text-white transition-colors">
+        {/* ── Left sidebar ── */}
+        <div className="w-52 border-r border-white/8 flex flex-col overflow-hidden flex-shrink-0">
+          <div className="px-4 py-3 border-b border-white/8 flex items-center justify-between">
+            <p className="text-sm font-semibold text-white">Templates</p>
+            <button
+              onClick={onClose}
+              className="text-white/40 hover:text-white transition-colors"
+            >
               <X size={15} />
             </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-3 space-y-5">
-            {/* Task templates */}
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <p className="text-[10px] text-gray-400 uppercase tracking-wide font-medium">Tasks</p>
-                <button
-                  onClick={() => openCreate("task")}
-                  className="text-gray-400 hover:text-black dark:hover:text-white transition-colors"
-                  title="New task template"
-                >
-                  <Plus size={13} />
-                </button>
-              </div>
-              {taskTemplates.length === 0 && (
-                <p className="text-[11px] text-gray-300 dark:text-gray-600 italic px-1">None yet</p>
-              )}
-              {taskTemplates.map((t) => (
-                <button
-                  key={t.id}
-                  onClick={() => { setShowApplyDate(false); setView({ mode: "detail", template: t }); }}
-                  className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
-                    view.mode === "detail" && view.template.id === t.id
-                      ? "bg-black/8 dark:bg-white/8 text-black dark:text-white font-medium"
-                      : "text-gray-600 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/5"
-                  }`}
-                >
-                  {t.name}
-                </button>
-              ))}
-            </div>
+          <div className="flex-1 overflow-y-auto p-3 space-y-1">
+            {templates.length === 0 && (
+              <p className="text-[11px] text-white/20 italic px-1 mt-2">No templates yet</p>
+            )}
+            {templates.map((t) => (
+              <button
+                key={t.id}
+                onClick={() => {
+                  setApplyDate("");
+                  setView({ mode: "detail", template: t });
+                }}
+                className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
+                  view.mode === "detail" && view.template.id === t.id
+                    ? "bg-white/10 text-white font-medium"
+                    : "text-white/50 hover:bg-white/5 hover:text-white/80"
+                }`}
+              >
+                <span className="block truncate">{t.name}</span>
+              </button>
+            ))}
+          </div>
 
-            {/* Event templates */}
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <p className="text-[10px] text-gray-400 uppercase tracking-wide font-medium">Events</p>
-                <button
-                  onClick={() => openCreate("event")}
-                  className="text-gray-400 hover:text-black dark:hover:text-white transition-colors"
-                  title="New event template"
-                >
-                  <Plus size={13} />
-                </button>
-              </div>
-              {eventTemplates.length === 0 && (
-                <p className="text-[11px] text-gray-300 dark:text-gray-600 italic px-1">None yet</p>
-              )}
-              {eventTemplates.map((t) => (
-                <button
-                  key={t.id}
-                  onClick={() => { setShowApplyDate(false); setView({ mode: "detail", template: t }); }}
-                  className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
-                    view.mode === "detail" && view.template.id === t.id
-                      ? "bg-black/8 dark:bg-white/8 text-black dark:text-white font-medium"
-                      : "text-gray-600 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/5"
-                  }`}
-                >
-                  {t.name}
-                </button>
-              ))}
-            </div>
+          <div className="p-3 border-t border-white/8">
+            <button
+              onClick={openCreate}
+              className="w-full flex items-center justify-center gap-1.5 text-xs py-1.5 rounded-lg border border-white/10 text-white/40 hover:text-white hover:border-white/25 transition-colors"
+            >
+              <Plus size={12} />
+              New template
+            </button>
           </div>
         </div>
 
-        {/* ── Right: content ── */}
-        <div className="flex-1 overflow-y-auto">
+        {/* ── Right panel ── */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+
           {/* Empty state */}
           {view.mode === "list" && (
-            <div className="flex flex-col items-center justify-center h-full text-center p-10 gap-3">
-              <p className="text-sm text-gray-400">Select a template or create a new one</p>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => openCreate("task")}
-                  className="text-xs px-3 py-1.5 rounded-lg border border-black/10 dark:border-white/10 text-gray-400 hover:text-black dark:hover:text-white transition-colors"
-                >
-                  + Task template
-                </button>
-                <button
-                  onClick={() => openCreate("event")}
-                  className="text-xs px-3 py-1.5 rounded-lg border border-black/10 dark:border-white/10 text-gray-400 hover:text-black dark:hover:text-white transition-colors"
-                >
-                  + Event template
-                </button>
+            <div className="flex flex-col items-center justify-center h-full text-center p-10 gap-4">
+              <LayoutTemplate size={36} className="text-white/10" />
+              <div>
+                <p className="text-sm font-medium text-white/50 mb-1">No template selected</p>
+                <p className="text-xs text-white/25">Pick a template or create a new one</p>
               </div>
+              <button
+                onClick={openCreate}
+                className="text-xs px-4 py-2 rounded-xl border border-white/10 text-white/40 hover:text-white hover:border-white/25 transition-colors"
+              >
+                Create template
+              </button>
             </div>
           )}
 
-          {/* Detail view */}
-          {view.mode === "detail" && (() => {
-            const t = view.template;
-            const isTask = t.type === "task";
-            const td = isTask ? (t.data as TaskTemplateData) : null;
-            const ed = !isTask ? (t.data as EventTemplateData) : null;
+          {/* Detail / Apply */}
+          {view.mode === "detail" &&
+            (() => {
+              const t = view.template;
+              const maxDay = getMaxDay(t);
+              const planData: PlanTemplateData =
+                t.type === "plan"
+                  ? (t.data as PlanTemplateData)
+                  : t.type === "task"
+                  ? { tasks: [t.data as TaskTemplateData], events: [] }
+                  : {
+                      tasks: (t.data as EventTemplateData).tasks ?? [],
+                      events: [t.data as EventTemplateData],
+                    };
 
-            return (
-              <div className="p-6">
-                {/* Header */}
-                <div className="flex items-start justify-between mb-5">
-                  <div>
-                    <h2 className="text-lg font-semibold text-black dark:text-white">{t.name}</h2>
-                    <span className={`text-[11px] px-2 py-0.5 rounded-full mt-1 inline-block font-medium ${
-                      isTask ? "bg-blue-500/10 text-blue-500" : "bg-purple-500/10 text-purple-500"
-                    }`}>
-                      {isTask ? "Task" : "Event"}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => openEdit(t)}
-                      className="text-xs px-3 py-1.5 rounded-lg border border-black/10 dark:border-white/10 text-gray-400 hover:text-black dark:hover:text-white transition-colors"
-                    >
-                      Edit
-                    </button>
-                    {confirmDelete === t.id ? (
-                      <div className="flex gap-1.5">
-                        <button
-                          onClick={() => { onDelete(t.id); setView({ mode: "list" }); setConfirmDelete(null); }}
-                          className="text-xs px-3 py-1.5 rounded-lg bg-red-500 text-white hover:bg-red-600 transition-colors"
-                        >
-                          Confirm
-                        </button>
-                        <button
-                          onClick={() => setConfirmDelete(null)}
-                          className="text-xs px-2.5 py-1.5 rounded-lg border border-black/10 dark:border-white/10 text-gray-400 hover:text-black dark:hover:text-white transition-colors"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => setConfirmDelete(t.id)}
-                        className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-500/10 transition-colors"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    )}
-                  </div>
-                </div>
+              // Build day groups
+              const groups: Record<number, { tasks: TaskTemplateData[]; events: EventTemplateData[] }> = {};
+              for (const task of planData.tasks) {
+                const d = task.day ?? 1;
+                if (!groups[d]) groups[d] = { tasks: [], events: [] };
+                groups[d].tasks.push(task);
+              }
+              for (const evt of planData.events) {
+                const d = evt.start_day ?? 1;
+                if (!groups[d]) groups[d] = { tasks: [], events: [] };
+                groups[d].events.push(evt);
+              }
+              const days = Object.keys(groups).map(Number).sort((a, b) => a - b);
+              const taskCount = planData.tasks.length;
+              const evtCount = planData.events.length;
 
-                {/* Task template detail */}
-                {isTask && td && (
-                  <div className="space-y-3 mb-6">
-                    <p className="text-sm font-medium text-black dark:text-white">{td.title}</p>
-                    <div className="flex flex-wrap gap-3 text-xs text-black/50 dark:text-gray-400">
-                      {td.priority && td.priority !== "none" && (
-                        <span className="flex items-center gap-1.5">
-                          <span className={`w-1.5 h-1.5 rounded-full ${PRIORITY_DOT[td.priority]}`} />
-                          {td.priority[0].toUpperCase() + td.priority.slice(1)}
-                        </span>
-                      )}
-                      {td.estimated_time && (
-                        <span>{td.estimated_time < 60 ? `${td.estimated_time}m` : `${Math.floor(td.estimated_time / 60)}h${td.estimated_time % 60 > 0 ? ` ${td.estimated_time % 60}m` : ""}`} est.</span>
-                      )}
-                      {td.start_time && <span>{td.start_time}{td.end_time ? `–${td.end_time}` : ""}</span>}
-                    </div>
-                    {td.notes && <p className="text-xs text-gray-400 italic border-l-2 border-black/10 dark:border-white/10 pl-3">{td.notes}</p>}
-                    {(td.subtasks ?? []).length > 0 && (
-                      <div className="space-y-1">
-                        {(td.subtasks ?? []).map((s, i) => (
-                          <div key={i} className="flex items-center gap-2 text-xs text-black/50 dark:text-gray-400">
-                            <span className="w-1 h-1 rounded-full bg-black/20 dark:bg-white/20 flex-shrink-0" />
-                            {s}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Event template detail */}
-                {!isTask && ed && (
-                  <div className="space-y-3 mb-6">
-                    <div className="flex items-center gap-2">
-                      {ed.color && <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: ed.color }} />}
-                      <p className="text-sm font-medium text-black dark:text-white">{ed.title}</p>
-                    </div>
-                    <div className="flex flex-wrap gap-3 text-xs text-black/50 dark:text-gray-400">
-                      {ed.start_time && <span>{ed.start_time}{ed.end_time ? `–${ed.end_time}` : ""}</span>}
-                    </div>
-                    {ed.description && <p className="text-xs text-gray-400 italic border-l-2 border-black/10 dark:border-white/10 pl-3">{ed.description}</p>}
-                    {ed.tasks.length > 0 && (
-                      <div className="mt-3 space-y-2">
-                        <p className="text-[10px] text-gray-400 uppercase tracking-wide">{ed.tasks.length} task{ed.tasks.length !== 1 ? "s" : ""}</p>
-                        {ed.tasks.map((task, i) => (
-                          <div key={i} className="flex items-center gap-2 text-xs text-black/60 dark:text-gray-400">
-                            <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${PRIORITY_DOT[task.priority ?? "none"]}`} />
-                            <span className="flex-1">{task.title}</span>
-                            {task.estimated_time && (
-                              <span className="text-black/30 dark:text-gray-600">
-                                {task.estimated_time < 60 ? `${task.estimated_time}m` : `${Math.floor(task.estimated_time / 60)}h`}
-                              </span>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Apply */}
-                {!isTask && showApplyDate ? (
-                  <div className="flex items-center gap-3">
-                    <input type="date" value={applyDate} onChange={(e) => setApplyDate(e.target.value)} className={INPUT} />
-                    <button
-                      onClick={() => handleApplyEvent(t)}
-                      disabled={!applyDate}
-                      className="text-sm px-4 py-1.5 rounded-xl bg-black dark:bg-white text-white dark:text-black hover:opacity-80 transition-opacity disabled:opacity-30"
-                    >
-                      Create
-                    </button>
-                    <button onClick={() => setShowApplyDate(false)} className="text-xs text-gray-400 hover:text-black dark:hover:text-white transition-colors">
-                      Cancel
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => handleApply(t)}
-                    className="text-sm px-5 py-2 rounded-xl bg-black dark:bg-white text-white dark:text-black hover:opacity-80 transition-opacity"
-                  >
-                    {isTask ? "Apply template" : "Apply → pick date"}
-                  </button>
-                )}
-              </div>
-            );
-          })()}
-
-          {/* Form view */}
-          {view.mode === "form" && (
-            <div className="p-6">
-              <div className="flex items-center gap-3 mb-5">
-                <button
-                  onClick={() => setView({ mode: "list" })}
-                  className="text-gray-400 hover:text-black dark:hover:text-white transition-colors"
-                >
-                  <ChevronLeft size={16} />
-                </button>
-                <h2 className="text-base font-semibold text-black dark:text-white">
-                  {view.editing ? "Edit template" : `New ${view.templateType} template`}
-                </h2>
-              </div>
-
-              <div className="space-y-5">
-                {/* Template name */}
-                <div>
-                  <p className="text-[10px] text-gray-400 uppercase tracking-wide mb-1.5 font-medium">Template name</p>
-                  <input
-                    type="text"
-                    value={templateName}
-                    onChange={(e) => setTemplateName(e.target.value)}
-                    placeholder="e.g. Morning Review"
-                    className={`w-full text-sm ${INPUT}`}
-                    autoFocus
-                  />
-                </div>
-
-                {view.templateType === "task" ? (
-                  /* ── Task template form ── */
-                  <>
+              return (
+                <>
+                  <div className="px-6 pt-5 pb-3 border-b border-white/8 flex items-start justify-between gap-3 flex-shrink-0">
                     <div>
-                      <p className="text-[10px] text-gray-400 uppercase tracking-wide mb-1.5 font-medium">Default title</p>
-                      <input
-                        type="text"
-                        value={taskDraft.title}
-                        onChange={(e) => setTaskDraft((d) => ({ ...d, title: e.target.value }))}
-                        placeholder="Task title..."
-                        className={`w-full text-sm ${INPUT}`}
-                      />
-                    </div>
-
-                    <div>
-                      <p className="text-[10px] text-gray-400 uppercase tracking-wide mb-1.5 font-medium">Priority</p>
-                      <div className="flex gap-2 flex-wrap">
-                        {PRIORITIES.map((p) => (
-                          <button
-                            key={p}
-                            onClick={() => setTaskDraft((d) => ({ ...d, priority: p }))}
-                            className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border transition-colors ${
-                              taskDraft.priority === p
-                                ? "border-black/30 dark:border-white/30 bg-black/5 dark:bg-white/10 text-black dark:text-white"
-                                : "border-black/10 dark:border-white/10 text-gray-400 hover:border-black/20 dark:hover:border-white/20"
-                            }`}
-                          >
-                            <span className={`w-1.5 h-1.5 rounded-full ${PRIORITY_DOT[p]}`} />
-                            {p[0].toUpperCase() + p.slice(1)}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div>
-                      <p className="text-[10px] text-gray-400 uppercase tracking-wide mb-1.5 font-medium">Estimated time</p>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="number"
-                          min={1}
-                          placeholder="minutes"
-                          value={taskDraft.estimated_time}
-                          onChange={(e) => setTaskDraft((d) => ({ ...d, estimated_time: e.target.value }))}
-                          className={`w-28 ${INPUT}`}
-                        />
-                        {taskEstLabel && <span className="text-xs text-black/40 dark:text-gray-500">{taskEstLabel}</span>}
-                      </div>
-                    </div>
-
-                    <div>
-                      <p className="text-[10px] text-gray-400 uppercase tracking-wide mb-1.5 font-medium">Default time</p>
-                      <div className="flex items-center gap-2">
-                        <input type="time" value={taskDraft.start_time} onChange={(e) => setTaskDraft((d) => ({ ...d, start_time: e.target.value }))} className={INPUT} />
-                        {taskDraft.start_time && (
-                          <input type="time" value={taskDraft.end_time} onChange={(e) => setTaskDraft((d) => ({ ...d, end_time: e.target.value }))} className={INPUT} />
+                      <h2 className="text-base font-semibold text-white mb-1.5">{t.name}</h2>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {maxDay > 1 && (
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/8 text-white/50">
+                            {maxDay} days
+                          </span>
+                        )}
+                        {taskCount > 0 && (
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/8 text-white/50">
+                            {taskCount} task{taskCount !== 1 ? "s" : ""}
+                          </span>
+                        )}
+                        {evtCount > 0 && (
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/8 text-white/50">
+                            {evtCount} event{evtCount !== 1 ? "s" : ""}
+                          </span>
                         )}
                       </div>
                     </div>
-
-                    {lists.length > 0 && (
-                      <div>
-                        <p className="text-[10px] text-gray-400 uppercase tracking-wide mb-1.5 font-medium">List</p>
-                        <select
-                          value={taskDraft.list_id}
-                          onChange={(e) => setTaskDraft((d) => ({ ...d, list_id: e.target.value }))}
-                          className={`${INPUT} cursor-pointer`}
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <button
+                        onClick={() => openEdit(t)}
+                        className="text-xs px-3 py-1.5 rounded-lg border border-white/10 text-white/40 hover:text-white hover:border-white/25 transition-colors"
+                      >
+                        Edit
+                      </button>
+                      {confirmDelete === t.id ? (
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => {
+                              onDelete(t.id);
+                              setConfirmDelete(null);
+                              setView({ mode: "list" });
+                            }}
+                            className="text-xs px-2 py-1 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors"
+                          >
+                            Delete
+                          </button>
+                          <button
+                            onClick={() => setConfirmDelete(null)}
+                            className="text-xs px-2 py-1 rounded-lg border border-white/10 text-white/40 hover:text-white transition-colors"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setConfirmDelete(t.id)}
+                          className="text-white/30 hover:text-red-400 transition-colors"
                         >
-                          <option value="">No list</option>
-                          {lists.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
-                        </select>
-                      </div>
-                    )}
-
-                    <div>
-                      <p className="text-[10px] text-gray-400 uppercase tracking-wide mb-1.5 font-medium">Notes</p>
-                      <textarea
-                        value={taskDraft.notes}
-                        onChange={(e) => setTaskDraft((d) => ({ ...d, notes: e.target.value }))}
-                        placeholder="Default notes..."
-                        rows={2}
-                        className={`w-full ${INPUT} resize-none`}
-                      />
-                    </div>
-
-                    <div>
-                      <p className="text-[10px] text-gray-400 uppercase tracking-wide mb-1.5 font-medium">Subtasks</p>
-                      <div className="space-y-1 mb-2">
-                        {taskDraft.subtasks.map((s, i) => (
-                          <div key={i} className="flex items-center gap-2">
-                            <span className="w-1 h-1 rounded-full bg-black/20 dark:bg-white/20 flex-shrink-0" />
-                            <span className="flex-1 text-xs text-black dark:text-white">{s}</span>
-                            <button
-                              onClick={() => setTaskDraft((d) => ({ ...d, subtasks: d.subtasks.filter((_, j) => j !== i) }))}
-                              className="text-gray-400 hover:text-red-400 transition-colors"
-                            >
-                              <X size={10} />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="text"
-                          value={newSub}
-                          onChange={(e) => setNewSub(e.target.value)}
-                          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addSubToTask(); } }}
-                          placeholder="Add subtask..."
-                          className={`flex-1 ${INPUT}`}
-                        />
-                        <button onClick={addSubToTask} className="text-gray-400 hover:text-black dark:hover:text-white transition-colors">
-                          <Plus size={14} />
+                          <X size={15} />
                         </button>
-                      </div>
+                      )}
                     </div>
-                  </>
-                ) : (
-                  /* ── Event template form ── */
-                  <>
-                    <div>
-                      <p className="text-[10px] text-gray-400 uppercase tracking-wide mb-1.5 font-medium">Event title</p>
-                      <input
-                        type="text"
-                        value={eventDraft.title}
-                        onChange={(e) => setEventDraft((d) => ({ ...d, title: e.target.value }))}
-                        placeholder="Event title..."
-                        className={`w-full text-sm ${INPUT}`}
-                      />
-                    </div>
+                  </div>
 
-                    <div>
-                      <p className="text-[10px] text-gray-400 uppercase tracking-wide mb-1.5 font-medium">Description</p>
-                      <textarea
-                        value={eventDraft.description}
-                        onChange={(e) => setEventDraft((d) => ({ ...d, description: e.target.value }))}
-                        placeholder="Description..."
-                        rows={2}
-                        className={`w-full ${INPUT} resize-none`}
-                      />
-                    </div>
-
-                    <div className="flex items-end gap-5">
-                      <div>
-                        <p className="text-[10px] text-gray-400 uppercase tracking-wide mb-1.5 font-medium">Color</p>
-                        <input
-                          type="color"
-                          value={eventDraft.color || "#6366f1"}
-                          onChange={(e) => setEventDraft((d) => ({ ...d, color: e.target.value }))}
-                          className="w-9 h-9 rounded-lg cursor-pointer border border-black/10 dark:border-white/10 [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:rounded-md"
-                        />
-                      </div>
-                      <div>
-                        <p className="text-[10px] text-gray-400 uppercase tracking-wide mb-1.5 font-medium">Default time</p>
-                        <div className="flex items-center gap-2">
-                          <input type="time" value={eventDraft.start_time} onChange={(e) => setEventDraft((d) => ({ ...d, start_time: e.target.value }))} className={INPUT} />
-                          {eventDraft.start_time && (
-                            <input type="time" value={eventDraft.end_time} onChange={(e) => setEventDraft((d) => ({ ...d, end_time: e.target.value }))} className={INPUT} />
-                          )}
+                  <div className="flex-1 overflow-y-auto px-6 py-4 space-y-5">
+                    {days.map((day) => (
+                      <div key={day}>
+                        {maxDay > 1 && (
+                          <p className="text-[10px] text-white/30 uppercase tracking-wide mb-2 font-medium">
+                            Day {day}
+                          </p>
+                        )}
+                        <div className="space-y-1.5">
+                          {groups[day].events.map((e, i) => (
+                            <div
+                              key={i}
+                              className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/5 border border-white/8"
+                            >
+                              {e.color ? (
+                                <span
+                                  className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                                  style={{ background: e.color }}
+                                />
+                              ) : (
+                                <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 bg-white/20" />
+                              )}
+                              <span className="text-sm text-white font-medium flex-1">
+                                {e.title || (
+                                  <span className="text-white/30 italic">Untitled event</span>
+                                )}
+                              </span>
+                              {e.start_time && (
+                                <span className="text-[10px] text-white/30 tabular-nums">
+                                  {e.start_time}
+                                </span>
+                              )}
+                            </div>
+                          ))}
+                          {groups[day].tasks.map((task, i) => (
+                            <div
+                              key={i}
+                              className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/3 border border-white/5"
+                            >
+                              <span
+                                className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                                  task.priority === "high"
+                                    ? "bg-red-500"
+                                    : task.priority === "medium"
+                                    ? "bg-amber-500"
+                                    : task.priority === "low"
+                                    ? "bg-blue-500"
+                                    : "bg-gray-500"
+                                }`}
+                              />
+                              <span className="text-sm text-white/70 flex-1">
+                                {task.title || (
+                                  <span className="text-white/30 italic">Untitled task</span>
+                                )}
+                              </span>
+                              {task.estimated_time != null && task.estimated_time > 0 && (
+                                <span className="text-[10px] text-white/30 tabular-nums">
+                                  {fmtEst(task.estimated_time)}
+                                </span>
+                              )}
+                            </div>
+                          ))}
                         </div>
                       </div>
-                    </div>
-
-                    {lists.length > 0 && (
-                      <div>
-                        <p className="text-[10px] text-gray-400 uppercase tracking-wide mb-1.5 font-medium">List</p>
-                        <select
-                          value={eventDraft.list_id}
-                          onChange={(e) => setEventDraft((d) => ({ ...d, list_id: e.target.value }))}
-                          className={`${INPUT} cursor-pointer`}
-                        >
-                          <option value="">No list</option>
-                          {lists.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
-                        </select>
-                      </div>
+                    ))}
+                    {days.length === 0 && (
+                      <p className="text-sm text-white/25 italic text-center py-8">
+                        This template has no items yet.
+                      </p>
                     )}
+                  </div>
 
-                    <div>
-                      <p className="text-[10px] text-gray-400 uppercase tracking-wide mb-2 font-medium">Tasks</p>
-                      <div className="space-y-2">
-                        {eventDraft.tasks.map((task, i) => (
-                          <TaskForm
-                            key={i}
-                            index={i}
-                            draft={task}
-                            lists={lists}
-                            onChange={(updated) =>
-                              setEventDraft((d) => ({
-                                ...d,
-                                tasks: d.tasks.map((t, j) => j === i ? updated : t),
-                              }))
-                            }
-                            onRemove={() =>
-                              setEventDraft((d) => ({
-                                ...d,
-                                tasks: d.tasks.filter((_, j) => j !== i),
-                              }))
-                            }
-                          />
-                        ))}
-                        <button
-                          onClick={() => setEventDraft((d) => ({ ...d, tasks: [...d.tasks, emptyTask()] }))}
-                          className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-black dark:hover:text-white transition-colors"
-                        >
-                          <Plus size={12} />
-                          Add task
-                        </button>
+                  <div className="px-6 py-4 border-t border-white/8 flex-shrink-0">
+                    <p className="text-xs text-white/40 mb-2">
+                      {maxDay > 1 ? "Start date — Day 1 will be this date" : "Apply to date"}
+                    </p>
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1">
+                        <DatePicker
+                          value={applyDate}
+                          onChange={setApplyDate}
+                          placeholder="Pick a date..."
+                        />
                       </div>
+                      <button
+                        onClick={() => {
+                          if (applyDate) {
+                            onApply(t, applyDate);
+                            setApplyDate("");
+                            onClose();
+                          }
+                        }}
+                        disabled={!applyDate}
+                        className="px-4 py-1.5 rounded-xl text-sm font-medium bg-white text-black hover:bg-white/90 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                      >
+                        Apply
+                      </button>
                     </div>
-                  </>
-                )}
+                  </div>
+                </>
+              );
+            })()}
 
-                {/* Save / Cancel */}
-                <div className="flex gap-2 pt-2 border-t border-black/5 dark:border-white/5">
-                  <button
-                    onClick={handleSave}
-                    disabled={
-                      !templateName.trim() ||
-                      (view.templateType === "task" ? !taskDraft.title.trim() : !eventDraft.title.trim())
-                    }
-                    className="text-sm px-4 py-2 rounded-xl bg-black dark:bg-white text-white dark:text-black hover:opacity-80 transition-opacity disabled:opacity-30"
-                  >
-                    {view.editing ? "Save changes" : "Create template"}
-                  </button>
-                  <button
-                    onClick={() => setView({ mode: "list" })}
-                    className="text-sm px-4 py-2 rounded-xl border border-black/10 dark:border-white/10 text-gray-400 hover:text-black dark:hover:text-white transition-colors"
-                  >
-                    Cancel
-                  </button>
+          {/* Create / Edit */}
+          {view.mode === "create" && (
+            <>
+              <div className="px-6 pt-5 pb-3 border-b border-white/8 flex-shrink-0">
+                <input
+                  value={templateName}
+                  onChange={(e) => setTemplateName(e.target.value)}
+                  placeholder="Template name..."
+                  className="w-full bg-transparent text-base font-semibold text-white placeholder:text-white/25 focus:outline-none"
+                  autoFocus
+                />
+              </div>
+
+              <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
+                {/* Tasks */}
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-xs font-medium text-white/60">Tasks</p>
+                    <button
+                      onClick={() => setTaskDrafts((prev) => [...prev, emptyTask()])}
+                      className="flex items-center gap-1 text-[11px] text-white/30 hover:text-white transition-colors"
+                    >
+                      <Plus size={12} /> Add task
+                    </button>
+                  </div>
+                  {taskDrafts.length === 0 && (
+                    <p className="text-[11px] text-white/20 italic">No tasks yet</p>
+                  )}
+                  <div className="space-y-2">
+                    {taskDrafts.map((t, i) => (
+                      <TaskRow
+                        key={t._id}
+                        draft={t}
+                        onChange={(upd) =>
+                          setTaskDrafts((prev) => prev.map((x, j) => (j === i ? upd : x)))
+                        }
+                        onRemove={() => setTaskDrafts((prev) => prev.filter((_, j) => j !== i))}
+                        lists={lists}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                {/* Events */}
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-xs font-medium text-white/60">Events</p>
+                    <button
+                      onClick={() => setEventDrafts((prev) => [...prev, emptyEvent()])}
+                      className="flex items-center gap-1 text-[11px] text-white/30 hover:text-white transition-colors"
+                    >
+                      <Plus size={12} /> Add event
+                    </button>
+                  </div>
+                  {eventDrafts.length === 0 && (
+                    <p className="text-[11px] text-white/20 italic">No events yet</p>
+                  )}
+                  <div className="space-y-2">
+                    {eventDrafts.map((e, i) => (
+                      <EventRow
+                        key={e._id}
+                        draft={e}
+                        onChange={(upd) =>
+                          setEventDrafts((prev) => prev.map((x, j) => (j === i ? upd : x)))
+                        }
+                        onRemove={() => setEventDrafts((prev) => prev.filter((_, j) => j !== i))}
+                        lists={lists}
+                      />
+                    ))}
+                  </div>
                 </div>
               </div>
-            </div>
+
+              <div className="px-6 py-4 border-t border-white/8 flex items-center justify-end gap-3 flex-shrink-0">
+                <button
+                  onClick={() => setView({ mode: "list" })}
+                  className="text-xs px-3 py-1.5 rounded-lg border border-white/10 text-white/40 hover:text-white hover:border-white/25 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSave}
+                  disabled={!templateName.trim()}
+                  className="text-xs px-4 py-1.5 rounded-lg bg-white text-black font-medium hover:bg-white/90 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                >
+                  {view.editing ? "Save changes" : "Save template"}
+                </button>
+              </div>
+            </>
           )}
         </div>
       </div>

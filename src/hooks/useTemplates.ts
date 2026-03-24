@@ -2,7 +2,10 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
-import type { Template, TaskTemplateData, EventTemplateData } from "@/lib/types";
+import type { Template, TaskTemplateData, EventTemplateData, PlanTemplateData } from "@/lib/types";
+
+type TemplateInsert = { name: string; type: "task" | "event" | "plan"; data: TaskTemplateData | EventTemplateData | PlanTemplateData };
+type TemplateUpdate = { name?: string; data?: TaskTemplateData | EventTemplateData | PlanTemplateData };
 
 export function useTemplates(userId: string | undefined) {
   const [templates, setTemplates] = useState<Template[]>([]);
@@ -22,7 +25,7 @@ export function useTemplates(userId: string | undefined) {
   }, [userId]);
 
   const addTemplate = useCallback(
-    async (template: { name: string; type: "task" | "event"; data: TaskTemplateData | EventTemplateData }) => {
+    async (template: TemplateInsert) => {
       if (!userId) return;
       const sort_order = templates.length;
       const { data, error } = await supabase
@@ -36,7 +39,7 @@ export function useTemplates(userId: string | undefined) {
   );
 
   const updateTemplate = useCallback(
-    async (id: string, updates: { name?: string; data?: TaskTemplateData | EventTemplateData }) => {
+    async (id: string, updates: TemplateUpdate) => {
       const { data, error } = await supabase
         .from("templates")
         .update({ ...updates, updated_at: new Date().toISOString() })

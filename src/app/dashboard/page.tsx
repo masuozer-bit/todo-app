@@ -657,58 +657,63 @@ export default function DashboardPage() {
   }, [updateTodo]);
 
   // Template apply handlers
-  const handleApplyTaskTemplate = useCallback(async (data: import("@/lib/types").TaskTemplateData) => {
-    const id = await addTodo(data.title, [], {
-      priority: data.priority,
-      notes: data.notes,
-      list_id: data.list_id,
-      start_time: data.start_time,
-      end_time: data.end_time,
-    });
-    if (id && data.estimated_time) {
-      await updateTodo(id, { estimated_time: data.estimated_time });
-    }
-    if (id && (data.subtasks ?? []).length > 0) {
-      for (const title of data.subtasks!) {
-        await addSubtask(id, title);
-      }
-    }
-  }, [addTodo, updateTodo, addSubtask]);
+  /* offset a YYYY-MM-DD string by N days */
+  function offsetDate(base: string, days: number): string {
+    const [y, m, d] = base.split("-").map(Number);
+    const dt = new Date(y, m - 1, d + days);
+    return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
+  }
 
-  const handleApplyEventTemplate = useCallback(async (
-    data: import("@/lib/types").EventTemplateData,
-    date: string
+  const handleApply = useCallback(async (
+    template: import("@/lib/types").Template,
+    startDate: string
   ) => {
-    const event = await addEvent(data.title, {
-      description: data.description ?? undefined,
-      color: data.color ?? undefined,
-      list_id: data.list_id,
-      due_date: date,
-      start_time: data.start_time ?? undefined,
-      end_time: data.end_time ?? undefined,
-    });
-    if (!event) return;
-    for (const task of data.tasks) {
-      const todoId = await addTodo(task.title, [], {
-        priority: task.priority,
-        notes: task.notes,
-        list_id: task.list_id ?? data.list_id,
-        start_time: task.start_time,
-        end_time: task.end_time,
-        event_id: event.id,
-        due_date: date,
+    type TaskData = import("@/lib/types").TaskTemplateData;
+    type EventData = import("@/lib/types").EventTemplateData;
+
+    async function applyTask(data: TaskData) {
+      const dueDate = startDate ? offsetDate(startDate, (data.day ?? 1) - 1) : undefined;
+      const id = await addTodo(data.title, [], {
+        priority: data.priority, notes: data.notes, list_id: data.list_id,
+        start_time: data.start_time, end_time: data.end_time, due_date: dueDate,
       });
-      if (todoId && task.estimated_time) {
-        await updateTodo(todoId, { estimated_time: task.estimated_time });
+      if (id && data.estimated_time) await updateTodo(id, { estimated_time: data.estimated_time });
+      if (id) for (const title of data.subtasks ?? []) await addSubtask(id, title);
+    }
+
+    async function applyEvent(data: EventData) {
+      const eventStart = startDate ? offsetDate(startDate, (data.start_day ?? 1) - 1) : startDate;
+      const eventEnd = startDate && data.end_day ? offsetDate(startDate, data.end_day - 1) : undefined;
+      const event = await addEvent(data.title, {
+        description: data.description ?? undefined, color: data.color ?? undefined,
+        list_id: data.list_id, due_date: eventStart, end_date: eventEnd,
+        start_time: data.start_time ?? undefined, end_time: data.end_time ?? undefined,
+      });
+      if (!event) return;
+      for (const task of data.tasks ?? []) {
+        const taskDate = startDate ? offsetDate(startDate, (task.day ?? 1) - 1) : eventStart;
+        const todoId = await addTodo(task.title, [], {
+          priority: task.priority, notes: task.notes,
+          list_id: task.list_id ?? data.list_id,
+          start_time: task.start_time, end_time: task.end_time,
+          event_id: event.id, due_date: taskDate,
+        });
+        if (todoId && task.estimated_time) await updateTodo(todoId, { estimated_time: task.estimated_time });
+        if (todoId) for (const title of task.subtasks ?? []) await addSubtask(todoId, title);
       }
-      if (todoId && (task.subtasks ?? []).length > 0) {
-        for (const title of task.subtasks!) {
-          await addSubtask(todoId, title);
-        }
-      }
+    }
+
+    if (template.type === "task") {
+      await applyTask(template.data as TaskData);
+    } else if (template.type === "event") {
+      await applyEvent(template.data as EventData);
+    } else {
+      const plan = template.data as import("@/lib/types").PlanTemplateData;
+      for (const task of plan.tasks) await applyTask(task);
+      for (const evt of plan.events) await applyEvent(evt);
     }
     refetchTodos();
-  }, [addEvent, addTodo, updateTodo, addSubtask, refetchTodos]);
+  }, [addTodo, updateTodo, addSubtask, addEvent, refetchTodos]);
 
   function switchToRules() {
     setRulesView(true);
@@ -1607,8 +1612,7 @@ export default function DashboardPage() {
         onAdd={addTemplate}
         onUpdate={updateTemplate}
         onDelete={deleteTemplate}
-        onApplyTask={handleApplyTaskTemplate}
-        onApplyEvent={handleApplyEventTemplate}
+        onApply={handleApply}
       />
 
       {/* Mobile sidebar drawer */}

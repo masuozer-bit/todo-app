@@ -254,6 +254,7 @@ export default function TodoItem({
   }
 
   return (
+    <>
     <div
       ref={itemRef}
       data-todo-id={todo.id}
@@ -934,5 +935,6 @@ export default function TodoItem({
       </>,
       document.body
     )}
+    </>
   );
 }

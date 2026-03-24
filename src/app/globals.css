@@ -351,24 +351,42 @@
     left: 0;
     right: 0;
     height: 3px;
-    /* Subtle radiant: just the list colour fading in/out, no bright white peak */
+    /* Solid base bar at the list colour */
     background: linear-gradient(
       90deg,
       transparent        0%,
-      var(--list-color)  35%,
-      var(--list-color)  65%,
+      var(--list-color)  20%,
+      var(--list-color)  80%,
       transparent        100%
     );
-    background-size: 240% 100%;
-    opacity: 0.75;
-    animation: strip-shimmer 5.5s ease-in-out infinite;
+    opacity: 0.55;
+    overflow: hidden;
     pointer-events: none;
   }
 
-  @keyframes strip-shimmer {
-    0%   { background-position:  130% 0; opacity: 0.55; }
-    50%  { opacity: 0.85; }
-    100% { background-position: -130% 0; opacity: 0.55; }
+  /* Shimmer glint — sweeps left→right, resets while invisible = seamless loop */
+  .list-strip::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: -45%;
+    width: 45%;
+    background: linear-gradient(
+      90deg,
+      transparent          0%,
+      rgba(255,255,255,0.5) 50%,
+      transparent          100%
+    );
+    animation: strip-glint 5.5s ease-in-out infinite;
+  }
+
+  @keyframes strip-glint {
+    0%   { left: -45%; opacity: 0; }
+    8%   { opacity: 1; }
+    72%  { left: 100%; opacity: 1; }
+    80%  { left: 100%; opacity: 0; }
+    100% { left: 100%; opacity: 0; }   /* hold off-screen → snap back is invisible */
   }
 
   /* Dragging state */

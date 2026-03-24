@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import {
   Trash2,
   Check,
@@ -140,7 +141,23 @@ export default function TodoItem({
   const itemRef = useRef<HTMLDivElement>(null);
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState(todo.title);
-  const [expanded, setExpanded] = useState(false);
+  const [expanded,      setExpanded]      = useState(false);
+  const [portalMounted, setPortalMounted] = useState(false);
+  const [slideIn,       setSlideIn]       = useState(false);
+  const [domReady,      setDomReady]      = useState(false);
+
+  useEffect(() => { setDomReady(true); }, []);
+
+  useEffect(() => {
+    if (expanded) {
+      setPortalMounted(true);
+      requestAnimationFrame(() => setSlideIn(true));
+    } else {
+      setSlideIn(false);
+      const t = setTimeout(() => setPortalMounted(false), 300);
+      return () => clearTimeout(t);
+    }
+  }, [expanded]);
   const [showNotes, setShowNotes] = useState(false);
 
   // Scroll into view and flash when highlighted
@@ -544,341 +561,378 @@ export default function TodoItem({
         </div>
       )}
 
-      {/* Expanded panel — grid trick: 0fr→1fr animates height so the strip follows */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateRows: expanded ? "1fr" : "0fr",
-          transition: "grid-template-rows 280ms ease",
-        }}
-        onPointerDown={(e) => e.stopPropagation()}
-        onClick={(e) => e.stopPropagation()}
-      >
-      <div style={{ overflow: "hidden" }}>
-        <div className="px-3 pb-3 pt-2.5 space-y-3 border-t border-black/5 dark:border-white/5">
-
-          {/* Priority */}
-          {!todo.completed && (
-            <div>
-              <p className="text-[10px] uppercase tracking-wide text-gray-400 font-medium mb-1.5">Priority</p>
-              <div className="flex gap-1.5">
-                {(["high", "medium", "low", "none"] as Priority[]).map((p) => {
-                  const conf = PRIORITY_CONFIG[p];
-                  return (
-                    <button
-                      key={p}
-                      onClick={() => onUpdate(todo.id, { priority: p })}
-                      className={`flex-1 flex items-center justify-center gap-1.5 text-xs py-1.5 rounded-lg border transition-default ${
-                        todo.priority === p
-                          ? "border-black/25 dark:border-white/25 bg-black/5 dark:bg-white/10 font-medium text-black dark:text-white"
-                          : "border-black/8 dark:border-white/8 text-gray-400 hover:border-black/15 dark:hover:border-white/15"
-                      }`}
-                    >
-                      <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${conf.dot}`} />
-                      {conf.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Due date & time */}
-          {!todo.completed && (
-            <div>
-              <p className="text-[10px] uppercase tracking-wide text-gray-400 font-medium mb-1.5">Due date</p>
-              <div className="flex gap-1 flex-wrap mb-1.5">
-                {[
-                  { label: "Today", val: getToday() },
-                  { label: "Tomorrow", val: getTomorrow() },
-                  { label: "Next Mon", val: getNextMonday() },
-                  { label: "Next Week", val: getNextWeek() },
-                ].map((pick) => (
-                  <button
-                    key={pick.label}
-                    onClick={() => onUpdate(todo.id, { due_date: pick.val })}
-                    className={`text-xs px-2 py-1 rounded-lg border transition-default ${
-                      todo.due_date === pick.val
-                        ? "border-black/25 dark:border-white/25 bg-black/5 dark:bg-white/10 text-black dark:text-white font-medium"
-                        : "border-black/8 dark:border-white/8 text-gray-400 hover:border-black/15 dark:hover:border-white/15"
-                    }`}
-                  >
-                    {pick.label}
-                  </button>
-                ))}
-              </div>
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <DatePicker
-                  value={todo.due_date ?? ""}
-                  onChange={(v) => onUpdate(todo.id, { due_date: v || null, ...(v ? {} : { start_time: null, end_time: null }) })}
-                />
-                {todo.due_date && (
-                  <>
-                    <TimePicker
-                      value={todo.start_time ?? ""}
-                      onChange={(v) => onUpdate(todo.id, { start_time: v || null })}
-                    />
-                    {todo.start_time && (
-                      <>
-                        <span className="text-xs text-gray-400">→</span>
-                        <TimePicker
-                          value={todo.end_time ?? ""}
-                          onChange={(v) => onUpdate(todo.id, { end_time: v || null })}
-                        />
-                      </>
-                    )}
-                  </>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Start date */}
-          {!todo.completed && (
-            <div>
-              <p className="text-[10px] uppercase tracking-wide text-gray-400 font-medium mb-1.5">Start date</p>
-              <DatePicker
-                value={todo.start_date ?? ""}
-                onChange={(v) => onUpdate(todo.id, { start_date: v || null })}
-                placeholder="Pick start date"
-              />
-            </div>
-          )}
-
-          {/* List + Est. time — side by side */}
-          {!todo.completed && (lists.length > 0 || true) && (
-            <div className="flex gap-3">
-              {lists.length > 0 && (
-                <div className="flex-1 min-w-0">
-                  <p className="text-[10px] uppercase tracking-wide text-gray-400 font-medium mb-1.5">List</p>
-                  <CustomSelect
-                    value={todo.list_id ?? ""}
-                    onChange={(v) => onUpdate(todo.id, { list_id: v || null })}
-                    options={[{ value: "", label: "No list" }, ...lists.map((l) => ({ value: l.id, label: l.name, color: l.color ?? undefined }))]}
-                    className="w-full"
-                  />
-                </div>
-              )}
-              <div className="flex-1 min-w-0">
-                <p className="text-[10px] uppercase tracking-wide text-gray-400 font-medium mb-1.5">Est. time</p>
-                <div className="flex items-center gap-1.5">
-                  <input
-                    type="number"
-                    min={1}
-                    max={999}
-                    placeholder="min"
-                    value={todo.estimated_time ?? ""}
-                    onChange={(e) => {
-                      const v = parseInt(e.target.value);
-                      onUpdate(todo.id, { estimated_time: v > 0 ? v : null });
-                    }}
-                    className="w-full text-xs bg-transparent border border-black/10 dark:border-white/10 rounded-lg px-2 py-1.5 text-black dark:text-white focus:outline-none focus:border-black/25 dark:focus:border-white/25 transition-default tabular-nums"
-                  />
-                  {todo.estimated_time && (
-                    <>
-                      <span className="text-xs text-black/35 dark:text-gray-600 tabular-nums flex-shrink-0">
-                        {todo.estimated_time < 60 ? `${todo.estimated_time}m` : `${Math.floor(todo.estimated_time / 60)}h${todo.estimated_time % 60 > 0 ? `${todo.estimated_time % 60}m` : ""}`}
-                      </span>
-                      <button onClick={() => onUpdate(todo.id, { estimated_time: null })} className="text-gray-400 hover:text-black dark:hover:text-white transition-default flex-shrink-0">
-                        <X size={12} />
-                      </button>
-                    </>
-                  )}
-                </div>
-                {todo.estimated_time && (todo.time_spent ?? 0) > 0 && (() => {
-                  const estSec = todo.estimated_time * 60;
-                  const ratio = todo.time_spent! / estSec;
-                  const pct = Math.round(ratio * 100);
-                  const isGood = ratio >= 0.8 && ratio <= 1.2;
-                  const isOver = ratio > 1.2;
-                  return (
-                    <div className="flex items-center gap-1.5 mt-1.5">
-                      <div className="flex-1 h-1 rounded-full bg-black/8 dark:bg-white/10 overflow-hidden">
-                        <div className={`h-full rounded-full ${isGood ? "bg-emerald-500" : isOver ? "bg-red-400" : "bg-blue-400"}`} style={{ width: `${Math.min(pct, 100)}%` }} />
-                      </div>
-                      <span className={`text-[10px] font-medium tabular-nums ${isGood ? "text-emerald-400" : isOver ? "text-red-400" : "text-blue-400"}`}>{pct}%</span>
-                    </div>
-                  );
-                })()}
-              </div>
-            </div>
-          )}
-
-          {/* Additional dates */}
-          {!todo.completed && (
-            <div>
-              <p className="text-[10px] uppercase tracking-wide text-gray-400 font-medium mb-1.5">Additional dates</p>
-              <div className="space-y-1 mb-2">
-                {todo.due_date && (
-                  <div className="flex items-center gap-2 text-xs text-black/35 dark:text-gray-600">
-                    <span className="w-2.5 h-2.5 rounded-full border border-black/15 dark:border-white/15 flex-shrink-0" />
-                    <span className="tabular-nums">{todo.due_date}</span>
-                    {todo.start_time && <span className="tabular-nums">{todo.start_time}{todo.end_time ? `–${todo.end_time}` : ""}</span>}
-                    <span className="text-[10px] text-gray-300 dark:text-gray-700">primary</span>
-                  </div>
-                )}
-                {(todo.extra_dates ?? []).sort((a, b) => a.date.localeCompare(b.date)).map((ed, i) => (
-                  <div key={i} className="flex items-center gap-2 group/ed">
-                    <button
-                      onClick={() => {
-                        const sorted = [...(todo.extra_dates ?? [])].sort((a, b) => a.date.localeCompare(b.date));
-                        const realIdx = (todo.extra_dates ?? []).indexOf(sorted[i]);
-                        const updated = (todo.extra_dates ?? []).map((d, j) => j === realIdx ? { ...d, completed: !d.completed } : d);
-                        onUpdate(todo.id, { extra_dates: updated });
-                      }}
-                      className={`w-2.5 h-2.5 rounded-full border flex-shrink-0 transition-default ${ed.completed ? "bg-emerald-500 border-emerald-500" : "border-black/20 dark:border-white/20 hover:border-black/40 dark:hover:border-white/40"}`}
-                    />
-                    <span className={`text-xs tabular-nums ${ed.completed ? "line-through text-black/25 dark:text-gray-700" : "text-black dark:text-white"}`}>{ed.date}</span>
-                    <input
-                      type="time"
-                      value={ed.time ?? ""}
-                      onChange={(e) => {
-                        const sorted = [...(todo.extra_dates ?? [])].sort((a, b) => a.date.localeCompare(b.date));
-                        const realIdx = (todo.extra_dates ?? []).indexOf(sorted[i]);
-                        const updated = (todo.extra_dates ?? []).map((d, j) => j === realIdx ? { ...d, time: e.target.value || null } : d);
-                        onUpdate(todo.id, { extra_dates: updated });
-                      }}
-                      className="text-xs bg-transparent border-b border-black/8 dark:border-white/8 text-black/40 dark:text-gray-600 focus:outline-none focus:border-black/25 dark:focus:border-white/25 transition-default tabular-nums w-20"
-                    />
-                    <button
-                      onClick={() => {
-                        const sorted = [...(todo.extra_dates ?? [])].sort((a, b) => a.date.localeCompare(b.date));
-                        const realIdx = (todo.extra_dates ?? []).indexOf(sorted[i]);
-                        const updated = (todo.extra_dates ?? []).filter((_, j) => j !== realIdx);
-                        onUpdate(todo.id, { extra_dates: updated });
-                      }}
-                      className="opacity-0 group-hover/ed:opacity-100 text-gray-400 hover:text-red-400 transition-default ml-auto"
-                    >
-                      <X size={10} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-              <div className="flex items-center gap-1.5">
-                <input
-                  type="date"
-                  value={newExtraDate.date}
-                  onChange={(e) => setNewExtraDate((p) => ({ ...p, date: e.target.value }))}
-                  className="text-xs bg-transparent border border-black/10 dark:border-white/10 rounded-lg px-2 py-1 text-black dark:text-white focus:outline-none focus:border-black/25 dark:focus:border-white/25 transition-default"
-                />
-                <input
-                  type="time"
-                  value={newExtraDate.time}
-                  onChange={(e) => setNewExtraDate((p) => ({ ...p, time: e.target.value }))}
-                  className="text-xs bg-transparent border border-black/10 dark:border-white/10 rounded-lg px-2 py-1 text-black/50 dark:text-gray-500 focus:outline-none focus:border-black/25 dark:focus:border-white/25 transition-default"
-                />
-                <button
-                  onClick={() => {
-                    if (!newExtraDate.date) return;
-                    onUpdate(todo.id, {
-                      extra_dates: [...(todo.extra_dates ?? []), { date: newExtraDate.date, time: newExtraDate.time || null, completed: false }],
-                    });
-                    setNewExtraDate({ date: "", time: "" });
-                  }}
-                  disabled={!newExtraDate.date}
-                  className="p-1.5 rounded-lg border border-black/10 dark:border-white/10 text-gray-400 hover:text-black dark:hover:text-white hover:border-black/20 dark:hover:border-white/20 transition-default disabled:opacity-30"
-                >
-                  <Plus size={12} />
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Notes */}
-          <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <p className="text-[10px] uppercase tracking-wide text-gray-400 font-medium">Notes</p>
-              {!showNotes && !todo.completed && (
-                <button onClick={() => setShowNotes(true)} className="text-[10px] text-gray-400 hover:text-black dark:hover:text-white transition-default">
-                  {todo.notes ? "Edit" : "+ Add"}
-                </button>
-              )}
-            </div>
-            {showNotes ? (
-              <div>
-                <textarea
-                  value={notesValue}
-                  onChange={(e) => setNotesValue(e.target.value)}
-                  placeholder="Add a note..."
-                  rows={3}
-                  className="w-full text-sm bg-transparent border border-black/10 dark:border-white/10 rounded-xl px-3 py-2 text-black dark:text-white placeholder:text-gray-400 focus:outline-none focus:border-black/25 dark:focus:border-white/25 resize-none transition-default"
-                  autoFocus
-                />
-                <div className="flex gap-1.5 mt-1.5">
-                  <button onClick={handleNotesSave} className="text-xs px-3 py-1.5 rounded-lg bg-black dark:bg-white text-white dark:text-black hover:opacity-80 transition-default">Save</button>
-                  <button onClick={() => { setNotesValue(todo.notes ?? ""); setShowNotes(false); }} className="text-xs px-3 py-1.5 rounded-lg border border-black/10 dark:border-white/10 text-gray-400 hover:text-black dark:hover:text-white transition-default">Cancel</button>
-                </div>
-              </div>
-            ) : todo.notes ? (
-              <p className="text-sm text-gray-500 dark:text-gray-400 whitespace-pre-wrap">{renderWithLinks(todo.notes)}</p>
-            ) : (
-              <p className="text-xs text-gray-300 dark:text-gray-700 italic">No notes</p>
-            )}
-          </div>
-
-          {/* Subtasks */}
-          {!todo.completed && (
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <p className="text-[10px] uppercase tracking-wide text-gray-400 font-medium">
-                  Subtasks{subtasks.length > 0 && <span className="ml-1 font-normal normal-case">({completedSubtasks}/{subtasks.length})</span>}
-                </p>
-                {!showSubtaskInput && (
-                  <button onClick={() => setShowSubtaskInput(true)} className="text-[10px] text-gray-400 hover:text-black dark:hover:text-white transition-default">+ Add</button>
-                )}
-              </div>
-              {showSubtaskInput && (
-                <div className="flex items-center gap-1.5">
-                  <input
-                    ref={subtaskRef}
-                    type="text"
-                    value={newSubtask}
-                    onChange={(e) => setNewSubtask(e.target.value)}
-                    onKeyDown={handleSubtaskKeyDown}
-                    placeholder="Subtask title..."
-                    className="flex-1 text-sm bg-transparent border-b border-black/15 dark:border-white/15 pb-0.5 text-black dark:text-white placeholder:text-gray-400 focus:outline-none"
-                  />
-                  <button onClick={handleAddSubtask} className="text-gray-400 hover:text-black dark:hover:text-white transition-default"><Check size={14} /></button>
-                  <button onClick={() => { setNewSubtask(""); setShowSubtaskInput(false); }} className="text-gray-400 hover:text-black dark:hover:text-white transition-default"><X size={14} /></button>
-                </div>
-              )}
-              {subtasks.length === 0 && !showSubtaskInput && (
-                <p className="text-xs text-gray-300 dark:text-gray-700 italic">No subtasks</p>
-              )}
-            </div>
-          )}
-
-          {/* Tags */}
-          {!todo.completed && allTags.length > 0 && (
-            <div>
-              <p className="text-[10px] uppercase tracking-wide text-gray-400 font-medium mb-1.5">Tags</p>
-              <div className="flex flex-wrap gap-1.5">
-                {allTags.map((tag) => {
-                  const hasTag = todoTagIds.includes(tag.id);
-                  return <TagPill key={tag.id} name={tag.name} size="sm" selected={hasTag} onClick={() => onTagToggle(todo.id, tag.id, !hasTag)} />;
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Event assignment */}
-          {!todo.completed && onAssignEvent && events.length > 0 && (
-            <div>
-              <p className="text-[10px] uppercase tracking-wide text-gray-400 font-medium mb-1.5">Event</p>
-              <CustomSelect
-                value={todo.event_id ?? ""}
-                onChange={(v) => onAssignEvent(todo.id, v || null)}
-                options={[{ value: "", label: "No event" }, ...events.map((ev) => ({ value: ev.id, label: ev.title }))]}
-                className="w-full"
-              />
-            </div>
-          )}
-        </div>
-      </div>
-      </div>
-
       {/* Animated list colour strip — always at bottom of card */}
       {listColor && <div className="list-strip" aria-hidden="true" />}
     </div>
+
+    {/* ── Task detail side panel (portal) ── */}
+    {domReady && portalMounted && createPortal(
+      <>
+        {/* Backdrop */}
+        <div
+          className="fixed inset-0 z-[200] bg-black/60 transition-opacity duration-300"
+          style={{ opacity: slideIn ? 1 : 0 }}
+          onClick={() => setExpanded(false)}
+        />
+
+        {/* Panel */}
+        <div
+          className="fixed right-0 top-0 bottom-0 z-[201] flex flex-col overflow-hidden"
+          style={{
+            width: "clamp(320px, 35vw, 440px)",
+            background: "linear-gradient(160deg, rgba(30,30,40,0.97) 0%, rgba(18,18,26,0.99) 100%)",
+            backdropFilter: "blur(48px) saturate(160%)",
+            borderLeft: "1px solid rgba(255,255,255,0.08)",
+            transform: slideIn ? "translateX(0)" : "translateX(100%)",
+            transition: "transform 300ms cubic-bezier(0.32,0.72,0,1)",
+          }}
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="flex items-start gap-3 px-5 pt-5 pb-4 border-b border-white/8 flex-shrink-0">
+            <div className="flex-1 min-w-0">
+              <p className="text-[10px] uppercase tracking-widest text-white/30 font-medium mb-1">Task</p>
+              <p className="text-base font-semibold text-white leading-snug">{todo.title}</p>
+            </div>
+            <button
+              onClick={() => setExpanded(false)}
+              className="mt-0.5 p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-default flex-shrink-0"
+            >
+              <X size={15} />
+            </button>
+          </div>
+
+          {/* Scrollable body */}
+          <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5" style={{ scrollbarWidth: "none" }}>
+
+            {/* Priority */}
+            {!todo.completed && (
+              <div>
+                <p className="text-[10px] uppercase tracking-wide text-white/35 font-medium mb-2">Priority</p>
+                <div className="flex gap-1.5">
+                  {(["high", "medium", "low", "none"] as Priority[]).map((p) => {
+                    const conf = PRIORITY_CONFIG[p];
+                    return (
+                      <button
+                        key={p}
+                        onClick={() => onUpdate(todo.id, { priority: p })}
+                        className={`flex-1 flex items-center justify-center gap-1.5 text-xs py-2 rounded-xl border transition-default ${
+                          todo.priority === p
+                            ? "border-white/25 bg-white/10 font-medium text-white"
+                            : "border-white/8 text-white/40 hover:border-white/20 hover:text-white/70"
+                        }`}
+                      >
+                        <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${conf.dot}`} />
+                        {conf.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Due date & time */}
+            {!todo.completed && (
+              <div>
+                <p className="text-[10px] uppercase tracking-wide text-white/35 font-medium mb-2">Due date</p>
+                <div className="flex gap-1 flex-wrap mb-2">
+                  {[
+                    { label: "Today",     val: getToday() },
+                    { label: "Tomorrow",  val: getTomorrow() },
+                    { label: "Next Mon",  val: getNextMonday() },
+                    { label: "Next Week", val: getNextWeek() },
+                  ].map((pick) => (
+                    <button
+                      key={pick.label}
+                      onClick={() => onUpdate(todo.id, { due_date: pick.val })}
+                      className={`text-xs px-2.5 py-1.5 rounded-lg border transition-default ${
+                        todo.due_date === pick.val
+                          ? "border-white/25 bg-white/10 text-white font-medium"
+                          : "border-white/8 text-white/40 hover:border-white/20 hover:text-white/70"
+                      }`}
+                    >
+                      {pick.label}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <DatePicker
+                    value={todo.due_date ?? ""}
+                    onChange={(v) => onUpdate(todo.id, { due_date: v || null, ...(v ? {} : { start_time: null, end_time: null }) })}
+                  />
+                  {todo.due_date && (
+                    <>
+                      <TimePicker
+                        value={todo.start_time ?? ""}
+                        onChange={(v) => onUpdate(todo.id, { start_time: v || null })}
+                      />
+                      {todo.start_time && (
+                        <>
+                          <span className="text-xs text-white/30">→</span>
+                          <TimePicker
+                            value={todo.end_time ?? ""}
+                            onChange={(v) => onUpdate(todo.id, { end_time: v || null })}
+                          />
+                        </>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Start date */}
+            {!todo.completed && (
+              <div>
+                <p className="text-[10px] uppercase tracking-wide text-white/35 font-medium mb-2">Start date</p>
+                <DatePicker
+                  value={todo.start_date ?? ""}
+                  onChange={(v) => onUpdate(todo.id, { start_date: v || null })}
+                  placeholder="Pick start date"
+                />
+              </div>
+            )}
+
+            {/* List + Est. time */}
+            {!todo.completed && (
+              <div className="flex gap-4">
+                {lists.length > 0 && (
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] uppercase tracking-wide text-white/35 font-medium mb-2">List</p>
+                    <CustomSelect
+                      value={todo.list_id ?? ""}
+                      onChange={(v) => onUpdate(todo.id, { list_id: v || null })}
+                      options={[{ value: "", label: "No list" }, ...lists.map((l) => ({ value: l.id, label: l.name, color: l.color ?? undefined }))]}
+                      className="w-full"
+                    />
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] uppercase tracking-wide text-white/35 font-medium mb-2">Est. time</p>
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="number"
+                      min={1}
+                      max={999}
+                      placeholder="min"
+                      value={todo.estimated_time ?? ""}
+                      onChange={(e) => {
+                        const v = parseInt(e.target.value);
+                        onUpdate(todo.id, { estimated_time: v > 0 ? v : null });
+                      }}
+                      className="w-full text-xs bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 text-white placeholder:text-white/25 focus:outline-none focus:border-white/25 transition-default tabular-nums"
+                    />
+                    {todo.estimated_time && (
+                      <>
+                        <span className="text-xs text-white/30 tabular-nums flex-shrink-0">
+                          {todo.estimated_time < 60 ? `${todo.estimated_time}m` : `${Math.floor(todo.estimated_time / 60)}h${todo.estimated_time % 60 > 0 ? `${todo.estimated_time % 60}m` : ""}`}
+                        </span>
+                        <button onClick={() => onUpdate(todo.id, { estimated_time: null })} className="text-white/30 hover:text-white transition-default flex-shrink-0">
+                          <X size={12} />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                  {todo.estimated_time && (todo.time_spent ?? 0) > 0 && (() => {
+                    const estSec = todo.estimated_time * 60;
+                    const ratio  = todo.time_spent! / estSec;
+                    const pct    = Math.round(ratio * 100);
+                    const isGood = ratio >= 0.8 && ratio <= 1.2;
+                    const isOver = ratio > 1.2;
+                    return (
+                      <div className="flex items-center gap-1.5 mt-1.5">
+                        <div className="flex-1 h-1 rounded-full bg-white/10 overflow-hidden">
+                          <div className={`h-full rounded-full ${isGood ? "bg-emerald-500" : isOver ? "bg-red-400" : "bg-blue-400"}`} style={{ width: `${Math.min(pct, 100)}%` }} />
+                        </div>
+                        <span className={`text-[10px] font-medium tabular-nums ${isGood ? "text-emerald-400" : isOver ? "text-red-400" : "text-blue-400"}`}>{pct}%</span>
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
+            )}
+
+            {/* Additional dates */}
+            {!todo.completed && (
+              <div>
+                <p className="text-[10px] uppercase tracking-wide text-white/35 font-medium mb-2">Additional dates</p>
+                <div className="space-y-1.5 mb-2">
+                  {todo.due_date && (
+                    <div className="flex items-center gap-2 text-xs text-white/25">
+                      <span className="w-2.5 h-2.5 rounded-full border border-white/15 flex-shrink-0" />
+                      <span className="tabular-nums">{todo.due_date}</span>
+                      {todo.start_time && <span className="tabular-nums">{todo.start_time}{todo.end_time ? `–${todo.end_time}` : ""}</span>}
+                      <span className="text-[10px] text-white/20">primary</span>
+                    </div>
+                  )}
+                  {(todo.extra_dates ?? []).sort((a, b) => a.date.localeCompare(b.date)).map((ed, i) => (
+                    <div key={i} className="flex items-center gap-2 group/ed">
+                      <button
+                        onClick={() => {
+                          const sorted  = [...(todo.extra_dates ?? [])].sort((a, b) => a.date.localeCompare(b.date));
+                          const realIdx = (todo.extra_dates ?? []).indexOf(sorted[i]);
+                          const updated = (todo.extra_dates ?? []).map((d, j) => j === realIdx ? { ...d, completed: !d.completed } : d);
+                          onUpdate(todo.id, { extra_dates: updated });
+                        }}
+                        className={`w-2.5 h-2.5 rounded-full border flex-shrink-0 transition-default ${ed.completed ? "bg-emerald-500 border-emerald-500" : "border-white/25 hover:border-white/50"}`}
+                      />
+                      <span className={`text-xs tabular-nums flex-1 ${ed.completed ? "line-through text-white/25" : "text-white"}`}>{ed.date}</span>
+                      <TimePicker
+                        value={ed.time ?? ""}
+                        onChange={(v) => {
+                          const sorted  = [...(todo.extra_dates ?? [])].sort((a, b) => a.date.localeCompare(b.date));
+                          const realIdx = (todo.extra_dates ?? []).indexOf(sorted[i]);
+                          const updated = (todo.extra_dates ?? []).map((d, j) => j === realIdx ? { ...d, time: v || null } : d);
+                          onUpdate(todo.id, { extra_dates: updated });
+                        }}
+                      />
+                      <button
+                        onClick={() => {
+                          const sorted  = [...(todo.extra_dates ?? [])].sort((a, b) => a.date.localeCompare(b.date));
+                          const realIdx = (todo.extra_dates ?? []).indexOf(sorted[i]);
+                          const updated = (todo.extra_dates ?? []).filter((_, j) => j !== realIdx);
+                          onUpdate(todo.id, { extra_dates: updated });
+                        }}
+                        className="opacity-0 group-hover/ed:opacity-100 text-white/30 hover:text-red-400 transition-default"
+                      >
+                        <X size={10} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex items-center gap-2">
+                  <DatePicker
+                    value={newExtraDate.date}
+                    onChange={(v) => setNewExtraDate((p) => ({ ...p, date: v }))}
+                    placeholder="Add date"
+                  />
+                  <TimePicker
+                    value={newExtraDate.time}
+                    onChange={(v) => setNewExtraDate((p) => ({ ...p, time: v }))}
+                  />
+                  <button
+                    onClick={() => {
+                      if (!newExtraDate.date) return;
+                      onUpdate(todo.id, {
+                        extra_dates: [...(todo.extra_dates ?? []), { date: newExtraDate.date, time: newExtraDate.time || null, completed: false }],
+                      });
+                      setNewExtraDate({ date: "", time: "" });
+                    }}
+                    disabled={!newExtraDate.date}
+                    className="p-1.5 rounded-lg border border-white/10 text-white/40 hover:text-white hover:border-white/25 transition-default disabled:opacity-30"
+                  >
+                    <Plus size={12} />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Notes */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-[10px] uppercase tracking-wide text-white/35 font-medium">Notes</p>
+                {!showNotes && !todo.completed && (
+                  <button onClick={() => setShowNotes(true)} className="text-[10px] text-white/35 hover:text-white transition-default">
+                    {todo.notes ? "Edit" : "+ Add"}
+                  </button>
+                )}
+              </div>
+              {showNotes ? (
+                <div>
+                  <textarea
+                    value={notesValue}
+                    onChange={(e) => setNotesValue(e.target.value)}
+                    placeholder="Add a note..."
+                    rows={4}
+                    className="w-full text-sm bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white placeholder:text-white/25 focus:outline-none focus:border-white/25 resize-none transition-default"
+                    autoFocus
+                  />
+                  <div className="flex gap-1.5 mt-2">
+                    <button onClick={handleNotesSave} className="text-xs px-3 py-1.5 rounded-lg bg-white text-black hover:opacity-85 transition-default font-medium">Save</button>
+                    <button onClick={() => { setNotesValue(todo.notes ?? ""); setShowNotes(false); }} className="text-xs px-3 py-1.5 rounded-lg border border-white/10 text-white/50 hover:text-white transition-default">Cancel</button>
+                  </div>
+                </div>
+              ) : todo.notes ? (
+                <p className="text-sm text-white/60 whitespace-pre-wrap leading-relaxed">{renderWithLinks(todo.notes)}</p>
+              ) : (
+                <p className="text-xs text-white/20 italic">No notes</p>
+              )}
+            </div>
+
+            {/* Subtasks */}
+            {!todo.completed && (
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-[10px] uppercase tracking-wide text-white/35 font-medium">
+                    Subtasks{subtasks.length > 0 && <span className="ml-1 font-normal normal-case text-white/25">({completedSubtasks}/{subtasks.length})</span>}
+                  </p>
+                  {!showSubtaskInput && (
+                    <button onClick={() => setShowSubtaskInput(true)} className="text-[10px] text-white/35 hover:text-white transition-default">+ Add</button>
+                  )}
+                </div>
+                {showSubtaskInput && (
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <input
+                      ref={subtaskRef}
+                      type="text"
+                      value={newSubtask}
+                      onChange={(e) => setNewSubtask(e.target.value)}
+                      onKeyDown={handleSubtaskKeyDown}
+                      placeholder="Subtask title..."
+                      className="flex-1 text-sm bg-transparent border-b border-white/15 pb-0.5 text-white placeholder:text-white/30 focus:outline-none focus:border-white/35"
+                    />
+                    <button onClick={handleAddSubtask} className="text-white/40 hover:text-white transition-default"><Check size={14} /></button>
+                    <button onClick={() => { setNewSubtask(""); setShowSubtaskInput(false); }} className="text-white/40 hover:text-white transition-default"><X size={14} /></button>
+                  </div>
+                )}
+                {subtasks.length === 0 && !showSubtaskInput && (
+                  <p className="text-xs text-white/20 italic">No subtasks</p>
+                )}
+              </div>
+            )}
+
+            {/* Tags */}
+            {!todo.completed && allTags.length > 0 && (
+              <div>
+                <p className="text-[10px] uppercase tracking-wide text-white/35 font-medium mb-2">Tags</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {allTags.map((tag) => {
+                    const hasTag = todoTagIds.includes(tag.id);
+                    return <TagPill key={tag.id} name={tag.name} size="sm" selected={hasTag} onClick={() => onTagToggle(todo.id, tag.id, !hasTag)} />;
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Event assignment */}
+            {!todo.completed && onAssignEvent && events.length > 0 && (
+              <div>
+                <p className="text-[10px] uppercase tracking-wide text-white/35 font-medium mb-2">Event</p>
+                <CustomSelect
+                  value={todo.event_id ?? ""}
+                  onChange={(v) => onAssignEvent(todo.id, v || null)}
+                  options={[{ value: "", label: "No event" }, ...events.map((ev) => ({ value: ev.id, label: ev.title }))]}
+                  className="w-full"
+                />
+              </div>
+            )}
+
+            {/* Danger zone */}
+            <div className="pt-2 border-t border-white/5">
+              <button
+                onClick={() => { onDelete(todo.id); setExpanded(false); }}
+                className="flex items-center gap-2 text-xs text-red-400/60 hover:text-red-400 transition-default"
+              >
+                <Trash2 size={12} />
+                Delete task
+              </button>
+            </div>
+
+          </div>
+        </div>
+      </>,
+      document.body
+    )}
   );
 }

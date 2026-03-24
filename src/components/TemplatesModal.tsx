@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { X, Plus, ChevronDown, ChevronUp, LayoutTemplate } from "lucide-react";
 import type {
   Template,
@@ -50,6 +50,7 @@ interface EventDraft {
   end_time: string;
   start_day: string;
   end_day: string;
+  tasks: TaskDraft[];
 }
 
 function uid() {
@@ -66,7 +67,7 @@ function emptyTask(day = "1"): TaskDraft {
 function emptyEvent(): EventDraft {
   return {
     _id: uid(), title: "", description: "", color: "", list_id: "",
-    start_time: "", end_time: "", start_day: "1", end_day: "1",
+    start_time: "", end_time: "", start_day: "1", end_day: "1", tasks: [],
   };
 }
 
@@ -94,7 +95,7 @@ function eventDraftToData(d: EventDraft): EventTemplateData {
     end_time: d.end_time || null,
     start_day: d.start_day ? parseInt(d.start_day) : 1,
     end_day: d.end_day ? parseInt(d.end_day) : 1,
-    tasks: [],
+    tasks: d.tasks.filter((t) => t.title.trim()).map(taskDraftToData),
   };
 }
 
@@ -113,6 +114,13 @@ function planDataToDrafts(data: PlanTemplateData): { tasks: TaskDraft[]; events:
       start_time: e.start_time ?? "", end_time: e.end_time ?? "",
       start_day: e.start_day?.toString() ?? "1",
       end_day: e.end_day?.toString() ?? "1",
+      tasks: (e.tasks ?? []).map((t) => ({
+        _id: uid(), title: t.title, priority: t.priority ?? "none",
+        estimated_time: t.estimated_time?.toString() ?? "",
+        list_id: t.list_id ?? "", notes: t.notes ?? "",
+        start_time: t.start_time ?? "", end_time: t.end_time ?? "",
+        subtasks: t.subtasks ?? [], day: t.day?.toString() ?? e.start_day?.toString() ?? "1",
+      })),
     })),
   };
 }
@@ -336,6 +344,7 @@ function EventRow({
   lists: List[];
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [tasksExpanded, setTasksExpanded] = useState(false);
 
   const listOpts = [
     { value: "", label: "No list" },
@@ -458,6 +467,53 @@ function EventRow({
               className={`w-full ${INPUT} resize-none`}
             />
           </div>
+
+          {/* Tasks within this event */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <button
+                onClick={() => setTasksExpanded((v) => !v)}
+                className="flex items-center gap-1.5 text-[10px] text-white/40 uppercase tracking-wide hover:text-white/70 transition-colors"
+              >
+                {tasksExpanded ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
+                Tasks ({draft.tasks.length})
+              </button>
+              <button
+                onClick={() =>
+                  onChange({
+                    ...draft,
+                    tasks: [...draft.tasks, emptyTask(draft.start_day)],
+                  })
+                }
+                className="flex items-center gap-1 text-[11px] text-white/30 hover:text-white transition-colors"
+              >
+                <Plus size={11} /> Add task
+              </button>
+            </div>
+            {tasksExpanded && (
+              <div className="space-y-1.5 pl-2 border-l border-white/8">
+                {draft.tasks.length === 0 && (
+                  <p className="text-[11px] text-white/20 italic">No tasks yet</p>
+                )}
+                {draft.tasks.map((t, i) => (
+                  <TaskRow
+                    key={t._id}
+                    draft={t}
+                    onChange={(upd) =>
+                      onChange({
+                        ...draft,
+                        tasks: draft.tasks.map((x, j) => (j === i ? upd : x)),
+                      })
+                    }
+                    onRemove={() =>
+                      onChange({ ...draft, tasks: draft.tasks.filter((_, j) => j !== i) })
+                    }
+                    lists={lists}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -493,6 +549,17 @@ export default function TemplatesModal({
   const [templateName, setTemplateName] = useState("");
   const [taskDrafts, setTaskDrafts] = useState<TaskDraft[]>([]);
   const [eventDrafts, setEventDrafts] = useState<EventDraft[]>([]);
+  const [pendingSelect, setPendingSelect] = useState<string | null>(null);
+
+  // Auto-navigate to a newly saved template once it appears in the list
+  useEffect(() => {
+    if (!pendingSelect) return;
+    const found = templates.find((t) => t.name === pendingSelect);
+    if (found) {
+      setView({ mode: "detail", template: found });
+      setPendingSelect(null);
+    }
+  }, [templates, pendingSelect]);
 
   if (!open) return null;
 
@@ -530,17 +597,16 @@ export default function TemplatesModal({
           start_time: data.start_time ?? "", end_time: data.end_time ?? "",
           start_day: data.start_day?.toString() ?? "1",
           end_day: data.end_day?.toString() ?? "1",
+          tasks: (data.tasks ?? []).map((tsk) => ({
+            _id: uid(), title: tsk.title, priority: tsk.priority ?? "none",
+            estimated_time: tsk.estimated_time?.toString() ?? "",
+            list_id: tsk.list_id ?? "", notes: tsk.notes ?? "",
+            start_time: tsk.start_time ?? "", end_time: tsk.end_time ?? "",
+            subtasks: tsk.subtasks ?? [], day: tsk.day?.toString() ?? data.start_day?.toString() ?? "1",
+          })),
         },
       ]);
-      setTaskDrafts(
-        (data.tasks ?? []).map((tsk) => ({
-          _id: uid(), title: tsk.title, priority: tsk.priority ?? "none",
-          estimated_time: tsk.estimated_time?.toString() ?? "",
-          list_id: tsk.list_id ?? "", notes: tsk.notes ?? "",
-          start_time: tsk.start_time ?? "", end_time: tsk.end_time ?? "",
-          subtasks: tsk.subtasks ?? [], day: tsk.day?.toString() ?? "1",
-        }))
-      );
+      setTaskDrafts([]);
     }
     setView({ mode: "create", editing: t });
   }
@@ -555,10 +621,12 @@ export default function TemplatesModal({
     const editing = view.mode === "create" ? view.editing : undefined;
     if (editing) {
       onUpdate(editing.id, { name, data: planData });
+      setView({ mode: "detail", template: { ...editing, name, data: planData } });
     } else {
       onAdd({ name, type: "plan", data: planData });
+      setPendingSelect(name);
+      setView({ mode: "list" });
     }
-    setView({ mode: "list" });
   }
 
   function getMaxDay(t: Template): number {

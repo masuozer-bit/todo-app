@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Kommunion-Quiz – Das Spiel</title>
+<style>
+  :root {
+    --bg1: #6d28d9;
+    --bg2: #2563eb;
+    --gold: #f5c518;
+    --card: #ffffff;
+    --text: #1f2937;
+    --muted: #6b7280;
+    --correct: #16a34a;
+    --wrong: #dc2626;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    background: linear-gradient(135deg, var(--bg1), var(--bg2));
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+
+  .game {
+    background: var(--card);
+    width: 100%;
+    max-width: 640px;
+    border-radius: 24px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+    overflow: hidden;
+  }
+
+  header {
+    background: linear-gradient(135deg, var(--bg1), var(--bg2));
+    color: #fff;
+    padding: 28px 28px 24px;
+    text-align: center;
+  }
+
+  header .cross { font-size: 40px; line-height: 1; }
+  header h1 { margin: 8px 0 4px; font-size: 26px; }
+  header p { margin: 0; opacity: 0.85; font-size: 14px; }
+
+  .content { padding: 28px; }
+
+  /* Startbildschirm */
+  .intro p { color: var(--muted); line-height: 1.6; }
+
+  .btn {
+    display: inline-block;
+    width: 100%;
+    border: none;
+    border-radius: 14px;
+    padding: 16px;
+    font-size: 17px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.1s ease, box-shadow 0.2s ease;
+    background: linear-gradient(135deg, var(--bg1), var(--bg2));
+    color: #fff;
+    margin-top: 12px;
+  }
+  .btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(37,99,235,0.4); }
+  .btn:active { transform: translateY(0); }
+  .btn.secondary { background: #e5e7eb; color: var(--text); }
+
+  /* Fortschritt */
+  .topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 18px;
+    font-size: 14px;
+    color: var(--muted);
+  }
+  .score { font-weight: 700; color: var(--bg1); }
+
+  .progress {
+    height: 8px;
+    background: #e5e7eb;
+    border-radius: 999px;
+    overflow: hidden;
+    margin-bottom: 22px;
+  }
+  .progress > div {
+    height: 100%;
+    width: 0;
+    background: linear-gradient(90deg, var(--gold), #f59e0b);
+    transition: width 0.4s ease;
+  }
+
+  .question {
+    font-size: 20px;
+    font-weight: 700;
+    margin: 0 0 20px;
+    line-height: 1.4;
+  }
+
+  .answers { display: grid; gap: 12px; }
+
+  .answer {
+    text-align: left;
+    border: 2px solid #e5e7eb;
+    background: #f9fafb;
+    border-radius: 14px;
+    padding: 15px 16px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .answer:hover:not(:disabled) { border-color: var(--bg2); background: #eff6ff; }
+  .answer .letter {
+    flex: 0 0 28px;
+    height: 28px;
+    border-radius: 8px;
+    background: #e5e7eb;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 14px;
+  }
+  .answer:disabled { cursor: default; }
+  .answer.correct { border-color: var(--correct); background: #dcfce7; }
+  .answer.correct .letter { background: var(--correct); color: #fff; }
+  .answer.wrong { border-color: var(--wrong); background: #fee2e2; }
+  .answer.wrong .letter { background: var(--wrong); color: #fff; }
+
+  .feedback {
+    margin-top: 18px;
+    padding: 14px 16px;
+    border-radius: 12px;
+    font-size: 15px;
+    line-height: 1.5;
+    display: none;
+  }
+  .feedback.show { display: block; }
+  .feedback.ok { background: #dcfce7; color: #166534; }
+  .feedback.no { background: #fee2e2; color: #991b1b; }
+
+  /* Ergebnis */
+  .result { text-align: center; }
+  .result .emoji { font-size: 56px; }
+  .result h2 { margin: 10px 0 6px; }
+  .result .big { font-size: 40px; font-weight: 800; color: var(--bg1); margin: 10px 0; }
+  .result p { color: var(--muted); line-height: 1.6; }
+
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+  <div class="game">
+    <header>
+      <div class="cross">✝️</div>
+      <h1>Kommunion-Quiz</h1>
+      <p>Wie gut kennst du dich mit der Heiligen Kommunion aus?</p>
+    </header>
+
+    <div class="content">
+      <!-- Startbildschirm -->
+      <section id="screen-intro" class="intro">
+        <p>
+          Teste dein Wissen über die Erstkommunion, die Eucharistie und den
+          katholischen Glauben! Es gibt <strong>10 Fragen</strong>. Wähle bei
+          jeder Frage die richtige Antwort. Viel Erfolg! 🙏
+        </p>
+        <button class="btn" onclick="startGame()">Spiel starten ▶</button>
+      </section>
+
+      <!-- Frage-Bildschirm -->
+      <section id="screen-quiz" class="hidden">
+        <div class="topbar">
+          <span id="counter">Frage 1 / 10</span>
+          <span class="score" id="score">⭐ 0 Punkte</span>
+        </div>
+        <div class="progress"><div id="bar"></div></div>
+
+        <h2 class="question" id="question">Frage…</h2>
+        <div class="answers" id="answers"></div>
+        <div class="feedback" id="feedback"></div>
+        <button class="btn hidden" id="nextBtn" onclick="nextQuestion()">Weiter →</button>
+      </section>
+
+      <!-- Ergebnis -->
+      <section id="screen-result" class="result hidden">
+        <div class="emoji" id="resultEmoji">🎉</div>
+        <h2 id="resultTitle">Geschafft!</h2>
+        <div class="big" id="resultScore">0 / 10</div>
+        <p id="resultText"></p>
+        <button class="btn" onclick="startGame()">Nochmal spielen 🔄</button>
+      </section>
+    </div>
+  </div>
+
+<script>
+  const questions = [
+    {
+      q: "Was empfängt man bei der Heiligen Kommunion?",
+      a: ["Den Leib Christi (Brot/Hostie)", "Ein Geschenk vom Pfarrer", "Weihwasser", "Eine Kerze"],
+      correct: 0,
+      info: "In der Hostie empfangen die Gläubigen nach katholischem Glauben den Leib Christi."
+    },
+    {
+      q: "Wie heißt das Sakrament, in dem Brot und Wein zum Leib und Blut Christi werden?",
+      a: ["Taufe", "Eucharistie", "Firmung", "Beichte"],
+      correct: 1,
+      info: "Die Eucharistie ist das Sakrament des Altares – die Mitte des katholischen Glaubens."
+    },
+    {
+      q: "Beim letzten Abendmahl sagte Jesus: „Das ist mein …“",
+      a: ["Haus", "Leib", "Weg", "Name"],
+      correct: 1,
+      info: "„Das ist mein Leib … das ist mein Blut“ – die Einsetzungsworte der Eucharistie."
+    },
+    {
+      q: "Was muss man tun, bevor man zur ersten Kommunion geht?",
+      a: ["Eine Prüfung in Mathe", "Zum ersten Mal beichten", "Ein Lied singen", "Fasten für eine Woche"],
+      correct: 1,
+      info: "Vor der Erstkommunion empfangen Kinder meist zum ersten Mal das Sakrament der Beichte (Versöhnung)."
+    },
+    {
+      q: "Welche Farbe hat traditionell oft das Kommunionkleid bzw. die Kleidung?",
+      a: ["Schwarz", "Rot", "Weiß", "Grün"],
+      correct: 2,
+      info: "Weiß ist die Farbe der Reinheit und erinnert an das Taufkleid."
+    },
+    {
+      q: "Wie oft sollten Katholiken mindestens die Kommunion empfangen?",
+      a: ["Jeden Tag verpflichtend", "Mindestens einmal im Jahr (Osterzeit)", "Nur einmal im Leben", "Niemals"],
+      correct: 1,
+      info: "Die Kirche empfiehlt den häufigen Empfang, verlangt aber mindestens einmal jährlich in der Osterzeit."
+    },
+    {
+      q: "Was bedeutet das Wort „Eucharistie“?",
+      a: ["Danksagung", "Vergebung", "Reinigung", "Verkündigung"],
+      correct: 0,
+      info: "„Eucharistie“ kommt aus dem Griechischen und bedeutet „Danksagung“."
+    },
+    {
+      q: "Wer wandelt in der Messe das Brot und den Wein?",
+      a: ["Der Messdiener", "Die Gemeinde allein", "Der Priester in der Person Christi", "Der Organist"],
+      correct: 2,
+      info: "Der geweihte Priester spricht die Wandlungsworte „in persona Christi“."
+    },
+    {
+      q: "In welchem Alter empfangen Kinder in Deutschland meist die Erstkommunion?",
+      a: ["Mit 3 Jahren", "Etwa mit 8–9 Jahren (3. Klasse)", "Mit 18 Jahren", "Erst als Erwachsene"],
+      correct: 1,
+      info: "In Deutschland feiern Kinder die Erstkommunion meist in der dritten Klasse."
+    },
+    {
+      q: "Was sagt der Priester oder Kommunionhelfer beim Austeilen der Hostie?",
+      a: ["„Guten Appetit“", "„Der Leib Christi“", "„Bis bald“", "„Halleluja allein“"],
+      correct: 1,
+      info: "„Der Leib Christi“ – darauf antwortet man mit „Amen“."
+    }
+  ];
+
+  let current = 0;
+  let score = 0;
+  let answered = false;
+
+  function startGame() {
+    current = 0;
+    score = 0;
+    answered = false;
+    show("screen-quiz");
+    renderQuestion();
+  }
+
+  function show(id) {
+    ["screen-intro", "screen-quiz", "screen-result"].forEach(s => {
+      document.getElementById(s).classList.toggle("hidden", s !== id);
+    });
+  }
+
+  function renderQuestion() {
+    answered = false;
+    const item = questions[current];
+    document.getElementById("counter").textContent =
+      `Frage ${current + 1} / ${questions.length}`;
+    document.getElementById("score").textContent = `⭐ ${score} Punkte`;
+    document.getElementById("bar").style.width =
+      `${(current / questions.length) * 100}%`;
+    document.getElementById("question").textContent = item.q;
+
+    const letters = ["A", "B", "C", "D"];
+    const wrap = document.getElementById("answers");
+    wrap.innerHTML = "";
+    item.a.forEach((text, i) => {
+      const btn = document.createElement("button");
+      btn.className = "answer";
+      btn.innerHTML = `<span class="letter">${letters[i]}</span><span>${text}</span>`;
+      btn.onclick = () => selectAnswer(i, btn);
+      wrap.appendChild(btn);
+    });
+
+    const fb = document.getElementById("feedback");
+    fb.className = "feedback";
+    fb.textContent = "";
+    document.getElementById("nextBtn").classList.add("hidden");
+  }
+
+  function selectAnswer(i, btn) {
+    if (answered) return;
+    answered = true;
+    const item = questions[current];
+    const buttons = document.querySelectorAll(".answer");
+    buttons.forEach(b => (b.disabled = true));
+
+    const fb = document.getElementById("feedback");
+    if (i === item.correct) {
+      btn.classList.add("correct");
+      score++;
+      fb.classList.add("show", "ok");
+      fb.innerHTML = `✅ <strong>Richtig!</strong> ${item.info}`;
+    } else {
+      btn.classList.add("wrong");
+      buttons[item.correct].classList.add("correct");
+      fb.classList.add("show", "no");
+      fb.innerHTML = `❌ <strong>Leider falsch.</strong> ${item.info}`;
+    }
+
+    document.getElementById("score").textContent = `⭐ ${score} Punkte`;
+    const next = document.getElementById("nextBtn");
+    next.textContent = current === questions.length - 1 ? "Ergebnis anzeigen 🏆" : "Weiter →";
+    next.classList.remove("hidden");
+  }
+
+  function nextQuestion() {
+    current++;
+    if (current < questions.length) {
+      renderQuestion();
+    } else {
+      showResult();
+    }
+  }
+
+  function showResult() {
+    show("screen-result");
+    document.getElementById("bar").style.width = "100%";
+    const total = questions.length;
+    document.getElementById("resultScore").textContent = `${score} / ${total}`;
+
+    let emoji, title, text;
+    const pct = score / total;
+    if (pct === 1) {
+      emoji = "🏆"; title = "Perfekt! Ein wahrer Kommunion-Experte!";
+      text = "Alle Fragen richtig – Glückwunsch zu deinem hervorragenden Wissen!";
+    } else if (pct >= 0.7) {
+      emoji = "🌟"; title = "Sehr gut gemacht!";
+      text = "Du kennst dich richtig gut mit der Kommunion aus.";
+    } else if (pct >= 0.4) {
+      emoji = "🙂"; title = "Gut gemacht!";
+      text = "Schon ein solides Wissen – beim nächsten Mal schaffst du noch mehr!";
+    } else {
+      emoji = "📖"; title = "Weiter so!";
+      text = "Übung macht den Meister. Spiel einfach nochmal und lerne dazu!";
+    }
+    document.getElementById("resultEmoji").textContent = emoji;
+    document.getElementById("resultTitle").textContent = title;
+    document.getElementById("resultText").textContent = text;
+  }
+</script>
+</body>
+</html>

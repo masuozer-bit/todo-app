@@ -169,7 +169,7 @@ export default function TodoItem({
   const [notesValue, setNotesValue] = useState(todo.notes ?? "");
   const [newSubtask, setNewSubtask] = useState("");
   const [showSubtaskInput, setShowSubtaskInput] = useState(false);
-  const [blockedMsg, setBlockedMsg] = useState(false);
+  const [askSubtasks, setAskSubtasks] = useState(false);
   const [newExtraDate, setNewExtraDate] = useState({ date: "", time: "" });
   const [subtasksExpanded, setSubtasksExpanded] = useState(false);
   const editRef = useRef<HTMLInputElement>(null);
@@ -200,13 +200,25 @@ export default function TodoItem({
   }, [showSubtaskInput]);
 
   function handleToggle() {
-    // Block completing a task when subtasks are not all done
+    // Open subtasks: ask instead of refusing
     if (!todo.completed && !allSubtasksDone) {
-      setBlockedMsg(true);
-      setTimeout(() => setBlockedMsg(false), 2500);
+      setAskSubtasks(true);
       return;
     }
     onToggle(todo.id, !todo.completed);
+  }
+
+  function completeWithSubtasks() {
+    for (const subtask of subtasks) {
+      if (!subtask.completed) onToggleSubtask(todo.id, subtask.id, true);
+    }
+    onToggle(todo.id, true);
+    setAskSubtasks(false);
+  }
+
+  function completeTaskOnly() {
+    onToggle(todo.id, true);
+    setAskSubtasks(false);
   }
 
   function handleSave() {
@@ -313,11 +325,32 @@ export default function TodoItem({
             {todo.title}
           </p>
 
-          {/* Blocked message */}
-          {blockedMsg && (
-            <div className="flex items-center gap-1 mt-1 text-xs text-amber-500 dark:text-amber-400 animate-pulse">
-              <AlertCircle size={11} />
-              Complete all subtasks before marking done
+          {/* Open subtasks — ask what to do instead of blocking */}
+          {askSubtasks && (
+            <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs">
+              <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400">
+                <AlertCircle size={11} />
+                {subtasks.length - completedSubtasks} subtask
+                {subtasks.length - completedSubtasks !== 1 ? "s" : ""} still open
+              </span>
+              <button
+                onClick={(e) => { e.stopPropagation(); completeWithSubtasks(); }}
+                className="px-2 py-1 rounded-lg bg-black dark:bg-white text-white dark:text-black font-medium"
+              >
+                Complete all
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); completeTaskOnly(); }}
+                className="px-2 py-1 rounded-lg glass-card-subtle text-black dark:text-white font-medium"
+              >
+                Task only
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); setAskSubtasks(false); }}
+                className="px-2 py-1 rounded-lg text-gray-500 hover:text-black dark:hover:text-white"
+              >
+                Cancel
+              </button>
             </div>
           )}
 

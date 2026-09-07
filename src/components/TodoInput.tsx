@@ -268,10 +268,15 @@ export default function TodoInput({
     }
   }
 
+  const submittingRef = useRef(false);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const trimmed = title.trim();
     if (!trimmed) return;
+    // A second Enter before the insert returns must not create a duplicate
+    if (submittingRef.current) return;
+    submittingRef.current = true;
 
     let finalTitle = trimmed;
     let finalDueDate = dueDate || null;
@@ -279,7 +284,7 @@ export default function TodoInput({
     let finalStartTime = startTime || null;
     let finalEndTime = endTime || null;
     let finalPriority = priority;
-    let finalTagIds = [...selectedTagIds];
+    const finalTagIds = [...selectedTagIds];
 
     if (!showOptions) {
       const p = parseNaturalLanguage(trimmed);
@@ -296,27 +301,12 @@ export default function TodoInput({
       }
     }
 
-    const newTodoId = await onAdd(finalTitle, finalTagIds, {
-      due_date: finalDueDate,
-      start_date: finalStartDate,
-      start_time: finalStartTime,
-      end_time: finalEndTime,
-      priority: finalPriority,
-      notes: notes.trim() || null,
-      list_id: listId,
-      event_id: eventId,
-    });
-    if (newTodoId && onAddSubtask) {
-      for (const s of subtaskEntries) {
-        if (s.title.trim()) {
-          onAddSubtask(newTodoId, s.title.trim(), {
-            due_date: s.due_date || null,
-            start_time: s.start_time || null,
-          });
-        }
-      }
-    }
+    const pendingSubtasks = subtaskEntries.filter((s) => s.title.trim());
+    const pendingNotes = notes.trim() || null;
+    const pendingListId = listId;
+    const pendingEventId = eventId;
 
+    // Clear the field before the request returns so typing can continue
     setTitle("");
     setSelectedTagIds([]);
     setDueDate("");
@@ -331,6 +321,30 @@ export default function TodoInput({
     setShowOptions(false);
     setShowSuggestions(false);
     inputRef.current?.focus();
+
+    try {
+      const newTodoId = await onAdd(finalTitle, finalTagIds, {
+        due_date: finalDueDate,
+        start_date: finalStartDate,
+        start_time: finalStartTime,
+        end_time: finalEndTime,
+        priority: finalPriority,
+        notes: pendingNotes,
+        list_id: pendingListId,
+        event_id: pendingEventId,
+      });
+
+      if (newTodoId && onAddSubtask) {
+        for (const s of pendingSubtasks) {
+          onAddSubtask(newTodoId, s.title.trim(), {
+            due_date: s.due_date || null,
+            start_time: s.start_time || null,
+          });
+        }
+      }
+    } finally {
+      submittingRef.current = false;
+    }
   }
 
   function toggleTag(tagId: string) {

@@ -9,7 +9,7 @@ import TimelinePanel from "@/components/TimelinePanel";
 import ScheduleWeekModal from "@/components/ScheduleWeekModal";
 import HabitInput from "@/components/HabitInput";
 import HabitList from "@/components/HabitList";
-import ToastContainer, { type ToastData } from "@/components/Toast";
+import { useToast } from "@/components/Toast";
 import KeyboardShortcutsOverlay from "@/components/KeyboardShortcutsOverlay";
 import EventInput from "@/components/EventInput";
 import EventList from "@/components/EventList";
@@ -325,7 +325,6 @@ export default function DashboardClient({
     if (typeof window === "undefined") return false;
     try { return localStorage.getItem("showHabitsInTasks") === "true"; } catch { return false; }
   });
-  const [toasts, setToasts] = useState<ToastData[]>([]);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [highlightedTodoId, setHighlightedTodoId] = useState<string | null>(null);
@@ -351,16 +350,7 @@ export default function DashboardClient({
     try { return localStorage.getItem("showTaskBar") !== "false"; } catch { return true; }
   });
   const { toggleTheme, theme, tint, lavaLamp, lavaColor, lavaOpacity, syncServerTheme } = useTheme();
-
-  // Toast helpers
-  const addToast = useCallback((toast: Omit<ToastData, "id">) => {
-    const id = Math.random().toString(36).slice(2);
-    setToasts((prev) => [...prev, { ...toast, id }]);
-  }, []);
-
-  const dismissToast = useCallback((id: string) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
-  }, []);
+  const { showToast } = useToast();
 
   // Mobile detection
   useEffect(() => {
@@ -398,15 +388,20 @@ export default function DashboardClient({
   const {
     todos,
     loading: todosLoading,
+    loadError: todosLoadError,
     addTodo,
     toggleTodo,
     updateTodo,
     deleteTodo,
+    restoreTodo,
     toggleTodoTag,
     reorderTodos,
     addSubtask,
     toggleSubtask,
     deleteSubtask,
+    bulkComplete,
+    bulkUpdate,
+    bulkDelete,
     assignTodoToEvent,
     setListForEventTodos,
     deleteTodosByEvent,
@@ -527,20 +522,33 @@ export default function DashboardClient({
     setDeleteEventId(null);
   }, [deleteEvent, deleteTodosByEvent, deleteEventId]);
 
-  // Wrapped delete that shows undo toast
+  // Delete straight away and offer undo — no confirmation dialog for one task
   const handleDeleteTodo = useCallback(
     (id: string) => {
       const todo = todos.find((t) => t.id === id);
-      if (!todo) {
-        deleteTodo(id);
-        return;
-      }
       deleteTodo(id);
-      addToast({
+      if (!todo) return;
+      showToast({
         message: `"${todo.title}" deleted`,
+        onUndo: () => restoreTodo(todo),
       });
     },
-    [todos, deleteTodo, addToast]
+    [todos, deleteTodo, restoreTodo, showToast]
+  );
+
+  // Completing a task is undoable too
+  const handleToggleTodo = useCallback(
+    (id: string, completed: boolean) => {
+      toggleTodo(id, completed);
+      if (!completed) return;
+      const todo = todos.find((t) => t.id === id);
+      showToast({
+        message: todo ? `"${todo.title}" completed` : "Completed",
+        duration: 4000,
+        onUndo: () => toggleTodo(id, false),
+      });
+    },
+    [todos, toggleTodo, showToast]
   );
 
   // Keyboard shortcuts
@@ -1021,9 +1029,9 @@ export default function DashboardClient({
 
   const focusModeHandlers = {
     onAdd: addTodo,
-    onToggle: toggleTodo,
+    onToggle: handleToggleTodo,
     onUpdate: updateTodo,
-    onDelete: deleteTodo,
+    onDelete: handleDeleteTodo,
     onTagToggle: toggleTodoTag,
     onReorder: reorderTodos,
     onAddSubtask: addSubtask,
@@ -1492,9 +1500,9 @@ export default function DashboardClient({
               onDelete={handleDeleteEvent}
               onAddTask={handleAddTaskToEvent}
               onRemoveTask={handleRemoveTaskFromEvent}
-              onToggleTodo={toggleTodo}
+              onToggleTodo={handleToggleTodo}
               onUpdateTodo={updateTodo}
-              onDeleteTodo={deleteTodo}
+              onDeleteTodo={handleDeleteTodo}
               onTagToggle={toggleTodoTag}
               onAddSubtask={addSubtask}
               onToggleSubtask={toggleSubtask}
@@ -1521,7 +1529,7 @@ export default function DashboardClient({
             <TodoList
               todos={visibleTodos}
               allTags={tags}
-              onToggle={toggleTodo}
+              onToggle={handleToggleTodo}
               onUpdate={updateTodo}
               onDelete={handleDeleteTodo}
               onTagToggle={toggleTodoTag}
@@ -1530,6 +1538,11 @@ export default function DashboardClient({
               onToggleSubtask={toggleSubtask}
               onDeleteSubtask={deleteSubtask}
               loading={todosLoading}
+              loadError={todosLoadError}
+              onRetry={refetchTodos}
+              onBulkComplete={bulkComplete}
+              onBulkDelete={bulkDelete}
+              onBulkUpdate={bulkUpdate}
               filterDate={null}
               lists={lists}
               activeListId={activeListId}
@@ -1670,8 +1683,6 @@ export default function DashboardClient({
         />
       )}
 
-      {/* Toast notifications */}
-      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
 
       {/* Floating Focus button (mobile only, when not in focus mode) */}
       {isMobile && !focusMode && (

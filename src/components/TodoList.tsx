@@ -264,6 +264,13 @@ interface TodoListProps {
   onToggleSubtask: (todoId: string, subtaskId: string, completed: boolean) => void;
   onDeleteSubtask: (todoId: string, subtaskId: string) => void;
   loading: boolean;
+  /** Tasks could not be loaded — shown instead of the "no tasks" empty state */
+  loadError?: boolean;
+  onRetry?: () => void;
+  /** Bulk handlers — one request for the whole selection instead of one each */
+  onBulkComplete?: (ids: string[]) => void;
+  onBulkDelete?: (ids: string[]) => void;
+  onBulkUpdate?: (ids: string[], updates: { list_id?: string | null; due_date?: string | null; priority?: Priority }) => void;
   filterDate?: string | null;
   lists?: List[];
   activeListId?: string | null;
@@ -311,6 +318,11 @@ export default function TodoList({
   onToggleSubtask,
   onDeleteSubtask,
   loading,
+  loadError = false,
+  onRetry,
+  onBulkComplete,
+  onBulkDelete,
+  onBulkUpdate,
   filterDate,
   lists = [],
   activeListId,
@@ -333,7 +345,7 @@ export default function TodoList({
   liveTaskId,
 }: TodoListProps) {
   const gridCols = wideMode ? "grid grid-cols-1 md:grid-cols-3 gap-2" : "grid grid-cols-1 md:grid-cols-2 gap-2";
-  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
   const [filterTagId, setFilterTagId] = useState<string | null>(null);
@@ -380,9 +392,6 @@ export default function TodoList({
   // Bulk select state
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-
-  const deleteTitle =
-    todos.find((t) => t.id === deleteId)?.title ?? "this task";
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -573,37 +582,62 @@ export default function TodoList({
     });
   }, []);
 
-  const handleBulkComplete = useCallback(() => {
-    for (const id of selectedIds) {
-      onToggle(id, true);
-    }
+  const clearSelection = useCallback(() => {
     setSelectedIds(new Set());
     setSelectMode(false);
-  }, [selectedIds, onToggle]);
+  }, []);
 
-  const handleBulkDelete = useCallback(() => {
-    for (const id of selectedIds) {
-      onDelete(id);
-    }
-    setSelectedIds(new Set());
-    setSelectMode(false);
-  }, [selectedIds, onDelete]);
+  const handleBulkComplete = useCallback(() => {
+    const ids = [...selectedIds];
+    if (onBulkComplete) onBulkComplete(ids);
+    else for (const id of ids) onToggle(id, true);
+    clearSelection();
+  }, [selectedIds, onBulkComplete, onToggle, clearSelection]);
+
+  // Deleting many at once is not undoable per task, so it asks first
+  const handleBulkDeleteRequest = useCallback(() => {
+    if (selectedIds.size > 0) setConfirmBulkDelete(true);
+  }, [selectedIds]);
+
+  const handleBulkDeleteConfirm = useCallback(() => {
+    const ids = [...selectedIds];
+    if (onBulkDelete) onBulkDelete(ids);
+    else for (const id of ids) onDelete(id);
+    setConfirmBulkDelete(false);
+    clearSelection();
+  }, [selectedIds, onBulkDelete, onDelete, clearSelection]);
 
   const handleBulkMove = useCallback(
     (listId: string | null) => {
-      for (const id of selectedIds) {
-        onUpdate(id, { list_id: listId });
-      }
-      setSelectedIds(new Set());
-      setSelectMode(false);
+      const ids = [...selectedIds];
+      if (onBulkUpdate) onBulkUpdate(ids, { list_id: listId });
+      else for (const id of ids) onUpdate(id, { list_id: listId });
+      clearSelection();
     },
-    [selectedIds, onUpdate]
+    [selectedIds, onBulkUpdate, onUpdate, clearSelection]
   );
 
-  const cancelSelect = useCallback(() => {
-    setSelectMode(false);
-    setSelectedIds(new Set());
-  }, []);
+  const handleBulkDate = useCallback(
+    (date: string | null) => {
+      const ids = [...selectedIds];
+      if (onBulkUpdate) onBulkUpdate(ids, { due_date: date });
+      else for (const id of ids) onUpdate(id, { due_date: date });
+      clearSelection();
+    },
+    [selectedIds, onBulkUpdate, onUpdate, clearSelection]
+  );
+
+  const handleBulkPriority = useCallback(
+    (priority: Priority) => {
+      const ids = [...selectedIds];
+      if (onBulkUpdate) onBulkUpdate(ids, { priority });
+      else for (const id of ids) onUpdate(id, { priority });
+      clearSelection();
+    },
+    [selectedIds, onBulkUpdate, onUpdate, clearSelection]
+  );
+
+  const cancelSelect = clearSelection;
 
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
@@ -627,14 +661,9 @@ export default function TodoList({
   }
 
   function handleDeleteRequest(id: string) {
-    setDeleteId(id);
-  }
-
-  function handleDeleteConfirm() {
-    if (deleteId) {
-      onDelete(deleteId);
-      setDeleteId(null);
-    }
+    // No dialog for a single task — it is removed right away and the toast
+    // offers undo
+    onDelete(id);
   }
 
   // Render a compact inline habit row
@@ -1050,7 +1079,17 @@ export default function TodoList({
       )}
 
       {/* Todo items */}
-      {todos.length === 0 ? (
+      {loadError && todos.length === 0 ? (
+        <div className="text-center py-16">
+          <p className="text-gray-400 text-base">Tasks could not be loaded</p>
+          <button
+            onClick={onRetry}
+            className="mt-2 text-sm font-medium text-black dark:text-white underline underline-offset-2"
+          >
+            Try again
+          </button>
+        </div>
+      ) : todos.length === 0 ? (
         <div className="text-center py-16">
           <p className="text-gray-400 text-base">No tasks yet</p>
           <p className="text-gray-400/60 text-sm mt-1">
@@ -1220,19 +1259,23 @@ export default function TodoList({
       {/* Bulk action floating bar */}
       <BulkActionBar
         selectedCount={selectedIds.size}
+        visible={selectMode}
         onComplete={handleBulkComplete}
-        onDelete={handleBulkDelete}
+        onDelete={handleBulkDeleteRequest}
         onMoveToList={lists.length > 0 ? handleBulkMove : undefined}
+        onSetDueDate={handleBulkDate}
+        onSetPriority={handleBulkPriority}
         onCancel={cancelSelect}
         lists={lists}
       />
 
       <ConfirmDialog
-        open={deleteId !== null}
-        title="Delete task"
-        message={`Are you sure you want to delete "${deleteTitle}"? This action cannot be undone.`}
-        onConfirm={handleDeleteConfirm}
-        onCancel={() => setDeleteId(null)}
+        open={confirmBulkDelete}
+        title="Delete tasks"
+        message={`Delete ${selectedIds.size} selected task${selectedIds.size !== 1 ? "s" : ""}? This cannot be undone.`}
+        confirmLabel="Delete"
+        onConfirm={handleBulkDeleteConfirm}
+        onCancel={() => setConfirmBulkDelete(false)}
       />
     </>
   );

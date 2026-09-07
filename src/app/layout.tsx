@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import { ToastProvider } from "@/components/Toast";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import "./globals.css";
 
@@ -35,7 +36,9 @@ export default function RootLayout({
       </head>
       <body className="text-black dark:text-white min-h-screen transition-colors">
         <ErrorBoundary>
-          <ThemeProvider>{children}</ThemeProvider>
+          <ThemeProvider>
+            <ToastProvider>{children}</ToastProvider>
+          </ThemeProvider>
         </ErrorBoundary>
       </body>
     </html>

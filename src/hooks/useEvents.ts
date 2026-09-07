@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { useToast } from "@/components/Toast";
 import type { Event } from "@/lib/types";
 
 /* Events only. Their tasks live in useTodos and are merged in on the dashboard,
@@ -10,6 +11,9 @@ export function useEvents(userId: string | undefined) {
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const supabase = createClient();
+  const { showError } = useToast();
+  const eventsRef = useRef(events);
+  eventsRef.current = events;
 
   const fetchEvents = useCallback(async () => {
     if (!userId) return;
@@ -54,45 +58,62 @@ export function useEvents(userId: string | undefined) {
         .select()
         .single();
 
-      if (error || !data) return;
+      if (error || !data) {
+        showError("Event could not be created");
+        return;
+      }
 
       const newEvent: Event = { ...data, todos: [] };
       setEvents((prev) => [newEvent, ...prev]);
       return newEvent;
     },
-    [userId]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [userId, showError]
   );
 
   const updateEvent = useCallback(
     async (id: string, updates: { title?: string; description?: string | null; list_id?: string | null; color?: string; due_date?: string | null; end_date?: string | null; start_time?: string | null; end_time?: string | null }) => {
+      const previous = eventsRef.current;
+
+      setEvents((prev) =>
+        prev.map((e) => (e.id === id ? { ...e, ...updates } : e))
+      );
+
       const { error } = await supabase
         .from("events")
         .update(updates)
         .eq("id", id);
 
-      if (!error) {
-        setEvents((prev) =>
-          prev.map((e) => (e.id === id ? { ...e, ...updates } : e))
-        );
+      if (error) {
+        setEvents(previous);
+        showError("Event could not be saved");
       }
     },
-    []
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [showError]
   );
 
   const deleteEvent = useCallback(
     async (id: string) => {
+      const previous = eventsRef.current;
+
+      setEvents((prev) => prev.filter((e) => e.id !== id));
+
       // The event's tasks are removed by the caller (useTodos) beforehand
       const { error } = await supabase.from("events").delete().eq("id", id);
 
-      if (!error) {
-        setEvents((prev) => prev.filter((e) => e.id !== id));
+      if (error) {
+        setEvents(previous);
+        showError("Event could not be deleted");
       }
     },
-    []
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [showError]
   );
 
   const reorderEvents = useCallback(
     async (orderedIds: string[]) => {
+      const previous = eventsRef.current;
       // Optimistic update
       setEvents(prev => {
         const map = new Map(prev.map(e => [e.id, e]));
@@ -111,10 +132,12 @@ export function useEvents(userId: string | undefined) {
       );
       const failed = results.filter(r => r.error);
       if (failed.length > 0) {
-        console.error("[reorderEvents] DB update failed:", failed.map(r => r.error));
+        setEvents(previous);
+        showError("New order could not be saved");
       }
     },
-    []
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [showError]
   );
 
   return {

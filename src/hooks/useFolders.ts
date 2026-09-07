@@ -1,12 +1,16 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { useToast } from "@/components/Toast";
 import type { Folder } from "@/lib/types";
 
 export function useFolders(userId: string | undefined) {
   const [folders, setFolders] = useState<Folder[]>([]);
   const supabase = createClient();
+  const { showError } = useToast();
+  const foldersRef = useRef(folders);
+  foldersRef.current = folders;
 
   const fetchFolders = useCallback(async () => {
     if (!userId) return;
@@ -22,26 +26,45 @@ export function useFolders(userId: string | undefined) {
 
   const addFolder = useCallback(async (name: string) => {
     if (!userId) return;
-    const maxOrder = folders.length > 0 ? Math.max(...folders.map(f => f.sort_order)) : 0;
-    const { data } = await supabase
+    const current = foldersRef.current;
+    const maxOrder = current.length > 0 ? Math.max(...current.map(f => f.sort_order)) : 0;
+    const { data, error } = await supabase
       .from("folders")
       .insert({ user_id: userId, name, sort_order: maxOrder + 1 })
       .select()
       .single();
-    if (data) setFolders(prev => [...prev, data]);
-  }, [userId, folders]);
+    if (error || !data) {
+      showError("Folder could not be created");
+      return;
+    }
+    setFolders(prev => [...prev, data]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId, showError]);
 
   const updateFolder = useCallback(async (id: string, name: string) => {
-    await supabase.from("folders").update({ name }).eq("id", id);
+    const previous = foldersRef.current;
     setFolders(prev => prev.map(f => f.id === id ? { ...f, name } : f));
-  }, []);
+    const { error } = await supabase.from("folders").update({ name }).eq("id", id);
+    if (error) {
+      setFolders(previous);
+      showError("Folder could not be renamed");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showError]);
 
   const deleteFolder = useCallback(async (id: string, onListsUnassigned?: () => void) => {
-    await supabase.from("folders").delete().eq("id", id);
+    const previous = foldersRef.current;
     setFolders(prev => prev.filter(f => f.id !== id));
+    const { error } = await supabase.from("folders").delete().eq("id", id);
+    if (error) {
+      setFolders(previous);
+      showError("Folder could not be deleted");
+      return;
+    }
     // The DB ON DELETE SET NULL handles the lists — notify caller to re-sync local list state
     onListsUnassigned?.();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showError]);
 
   return { folders, addFolder, updateFolder, deleteFolder };
 }

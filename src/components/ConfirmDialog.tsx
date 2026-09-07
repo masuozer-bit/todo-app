@@ -7,6 +7,8 @@ interface ConfirmDialogProps {
   open: boolean;
   title: string;
   message: string;
+  /** Label of the confirming button — defaults to "Delete" */
+  confirmLabel?: string;
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -15,6 +17,7 @@ export default function ConfirmDialog({
   open,
   title,
   message,
+  confirmLabel = "Delete",
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
@@ -81,7 +84,7 @@ export default function ConfirmDialog({
             onClick={onConfirm}
             className="px-4 py-2 rounded-xl bg-black dark:bg-white text-white dark:text-black text-sm font-medium hover:opacity-90 active:scale-[0.98] transition-default"
           >
-            Delete
+            {confirmLabel}
           </button>
         </div>
       </div>

@@ -54,7 +54,7 @@ import { useProfileSync } from "@/hooks/useProfileSync";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { useTheme } from "@/components/ThemeProvider";
 import { X, CalendarRange, Target, Keyboard } from "lucide-react";
-import { getToday } from "@/lib/date-helpers";
+import { getToday, toDateStr } from "@/lib/date-helpers";
 import { fetchCalendarEvents } from "@/lib/calendar-sync-client";
 import type { List as ListType, Todo } from "@/lib/types";
 import { isRunning } from "@/lib/running";
@@ -163,6 +163,7 @@ export default function DashboardClient({
     updateHabit,
     deleteHabit,
     toggleCompletion,
+    habitsForDates,
     skipHabitForDate,
     reorderHabits,
   } = useHabits(userId);
@@ -796,12 +797,28 @@ export default function DashboardClient({
 
   // Habits to show alongside tasks — filtered by list when in list view,
   // hidden in overdue/habits/projects views
+  /* Which days is the list showing? A habit belongs to the days it is due
+     on, so the answer decides which habits appear beside the tasks. */
+  const visibleDays = useMemo((): string[] => {
+    if (calendarDates.length > 0) return [...calendarDates].sort();
+    if (quickFilter === "thisWeek") {
+      const start = new Date(`${todayStr}T00:00:00`);
+      return Array.from({ length: 7 }, (_, i) => {
+        const d = new Date(start);
+        d.setDate(start.getDate() + i);
+        return toDateStr(d);
+      });
+    }
+    // Today, All Tasks, a list, a folder: the day that matters is today
+    return [todayStr];
+  }, [calendarDates, quickFilter, todayStr]);
+
   const visibleHabits = useMemo(() => {
     if (habitsView || eventsView || journalView || timeView || runningView) return [];
     if (quickFilter === "overdue") return [];
-    if (activeListId) return todaysHabits.filter((h) => h.list_id === activeListId);
-    return todaysHabits;
-  }, [habitsView, eventsView, journalView, timeView, runningView, quickFilter, activeListId, todaysHabits]);
+    const forDays = habitsForDates(visibleDays);
+    return activeListId ? forDays.filter((h) => h.list_id === activeListId) : forDays;
+  }, [habitsView, eventsView, journalView, timeView, runningView, quickFilter, activeListId, habitsForDates, visibleDays]);
 
   const activeTodoCount = visibleTodos.filter((t) => !t.completed).length;
   const completedTodoCount = visibleTodos.filter((t) => t.completed).length;

@@ -22,11 +22,11 @@ import TaskRow from "./TaskRow";
 import ConfirmDialog from "./ConfirmDialog";
 import BulkActionBar from "./BulkActionBar";
 import { getToday } from "@/lib/date-helpers";
-import { formatTime } from "@/lib/format";
+import { formatRowDate, formatTime } from "@/lib/format";
 import { PRIORITY_META } from "@/lib/priority";
 import type { FilterStatus, SortBy, TaskFilters } from "@/hooks/useTaskFilters";
 import type { TodoUpdates } from "@/hooks/useTodos";
-import type { Event, HabitWithStatus, List, Priority, Tag, Todo } from "@/lib/types";
+import type { Event, HabitOccurrence, List, Priority, Tag, Todo } from "@/lib/types";
 
 const PRIORITY_ORDER: Record<Priority, number> = { high: 0, medium: 1, low: 2, none: 3 };
 
@@ -108,9 +108,9 @@ export interface TodoListProps {
   /** Hide this timeline group's head; the view title already says it. */
   suppressGroupKey?: string;
 
-  habits?: HabitWithStatus[];
+  habits?: HabitOccurrence[];
   showHabits?: boolean;
-  onToggleHabit?: (habitId: string) => void;
+  onToggleHabit?: (habitId: string, date: string) => void;
 
   highlightedTodoId?: string | null;
   selectedTodoId?: string | null;
@@ -395,6 +395,8 @@ export default function TodoList({
   const nothingAtAll = todos.length === 0;
   const nothingMatches = !nothingAtAll && filtered.length === 0;
   const visibleHabits = showHabits ? habits : [];
+  // With one day in view the date on every row would only repeat the heading
+  const habitDays = new Set(visibleHabits.map((h) => h.date)).size;
 
   return (
     <>
@@ -455,7 +457,12 @@ export default function TodoList({
                   />
                   {!collapsed.has("habits") &&
                     visibleHabits.map((habit) => (
-                      <HabitRow key={habit.id} habit={habit} onToggle={onToggleHabit} />
+                      <HabitRow
+                        key={`${habit.id}:${habit.date}`}
+                        habit={habit}
+                        showDate={habitDays > 1}
+                        onToggle={onToggleHabit}
+                      />
                     ))}
                 </div>
               )}
@@ -555,18 +562,27 @@ function GroupHead({
   );
 }
 
-function HabitRow({ habit, onToggle }: { habit: HabitWithStatus; onToggle?: (id: string) => void }) {
+function HabitRow({
+  habit,
+  showDate,
+  onToggle,
+}: {
+  habit: HabitOccurrence;
+  /** Only worth saying when the list covers more than one day. */
+  showDate: boolean;
+  onToggle?: (id: string, date: string) => void;
+}) {
   const { t } = useI18n();
   const time = habit.time ? formatTime(habit.time) : null;
   return (
-    <div className={`task-row ${habit.completedToday ? "is-done" : ""}`}>
+    <div className={`task-row ${habit.done ? "is-done" : ""}`}>
       <button
-        onClick={() => onToggle?.(habit.id)}
+        onClick={() => onToggle?.(habit.id, habit.date)}
         className="task-circle"
-        aria-label={habit.completedToday ? t("Mark as not done") : t("Mark as done")}
-        aria-pressed={habit.completedToday}
+        aria-label={habit.done ? t("Mark as not done") : t("Mark as done")}
+        aria-pressed={habit.done}
       >
-        {habit.completedToday && (
+        {habit.done && (
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
             <path d="M20 6 9 17l-5-5" />
           </svg>
@@ -581,6 +597,7 @@ function HabitRow({ habit, onToggle }: { habit: HabitWithStatus; onToggle?: (id:
           </span>
         )}
         {time && <span className="tabular-nums">{time}</span>}
+        {showDate && <span className="task-meta-date">{t(formatRowDate(habit.date))}</span>}
       </span>
     </div>
   );

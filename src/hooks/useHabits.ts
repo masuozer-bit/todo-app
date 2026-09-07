@@ -9,6 +9,7 @@ import type {
   Habit,
   HabitCompletion,
   HabitSkip,
+  HabitOccurrence,
   HabitWithStatus,
   ScheduleType,
 } from "@/lib/types";
@@ -121,6 +122,35 @@ export function useHabits(userId: string | undefined) {
 
   const todaysHabits: HabitWithStatus[] = habitsWithStatus.filter(
     (h) => isScheduledForDate(h, new Date()) && !skippedTodaySet.has(h.id)
+  );
+
+  /**
+   * The habits that belong to the given days, one entry per habit and day.
+   * A habit skipped on a day does not appear on that day.
+   */
+  const habitsForDates = useCallback(
+    (dates: string[]): HabitOccurrence[] => {
+      const skipped = new Set(skips.map((s) => `${s.habit_id}:${s.skip_date}`));
+      const out: HabitOccurrence[] = [];
+      for (const date of dates) {
+        const day = new Date(`${date}T00:00:00`);
+        if (Number.isNaN(day.getTime())) continue;
+        for (const habit of habitsWithStatus) {
+          if (!isScheduledForDate(habit, day)) continue;
+          if (skipped.has(`${habit.id}:${date}`)) continue;
+          out.push({
+            ...habit,
+            date,
+            done: completionSet.has(`${habit.id}:${date}`),
+          });
+        }
+      }
+      return out;
+    },
+    // completionSet and habitsWithStatus are rebuilt on every render from
+    // these two, so depending on the sources keeps the identity honest
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [habits, completions, skips]
   );
 
   const addHabit = useCallback(
@@ -241,9 +271,10 @@ export function useHabits(userId: string | undefined) {
   );
 
   const toggleCompletion = useCallback(
-    async (habitId: string) => {
+    /** Without a date this means today, which is what every old caller meant. */
+    async (habitId: string, date?: string) => {
       if (!userId) return;
-      const today = getTodayStr();
+      const today = date ?? getTodayStr();
       const existing = completions.find(
         (c) => c.habit_id === habitId && c.completed_date === today
       );
@@ -353,6 +384,7 @@ export function useHabits(userId: string | undefined) {
   return {
     habits: habitsWithStatus,
     todaysHabits,
+    habitsForDates,
     completions,
     loading,
     addHabit,

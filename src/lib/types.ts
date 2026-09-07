@@ -131,6 +131,17 @@ export interface HabitWithStatus extends Habit {
   streak: number;
 }
 
+/**
+ * A habit as it appears on one particular day. The task list shows these,
+ * because a habit belongs to the days it is scheduled for, not only to today.
+ */
+export interface HabitOccurrence extends HabitWithStatus {
+  /** The day this row stands for, YYYY-MM-DD. */
+  date: string;
+  /** Done on that day. `completedToday` still refers to today. */
+  done: boolean;
+}
+
 export interface GoogleTokens {
   user_id: string;
   access_token: string;

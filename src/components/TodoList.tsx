@@ -252,11 +252,20 @@ export default function TodoList({
   const activeTodos = useMemo(() => filtered.filter((x) => !x.completed), [filtered]);
   const doneTodos = useMemo(() => sortTodos(filtered.filter((x) => x.completed)), [filtered, sortTodos]);
 
+  const visibleHabits = useMemo(() => (showHabits ? habits : []), [showHabits, habits]);
+  // With one day in view the date on every row would only repeat the heading
+  const habitDays = useMemo(
+    () => new Set(visibleHabits.map((h) => h.date)).size,
+    [visibleHabits]
+  );
+
   // ── Group ─────────────────────────────────────────────────────────────
   type Group = {
     key: string;
     label: string;
     todos: Todo[];
+    /** Habits due on this group's day, listed after its tasks. */
+    habits: HabitOccurrence[];
     /** "3/8" next to a project name. */
     progress?: string;
     tone?: "overdue";
@@ -276,23 +285,32 @@ export default function TodoList({
     const out: Group[] = [];
 
     if (sortBy === "timeline") {
+      // A habit due today belongs under Today, next to the tasks due today,
+      // not in a bucket of its own at the bottom of the list.
       const buckets: Record<string, Todo[]> = {};
       for (const todo of standalone) {
         const key = timelineKey(todo.start_date ?? todo.due_date);
         (buckets[key] ??= []).push(todo);
       }
+      const habitBuckets: Record<string, HabitOccurrence[]> = {};
+      for (const habit of visibleHabits) {
+        (habitBuckets[timelineKey(habit.date)] ??= []).push(habit);
+      }
       for (const config of TIMELINE_CONFIG) {
         const bucket = buckets[config.key];
-        if (!bucket?.length) continue;
+        const habitBucket = habitBuckets[config.key];
+        if (!bucket?.length && !habitBucket?.length) continue;
         out.push({
           key: config.key,
           label: config.label,
-          todos: sortTodos(bucket),
+          todos: sortTodos(bucket ?? []),
+          habits: habitBucket ?? [],
           tone: config.key === "overdue" ? "overdue" : undefined,
         });
       }
     } else if (standalone.length > 0) {
-      out.push({ key: "tasks", label: "Tasks", todos: sortTodos(standalone) });
+      // Without day groups the habits keep a section of their own
+      out.push({ key: "tasks", label: "Tasks", todos: sortTodos(standalone), habits: [] });
     }
 
     // Projects keep their own head, with the count of what is done in them
@@ -305,13 +323,14 @@ export default function TodoList({
         key: `project:${eventId}`,
         label: event.title,
         todos: sortTodos(bucket),
+        habits: [],
         progress: `${done}/${total}`,
         onOpen: onOpenEventDetail ? () => onOpenEventDetail(eventId) : undefined,
       });
     }
 
     return out;
-  }, [activeTodos, events, todos, sortBy, sortTodos, onOpenEventDetail]);
+  }, [activeTodos, events, todos, sortBy, sortTodos, onOpenEventDetail, visibleHabits]);
 
   // ── Bulk ──────────────────────────────────────────────────────────────
   const idsSelected = useMemo(() => [...selectedIds], [selectedIds]);
@@ -392,11 +411,10 @@ export default function TodoList({
     );
   }
 
-  const nothingAtAll = todos.length === 0;
-  const nothingMatches = !nothingAtAll && filtered.length === 0;
-  const visibleHabits = showHabits ? habits : [];
-  // With one day in view the date on every row would only repeat the heading
-  const habitDays = new Set(visibleHabits.map((h) => h.date)).size;
+  // Habits count as content: a day with only habits is not an empty day
+  const nothingAtAll = todos.length === 0 && visibleHabits.length === 0;
+  const nothingMatches =
+    !nothingAtAll && filtered.length === 0 && visibleHabits.length === 0;
 
   return (
     <>
@@ -419,12 +437,16 @@ export default function TodoList({
               {groups.map((group) => {
                 const single = group.key === "tasks";
                 const isOpen = !collapsed.has(group.key);
+                // "This Week" holds several days, so a habit row there says
+                // which one. Under "Today" the date would only repeat the head.
+                const spansDays =
+                  new Set(group.habits.map((h) => h.date)).size > 1;
                 return (
                   <div key={group.key}>
                     {!single && group.key !== suppressGroupKey && (
                       <GroupHead
                         label={group.key.startsWith("project:") ? group.label : t(group.label)}
-                        count={group.todos.length}
+                        count={group.todos.length + group.habits.length}
                         progress={group.progress}
                         tone={group.tone}
                         open={isOpen}
@@ -432,22 +454,33 @@ export default function TodoList({
                         onOpen={group.onOpen}
                       />
                     )}
-                    {(single || isOpen) &&
-                      group.todos.map((todo) => (
-                        <TaskRow
-                          key={todo.id}
-                          {...rowProps}
-                          todo={todo}
-                          selected={selectedTodoId === todo.id}
-                          checked={selectedIds.has(todo.id)}
-                          highlighted={highlightedTodoId === todo.id}
-                        />
-                      ))}
+                    {(single || isOpen) && (
+                      <>
+                        {group.todos.map((todo) => (
+                          <TaskRow
+                            key={todo.id}
+                            {...rowProps}
+                            todo={todo}
+                            selected={selectedTodoId === todo.id}
+                            checked={selectedIds.has(todo.id)}
+                            highlighted={highlightedTodoId === todo.id}
+                          />
+                        ))}
+                        {group.habits.map((habit) => (
+                          <HabitRow
+                            key={`${habit.id}:${habit.date}`}
+                            habit={habit}
+                            showDate={spansDays}
+                            onToggle={onToggleHabit}
+                          />
+                        ))}
+                      </>
+                    )}
                   </div>
                 );
               })}
 
-              {visibleHabits.length > 0 && (
+              {sortBy !== "timeline" && visibleHabits.length > 0 && (
                 <div>
                   <GroupHead
                     label={t("Habits")}

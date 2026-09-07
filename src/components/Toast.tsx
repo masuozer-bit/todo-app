@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import { X, Undo2 } from "lucide-react";
+import { useI18n } from "./I18nProvider";
 
 export interface ToastData {
   id: string;
@@ -29,6 +30,7 @@ interface ToastProps {
 }
 
 function ToastItem({ toast, onDismiss }: ToastProps) {
+  const { t } = useI18n();
   const [exiting, setExiting] = useState(false);
   const duration = toast.duration ?? 5000;
 
@@ -66,7 +68,7 @@ function ToastItem({ toast, onDismiss }: ToastProps) {
           : "bg-black dark:bg-white text-white dark:text-black"
       } ${exiting ? "opacity-0 translate-y-2" : "opacity-100 translate-y-0"}`}
     >
-      <span className="text-sm font-medium flex-1">{toast.message}</span>
+      <span className="text-sm font-medium flex-1">{t(toast.message)}</span>
       {toast.action && (
         <button
           onClick={handleAction}
@@ -76,7 +78,7 @@ function ToastItem({ toast, onDismiss }: ToastProps) {
               : "bg-white/20 dark:bg-black/15 hover:bg-white/30 dark:hover:bg-black/25"
           }`}
         >
-          {toast.action.label}
+          {t(toast.action.label)}
         </button>
       )}
       {toast.onUndo && (
@@ -89,7 +91,7 @@ function ToastItem({ toast, onDismiss }: ToastProps) {
           }`}
         >
           <Undo2 size={12} />
-          Undo
+          {t("Undo")}
         </button>
       )}
       <button
@@ -99,7 +101,7 @@ function ToastItem({ toast, onDismiss }: ToastProps) {
             ? "text-white/60 hover:text-white transition-default"
             : "text-white/50 dark:text-black/50 hover:text-white dark:hover:text-black transition-default"
         }
-        aria-label="Dismiss"
+        aria-label={t("Dismiss")}
       >
         <X size={14} />
       </button>

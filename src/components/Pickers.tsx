@@ -1,6 +1,9 @@
 "use client";
 import { useState, useRef, useEffect, useCallback } from "react";
+import { formatLocale } from "@/lib/format";
 import { createPortal } from "react-dom";
+import { useI18n } from "./I18nProvider";
+import { monthNames, weekdayLabels } from "@/lib/format";
 import { ChevronLeft, ChevronRight, ChevronDown, Check, X, Calendar, Clock } from "lucide-react";
 
 /* ─── helpers ──────────────────────────────────────────── */
@@ -13,8 +16,7 @@ function toYMD(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
-const DAY_LABELS  = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+
 
 function useClickOutside(
   ref: React.RefObject<HTMLElement | null>,
@@ -79,6 +81,7 @@ export function CustomSelect({
   className?: string;
   placeholder?: string;
 }) {
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [popupPos, setPopupPos] = useState<{ top: number; left: number; width: number }>({ top: 0, left: 0, width: 140 });
   const [domReady, setDomReady] = useState(false);
@@ -178,6 +181,7 @@ export function DatePicker({
   triggerClassName?: string;
   ariaLabel?: string;
 }) {
+  const { t } = useI18n();
   const today      = new Date();
   const todayStr   = toYMD(today);
   const parsed     = toDate(value);
@@ -257,7 +261,7 @@ export function DatePicker({
   ];
 
   const displayLabel = value
-    ? (toDate(value)?.toLocaleDateString("en-GB", { day: "numeric", month: "short" }) ?? value)
+    ? (toDate(value)?.toLocaleDateString(formatLocale(), { day: "numeric", month: "short" }) ?? value)
     : placeholder;
 
   return (
@@ -309,7 +313,7 @@ export function DatePicker({
         <div
           ref={popupRef}
           role="dialog"
-          aria-label="Choose a date"
+          aria-label={t("Choose a date")}
           className="glass-card-raised rounded-xl shadow-2xl p-3 w-64"
           style={{
             position: "fixed",
@@ -343,18 +347,18 @@ export function DatePicker({
           <div className="flex items-center justify-between mb-2">
             <button
               type="button"
-              aria-label="Previous month"
+              aria-label={t("Previous month")}
               onClick={prevMonth}
               className="p-1 rounded-lg text-black/40 dark:text-white/40 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-default"
             >
               <ChevronLeft size={13} />
             </button>
             <span className="text-xs font-medium text-black dark:text-white">
-              {MONTH_NAMES[viewMonth]} {viewYear}
+              {monthNames()[viewMonth]} {viewYear}
             </span>
             <button
               type="button"
-              aria-label="Next month"
+              aria-label={t("Next month")}
               onClick={nextMonth}
               className="p-1 rounded-lg text-black/40 dark:text-white/40 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-default"
             >
@@ -364,7 +368,7 @@ export function DatePicker({
 
           {/* Day-of-week headers */}
           <div className="grid grid-cols-7 mb-1">
-            {DAY_LABELS.map((d) => (
+            {weekdayLabels().map((d) => (
               <div key={d} className="text-center text-[11px] text-black/25 dark:text-white/25 font-medium py-0.5">
                 {d}
               </div>
@@ -419,6 +423,7 @@ export function TimePicker({
   className?: string;
   placeholder?: string;
 }) {
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [popupPos, setPopupPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
   const [domReady, setDomReady] = useState(false);
@@ -524,7 +529,7 @@ export function TimePicker({
         <div
           ref={popupRef}
           role="dialog"
-          aria-label="Choose a time"
+          aria-label={t("Choose a time")}
           className="glass-card-raised rounded-xl shadow-2xl p-2"
           style={{ position: "fixed", zIndex: 9999, top: popupPos.top, left: popupPos.left, width: 150 }}
           onPointerDown={(e) => e.stopPropagation()}
@@ -545,7 +550,7 @@ export function TimePicker({
             }}
             onBlur={commitDraft}
             placeholder="HH:MM"
-            aria-label="Time"
+            aria-label={t("Time")}
             className="w-full mb-2 text-center text-sm tabular-nums bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-lg px-2 py-1.5 text-black dark:text-white placeholder:text-black/30 dark:placeholder:text-white/30 focus:outline-none focus:border-black/30 dark:focus:border-white/30"
           />
 
@@ -604,9 +609,7 @@ export function TimePicker({
             type="button"
             onClick={() => { emit(selH, selM); setOpen(false); }}
             className="w-full mt-2 py-1.5 text-xs font-medium rounded-lg bg-black dark:bg-white text-white dark:text-black hover:opacity-90 transition-default"
-          >
-            Set time
-          </button>
+          >{t("Set time")}</button>
         </div>,
         document.body
       )}

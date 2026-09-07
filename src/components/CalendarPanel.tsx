@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useMemo, useEffect, useCallback } from "react";
+import { formatLocale, monthNames, weekdayLabels } from "@/lib/format";
+import { useI18n } from "./I18nProvider";
 import { ChevronLeft, ChevronRight, X, ExternalLink, Clock } from "lucide-react";
 import type { Todo } from "@/lib/types";
 import { fetchCalendarEvents } from "@/lib/calendar-sync-client";
@@ -24,11 +26,7 @@ interface CalendarPanelProps {
   onGoogleEventsImported?: () => void;
 }
 
-const DAY_LABELS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
-const MONTH_NAMES = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December",
-];
+
 
 function toDateStr(d: Date): string {
   const y = d.getFullYear();
@@ -39,7 +37,7 @@ function toDateStr(d: Date): string {
 
 function formatShort(dateStr: string): string {
   const [y, m, d] = dateStr.split("-").map(Number);
-  return new Date(y, m - 1, d).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  return new Date(y, m - 1, d).toLocaleDateString(formatLocale(), { day: "numeric", month: "short" });
 }
 
 export default function CalendarPanel({
@@ -48,6 +46,7 @@ export default function CalendarPanel({
   onSelectDates,
   onGoogleEventsImported,
 }: CalendarPanelProps) {
+  const { t } = useI18n();
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const todayStr = toDateStr(today);
@@ -167,7 +166,7 @@ export default function CalendarPanel({
           <button
             onClick={prevMonth}
             className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-default"
-            aria-label="Previous month"
+            aria-label={t("Previous month")}
           >
             <ChevronLeft size={14} />
           </button>
@@ -175,12 +174,12 @@ export default function CalendarPanel({
             onClick={goToToday}
             className="text-sm font-semibold text-black dark:text-white hover:opacity-70 transition-default"
           >
-            {MONTH_NAMES[viewMonth]} {viewYear}
+            {monthNames()[viewMonth]} {viewYear}
           </button>
           <button
             onClick={nextMonth}
             className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-default"
-            aria-label="Next month"
+            aria-label={t("Next month")}
           >
             <ChevronRight size={14} />
           </button>
@@ -188,7 +187,7 @@ export default function CalendarPanel({
 
         {/* Day labels */}
         <div className="grid grid-cols-7 mb-1">
-          {DAY_LABELS.map((label) => (
+          {weekdayLabels('narrow').map((label) => (
             <div key={label} className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-1">
               {label}
             </div>
@@ -266,7 +265,7 @@ export default function CalendarPanel({
             <button
               onClick={() => onSelectDates([])}
               className="text-gray-400 hover:text-black dark:hover:text-white transition-default"
-              aria-label="Clear date selection"
+              aria-label={t("Clear date selection")}
             >
               <X size={14} />
             </button>
@@ -315,7 +314,7 @@ export default function CalendarPanel({
                         {event.startTime}{event.endTime && `–${event.endTime}`}
                       </p>
                     ) : (
-                      <p className="text-[11px] text-gray-400 mt-0.5">All day</p>
+                      <p className="text-[11px] text-gray-400 mt-0.5">{t("All day")}</p>
                     )}
                   </div>
                   {event.htmlLink && (
@@ -324,7 +323,7 @@ export default function CalendarPanel({
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-gray-400 hover:text-black dark:hover:text-white transition-default flex-shrink-0 mt-0.5"
-                      aria-label="Open in Google Calendar"
+                      aria-label={t("Open in Google Calendar")}
                     >
                       <ExternalLink size={10} />
                     </a>

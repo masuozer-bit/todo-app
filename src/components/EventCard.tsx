@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { formatLocale } from "@/lib/format";
+import { useI18n } from "./I18nProvider";
 import { ChevronDown, ChevronRight, Plus, Trash2, Check, X, Maximize2 } from "lucide-react";
 import type { Event, Todo, Tag, List, Priority } from "@/lib/types";
 import TodoItem from "./TodoItem";
@@ -40,7 +42,7 @@ interface EventCardProps {
 function formatEventDate(dateStr: string): string {
   // Parse YYYY-MM-DD without timezone shift
   const [y, m, d] = dateStr.split("-").map(Number);
-  return new Date(y, m - 1, d).toLocaleDateString("en-GB", {
+  return new Date(y, m - 1, d).toLocaleDateString(formatLocale(), {
     month: "short",
     day: "numeric",
   });
@@ -64,7 +66,7 @@ function formatPeekLabel(todo: Todo): string | null {
   if (diff < 0) return `${Math.abs(diff)}d ago`;
   if (diff === 0) return "Today";
   if (diff === 1) return "Tomorrow";
-  return due.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  return due.toLocaleDateString(formatLocale(), { day: "numeric", month: "short" });
 }
 
 export default function EventCard({
@@ -86,6 +88,7 @@ export default function EventCard({
   onAssignEvent,
   onOpenDetail,
 }: EventCardProps) {
+  const { t } = useI18n();
   const [expanded,      setExpanded]      = useState(false);
 
 
@@ -195,8 +198,8 @@ export default function EventCard({
             {/* Meta */}
             <div className="flex items-center gap-2 mt-1 flex-wrap">
               <span className="text-xs text-gray-400">
-                {todos.length} task{todos.length !== 1 ? "s" : ""}
-                {completedCount > 0 && ` · ${completedCount} done`}
+                {t(todos.length === 1 ? "{n} task" : "{n} tasks", { n: todos.length })}
+                {completedCount > 0 && ` · ${t("{n} done", { n: completedCount })}`}
               </span>
               {event.due_date && (
                 <span className="text-xs text-gray-400">
@@ -220,8 +223,8 @@ export default function EventCard({
               <button
                 onClick={() => onOpenDetail(event.id)}
                 className="text-gray-400 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100 hover:text-black dark:hover:text-white transition-default p-1.5 [@media(hover:none)]:p-2.5"
-                aria-label="Open project"
-                title="Open project view"
+                aria-label={t("Open project")}
+                title={t("Open project view")}
               >
                 <Maximize2 size={13} />
               </button>
@@ -232,16 +235,16 @@ export default function EventCard({
                 setShowAddTask(true);
               }}
               className="text-gray-400 hover:text-black dark:hover:text-white transition-default p-1.5 [@media(hover:none)]:p-2.5"
-              aria-label="Add task to project"
-              title="Add task"
+              aria-label={t("Add task to project")}
+              title={t("Add task")}
             >
               <Plus size={15} />
             </button>
             <button
               onClick={() => onDelete(event.id)}
               className="text-gray-400 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100 hover:text-red-500 transition-default p-1.5 [@media(hover:none)]:p-2.5"
-              aria-label="Delete project"
-              title="Delete project"
+              aria-label={t("Delete project")}
+              title={t("Delete project")}
             >
               <Trash2 size={14} />
             </button>
@@ -305,7 +308,7 @@ export default function EventCard({
                 />
               ))
             ) : (
-              <p className="text-xs text-gray-400 italic">No tasks yet</p>
+              <p className="text-xs text-gray-400 italic">{t("No tasks yet")}</p>
             )}
 
             {showAddTask ? (
@@ -320,21 +323,19 @@ export default function EventCard({
                     if (e.key === "Enter") handleAddTask();
                     if (e.key === "Escape") { setNewTaskTitle(""); setNewTaskDate(""); setShowAddTask(false); }
                   }}
-                  placeholder="Task title..."
+                  placeholder={t("Task title...")}
                   className="flex-1 text-sm bg-transparent border-b border-black/15 dark:border-white/15 pb-0.5 text-black dark:text-white placeholder:text-gray-400 focus:outline-none"
                 />
-                <DatePicker value={newTaskDate} onChange={setNewTaskDate} placeholder="Date" />
-                <button onClick={handleAddTask} className="text-gray-400 hover:text-black dark:hover:text-white transition-default" aria-label="Save task"><Check size={14} /></button>
-                <button onClick={() => { setNewTaskTitle(""); setNewTaskDate(""); setShowAddTask(false); }} className="text-gray-400 hover:text-black dark:hover:text-white transition-default" aria-label="Cancel"><X size={14} /></button>
+                <DatePicker value={newTaskDate} onChange={setNewTaskDate} placeholder={t("Date")} />
+                <button onClick={handleAddTask} className="text-gray-400 hover:text-black dark:hover:text-white transition-default" aria-label={t("Save task")}><Check size={14} /></button>
+                <button onClick={() => { setNewTaskTitle(""); setNewTaskDate(""); setShowAddTask(false); }} className="text-gray-400 hover:text-black dark:hover:text-white transition-default" aria-label={t("Cancel")}><X size={14} /></button>
               </div>
             ) : (
               <button
                 onClick={() => setShowAddTask(true)}
                 className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-black dark:hover:text-white transition-default pt-1"
               >
-                <Plus size={13} />
-                Add task
-              </button>
+                <Plus size={13} />{t("Add task")}</button>
             )}
           </div>
         )}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useI18n } from "./I18nProvider";
 import { LayoutGrid } from "lucide-react";
 import TodoList from "./TodoList";
 import TodoInput from "./TodoInput";
@@ -78,6 +79,7 @@ export default function FocusModeView({
   onExitFocusMode,
   onCreateTag,
 }: FocusModeViewProps) {
+  const { t } = useI18n();
   const [slide, setSlide] = useState<0 | 1 | 2>(1);
   const [dragOffset, setDragOffset] = useState(0);
   const touchStartX = useRef(0);
@@ -151,10 +153,10 @@ export default function FocusModeView({
           <button
             onClick={onExitFocusMode}
             className="mt-1 flex items-center gap-1.5 px-2.5 py-2 rounded-xl text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-default"
-            aria-label="Leave focus mode"
+            aria-label={t("Leave focus mode")}
           >
             <LayoutGrid size={16} />
-            <span className="text-xs font-medium">All views</span>
+            <span className="text-xs font-medium">{t("All views")}</span>
           </button>
         </div>
 

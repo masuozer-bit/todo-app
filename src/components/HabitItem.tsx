@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { useI18n } from "./I18nProvider";
 import { createPortal } from "react-dom";
 import { Trash2, Check, X, Flame, Repeat, FileText, ChevronDown, Settings2, Minus, Plus, Clock, CalendarOff } from "lucide-react";
 import type { HabitWithStatus, HabitCompletion, ScheduleType, List } from "@/lib/types";
@@ -74,6 +75,7 @@ export default function HabitItem({
   isDragging = false,
   highlighted = false,
 }: HabitItemProps) {
+  const { t } = useI18n();
   const itemRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -202,16 +204,16 @@ export default function HabitItem({
             onBlur={handleSaveTitle}
             onKeyDown={handleKeyDown}
             className="flex-1 bg-transparent text-black dark:text-white focus:outline-none text-sm"
-            aria-label="Edit habit title"
+            aria-label={t("Edit habit title")}
           />
-          <button onClick={handleSaveTitle} className="text-gray-400 hover:text-black dark:hover:text-white transition-default" aria-label="Save">
+          <button onClick={handleSaveTitle} className="text-gray-400 hover:text-black dark:hover:text-white transition-default" aria-label={t("Save")}>
             <Check size={16} />
           </button>
           <button
             onMouseDown={() => { cancelledRef.current = true; }}
             onClick={() => { setEditValue(habit.title); setEditing(false); cancelledRef.current = false; }}
             className="text-gray-400 hover:text-black dark:hover:text-white transition-default"
-            aria-label="Cancel"
+            aria-label={t("Cancel")}
           >
             <X size={16} />
           </button>
@@ -237,7 +239,7 @@ export default function HabitItem({
             {/* Title */}
             <p
               onDoubleClick={(e) => { e.stopPropagation(); setEditing(true); }}
-              title="Double-click to rename"
+              title={t("Double-click to rename")}
               className={`text-sm transition-default leading-snug pr-16 ${
                 habit.completedToday ? "line-through text-gray-400" : "text-black dark:text-white"
               }`}
@@ -251,7 +253,7 @@ export default function HabitItem({
                 type="button"
                 onClick={() => setShowWeekView(true)}
                 className="flex items-center gap-1 text-xs text-black/40 dark:text-gray-500 hover:text-black dark:hover:text-white transition-default"
-                aria-label="View schedule calendar"
+                aria-label={t("View schedule calendar")}
               >
                 <Repeat size={10} />
                 {formatSchedule(habit)}
@@ -282,14 +284,12 @@ export default function HabitItem({
                   className="flex items-center gap-1 text-xs text-black/40 dark:text-gray-500 hover:text-black dark:hover:text-white transition-default"
                   aria-label={showNotes ? "Hide notes" : "Show notes"}
                 >
-                  <FileText size={10} />
-                  Notes
-                  <ChevronDown size={9} className={`transition-transform duration-150 ${showNotes ? "rotate-180" : ""}`} />
+                  <FileText size={10} />{t("Notes")}<ChevronDown size={9} className={`transition-transform duration-150 ${showNotes ? "rotate-180" : ""}`} />
                 </button>
               )}
 
               {scheduledToday === false && (
-                <span className="text-xs text-black/30 dark:text-gray-600">Not today</span>
+                <span className="text-xs text-black/30 dark:text-gray-600">{t("Not today")}</span>
               )}
             </div>
 
@@ -299,7 +299,7 @@ export default function HabitItem({
                 <div className="flex flex-wrap items-center gap-2">
                   <TimePicker
                     value={editTime}
-                    placeholder="Add time"
+                    placeholder={t("Add time")}
                     onChange={(v) => {
                       setEditTime(v);
                       handleSaveTime(v);
@@ -311,7 +311,7 @@ export default function HabitItem({
                       <span className="text-[11px] text-black/25 dark:text-gray-700">\u2192</span>
                       <TimePicker
                         value={editEndTime}
-                        placeholder="End time"
+                        placeholder={t("End time")}
                         onChange={(v) => { setEditEndTime(v); handleSaveEndTime(v); }}
                       />
                     </>
@@ -346,7 +346,7 @@ export default function HabitItem({
             <div className="mt-2 p-3 bg-black/[0.04] dark:bg-white/[0.04] rounded-lg space-y-3" onClick={(e) => e.stopPropagation()}>
               {/* Rhythm toggle */}
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-widest text-black/40 dark:text-gray-500 mb-1.5">Rhythm</p>
+                <p className="text-[11px] font-semibold uppercase tracking-widest text-black/40 dark:text-gray-500 mb-1.5">{t("Rhythm")}</p>
                 <div className="flex gap-2">
                   <button
                     type="button"
@@ -356,9 +356,7 @@ export default function HabitItem({
                         ? "border-black/30 dark:border-white/30 bg-black/5 dark:bg-white/10 font-medium text-black dark:text-white"
                         : "border-black/10 dark:border-white/10 text-black/50 dark:text-gray-400"
                     }`}
-                  >
-                    Every X days
-                  </button>
+                  >{t("Every X days")}</button>
                   <button
                     type="button"
                     onClick={() => setEditScheduleType("weekly")}
@@ -367,15 +365,13 @@ export default function HabitItem({
                         ? "border-black/30 dark:border-white/30 bg-black/5 dark:bg-white/10 font-medium text-black dark:text-white"
                         : "border-black/10 dark:border-white/10 text-black/50 dark:text-gray-400"
                     }`}
-                  >
-                    Specific days
-                  </button>
+                  >{t("Specific days")}</button>
                 </div>
               </div>
 
               {editScheduleType === "interval" && (
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-widest text-black/40 dark:text-gray-500 mb-1.5">Repeat every</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-widest text-black/40 dark:text-gray-500 mb-1.5">{t("Repeat every")}</p>
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
@@ -399,7 +395,7 @@ export default function HabitItem({
 
               {editScheduleType === "weekly" && (
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-widest text-black/40 dark:text-gray-500 mb-1.5">Days</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-widest text-black/40 dark:text-gray-500 mb-1.5">{t("Days")}</p>
                   <div className="flex gap-1">
                     {WEEK_DAYS.map(({ index: i, label }, position) => (
                       <button
@@ -420,9 +416,7 @@ export default function HabitItem({
               )}
 
               <div className="flex items-center gap-2">
-                <button onClick={handleSaveSchedule} className="text-xs px-2.5 py-1 rounded-lg bg-black dark:bg-white text-white dark:text-black font-medium hover:opacity-90 transition-default">
-                  Save
-                </button>
+                <button onClick={handleSaveSchedule} className="text-xs px-2.5 py-1 rounded-lg bg-black dark:bg-white text-white dark:text-black font-medium hover:opacity-90 transition-default">{t("Save")}</button>
                 <button
                   onClick={() => {
                     setEditScheduleType(habit.schedule_type);
@@ -431,9 +425,7 @@ export default function HabitItem({
                     setEditingSchedule(false);
                   }}
                   className="text-xs text-black/40 dark:text-gray-500 hover:text-black dark:hover:text-white transition-default"
-                >
-                  Cancel
-                </button>
+                >{t("Cancel")}</button>
               </div>
             </div>
           )}
@@ -454,20 +446,16 @@ export default function HabitItem({
                       if (e.key === "Escape") { setEditNotes(habit.notes ?? ""); setEditingNotes(false); }
                       if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) handleSaveNotes();
                     }}
-                    placeholder="Add notes or context..."
+                    placeholder={t("Add notes or context...")}
                     rows={3}
                     className="w-full bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-lg px-2.5 py-2 text-xs text-black dark:text-white placeholder:text-black/25 dark:placeholder:text-gray-600 focus:outline-none focus:border-black/25 dark:focus:border-white/20 transition-default resize-none"
                   />
                   <div className="flex items-center gap-2">
-                    <button onClick={handleSaveNotes} className="text-xs px-2.5 py-1 rounded-lg bg-black dark:bg-white text-white dark:text-black font-medium hover:opacity-90 transition-default">
-                      Save
-                    </button>
+                    <button onClick={handleSaveNotes} className="text-xs px-2.5 py-1 rounded-lg bg-black dark:bg-white text-white dark:text-black font-medium hover:opacity-90 transition-default">{t("Save")}</button>
                     <button
                       onClick={() => { setEditNotes(habit.notes ?? ""); setEditingNotes(false); }}
                       className="text-xs text-black/40 dark:text-gray-500 hover:text-black dark:hover:text-white transition-default"
-                    >
-                      Cancel
-                    </button>
+                    >{t("Cancel")}</button>
                     <span className="text-[11px] text-black/25 dark:text-gray-600 ml-auto">⌘↵ to save</span>
                   </div>
                 </div>
@@ -478,7 +466,7 @@ export default function HabitItem({
                   tabIndex={0}
                   onKeyDown={(e) => { if (e.key === "Enter") setEditingNotes(true); }}
                   className="text-xs text-black/60 dark:text-gray-400 bg-black/[0.04] dark:bg-white/[0.04] rounded-lg px-2.5 py-2 cursor-text hover:bg-black/[0.07] dark:hover:bg-white/[0.07] transition-default whitespace-pre-wrap"
-                  aria-label="Edit notes"
+                  aria-label={t("Edit notes")}
                 >
                   {hasNotes ? habit.notes : <span className="text-black/25 dark:text-gray-600 italic">Click to add notes…</span>}
                 </div>
@@ -495,7 +483,7 @@ export default function HabitItem({
               onClick={(e) => { e.stopPropagation(); onSkip(habit.id); }}
               className="p-1 rounded-lg text-gray-400 hover:text-orange-500 hover:bg-orange-500/10 transition-default"
               aria-label={`Skip "${habit.title}" today`}
-              title="Skip today"
+              title={t("Skip today")}
             >
               <CalendarOff size={14} />
             </button>

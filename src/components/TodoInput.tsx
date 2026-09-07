@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useMemo } from "react";
+import { useI18n } from "./I18nProvider";
 import {
   Plus,
   ChevronDown,
@@ -23,7 +24,7 @@ import {
   type ParsedTask,
 } from "@/lib/date-helpers";
 import TagPill from "./TagPill";
-import { formatTime } from "@/lib/format";
+import { formatTime, formatLocale } from "@/lib/format";
 import { PRIORITY_META } from "@/lib/priority";
 
 interface TodoInputProps {
@@ -210,7 +211,7 @@ function formatDateLabel(dateStr: string): string {
   if (dateStr === today) return "Today";
   if (dateStr === tomorrow) return "Tomorrow";
   const d = new Date(dateStr + "T00:00:00");
-  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  return d.toLocaleDateString(formatLocale(), { day: "numeric", month: "short" });
 }
 
 
@@ -231,6 +232,7 @@ export default function TodoInput({
   events = [],
   activeListId,
 }: TodoInputProps) {
+  const { t } = useI18n();
   const [title, setTitle] = useState("");
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [showOptions, setShowOptions] = useState(false);
@@ -445,9 +447,9 @@ export default function TodoInput({
             onKeyDown={handleKeyDown}
             onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
             onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
-            placeholder="Add a task... (try: Buy milk tomorrow at 3pm !high #errands @Groceries)"
+            placeholder={t("Add a task... (try: Buy milk tomorrow at 3pm !high #errands @Groceries)")}
             className="flex-1 bg-transparent text-black dark:text-white placeholder:text-gray-400 focus:outline-none text-base"
-            aria-label="New task title"
+            aria-label={t("New task title")}
           />
           <button
             type="button"
@@ -461,7 +463,7 @@ export default function TodoInput({
             type="submit"
             disabled={!title.trim()}
             className="w-9 h-9 rounded-xl bg-black dark:bg-white text-white dark:text-black flex items-center justify-center hover:opacity-90 active:scale-95 transition-default disabled:opacity-30 disabled:cursor-not-allowed flex-shrink-0"
-            aria-label="Add task"
+            aria-label={t("Add task")}
           >
             <Plus size={18} />
           </button>
@@ -484,12 +486,12 @@ export default function TodoInput({
               {q.label}
             </button>
           ))}
-          <DatePicker value={dueDate} onChange={setDueDate} placeholder="Date" />
-          <TimePicker value={startTime} onChange={setStartTime} placeholder="Time" />
+          <DatePicker value={dueDate} onChange={setDueDate} placeholder={t("Date")} />
+          <TimePicker value={startTime} onChange={setStartTime} placeholder={t("Time")} />
           {startTime && (
             <>
               <span className="text-xs text-gray-400">→</span>
-              <TimePicker value={endTime} onChange={setEndTime} placeholder="End" />
+              <TimePicker value={endTime} onChange={setEndTime} placeholder={t("End")} />
             </>
           )}
           <button
@@ -500,8 +502,8 @@ export default function TodoInput({
                 ? "border-black/20 dark:border-white/20 bg-black/5 dark:bg-white/10 text-black dark:text-white font-medium"
                 : "border-black/10 dark:border-white/10 text-gray-400 hover:text-black dark:hover:text-white hover:border-black/20 dark:hover:border-white/20"
             }`}
-            aria-label="Change priority"
-            title="Change priority"
+            aria-label={t("Change priority")}
+            title={t("Change priority")}
           >
             <span className={`w-1.5 h-1.5 rounded-full ${PRIORITY_CONFIG.find((p) => p.value === priority)?.dot}`} />
             {PRIORITY_CONFIG.find((p) => p.value === priority)?.label ?? "None"}
@@ -511,7 +513,7 @@ export default function TodoInput({
               type="button"
               onClick={() => { setDueDate(""); setStartTime(""); setEndTime(""); setPriority("none"); }}
               className="text-gray-400 hover:text-black dark:hover:text-white transition-default"
-              aria-label="Clear date, time and priority"
+              aria-label={t("Clear date, time and priority")}
             >
               <X size={13} />
             </button>
@@ -534,10 +536,10 @@ export default function TodoInput({
                 }`}
               >
                 <span className="font-medium">{s.display}</span>
-                {s.kind === "list" && <span className="text-[11px] uppercase tracking-wide text-gray-400">List</span>}
-                {s.kind === "event" && <span className="text-[11px] uppercase tracking-wide text-gray-400">Project</span>}
-                {s.kind === "tag" && <span className="text-[11px] uppercase tracking-wide text-gray-400">Tag</span>}
-                {s.kind === "new-tag" && <span className="text-[11px] uppercase tracking-wide text-gray-400">New</span>}
+                {s.kind === "list" && <span className="text-[11px] uppercase tracking-wide text-gray-400">{t("List")}</span>}
+                {s.kind === "event" && <span className="text-[11px] uppercase tracking-wide text-gray-400">{t("Project")}</span>}
+                {s.kind === "tag" && <span className="text-[11px] uppercase tracking-wide text-gray-400">{t("Tag")}</span>}
+                {s.kind === "new-tag" && <span className="text-[11px] uppercase tracking-wide text-gray-400">{t("New")}</span>}
                 <span className="text-xs text-gray-400 ml-auto">↵</span>
               </button>
             ))}
@@ -547,9 +549,7 @@ export default function TodoInput({
         {/* NL live preview */}
         {(parsed || listId || eventId) && (
           <div className="mt-2.5 flex items-center gap-1.5 flex-wrap">
-            <span className="text-[11px] uppercase tracking-wider text-gray-400 mr-0.5 font-medium">
-              Parsed:
-            </span>
+            <span className="text-[11px] uppercase tracking-wider text-gray-400 mr-0.5 font-medium">{t("Parsed:")}</span>
             {parsed?.title && parsed.title !== title.trim() && (
               <span className="text-xs text-black dark:text-white font-medium bg-black/[0.04] dark:bg-white/[0.08] px-2 py-0.5 rounded-md border border-black/5 dark:border-white/10 truncate max-w-[200px]">
                 &ldquo;{parsed.title}&rdquo;
@@ -618,14 +618,14 @@ export default function TodoInput({
                   </button>
                 </span>
               ) : (
-                <DatePicker value={startDate} onChange={setStartDate} placeholder="Start date" />
+                <DatePicker value={startDate} onChange={setStartDate} placeholder={t("Start date")} />
               )}
             </div>
 
             {/* ② Tags */}
             {tags.length > 0 && (
               <div className="space-y-2">
-                <p className="text-[11px] uppercase tracking-wide text-gray-400 font-medium">Tags</p>
+                <p className="text-[11px] uppercase tracking-wide text-gray-400 font-medium">{t("Tags")}</p>
                 <div className="flex flex-wrap gap-1.5">
                   {tags.map((tag) => (
                     <TagPill
@@ -643,7 +643,7 @@ export default function TodoInput({
             {/* ③ List + Event */}
             {(lists.length > 0 || events.length > 0) && (
               <div className="space-y-2">
-                <p className="text-[11px] uppercase tracking-wide text-gray-400 font-medium">Assign to</p>
+                <p className="text-[11px] uppercase tracking-wide text-gray-400 font-medium">{t("Assign to")}</p>
                 <div className="flex flex-wrap gap-2">
                   {lists.length > 0 && (
                     <CustomSelect
@@ -675,14 +675,14 @@ export default function TodoInput({
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="Add a note..."
+              placeholder={t("Add a note...")}
               rows={2}
               className="w-full text-sm bg-transparent border border-black/8 dark:border-white/8 rounded-xl px-3 py-2 text-black dark:text-white placeholder:text-gray-400 focus:outline-none focus:border-black/20 dark:focus:border-white/20 resize-none transition-default"
             />
 
             {/* ⑤ Subtasks */}
             <div className="space-y-2">
-              <p className="text-[11px] uppercase tracking-wide text-gray-400 font-medium">Subtasks</p>
+              <p className="text-[11px] uppercase tracking-wide text-gray-400 font-medium">{t("Subtasks")}</p>
               <div className="space-y-1.5">
                 {subtaskEntries.map((s, i) => (
                   <div key={s.id} className="flex items-center gap-2 group/sub">
@@ -708,9 +708,7 @@ export default function TodoInput({
                   onClick={() => setSubtaskEntries((prev) => [...prev, { id: crypto.randomUUID(), title: "", due_date: "", start_time: "" }])}
                   className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-black dark:hover:text-white transition-default"
                 >
-                  <Plus size={11} />
-                  Add subtask
-                </button>
+                  <Plus size={11} />{t("Add subtask")}</button>
               </div>
             </div>
 

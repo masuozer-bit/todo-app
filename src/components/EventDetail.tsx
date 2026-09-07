@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { formatLocale } from "@/lib/format";
+import { useI18n } from "./I18nProvider";
 import {
   ChevronLeft,
   ChevronDown,
@@ -17,7 +19,7 @@ import { CustomSelect, DatePicker, TimePicker } from "./Pickers";
 
 function formatEventDate(dateStr: string): string {
   const [y, m, d] = dateStr.split("-").map(Number);
-  return new Date(y, m - 1, d).toLocaleDateString("en-GB", {
+  return new Date(y, m - 1, d).toLocaleDateString(formatLocale(), {
     month: "short",
     day: "numeric",
   });
@@ -96,6 +98,7 @@ export default function EventDetail({
   onDeleteSubtask,
   onAssignEvent,
 }: EventDetailProps) {
+  const { t } = useI18n();
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleValue, setTitleValue] = useState(event.title);
   // Buffered so the description is written once, on blur
@@ -196,7 +199,7 @@ export default function EventDetail({
             <h2
               className="text-xl font-semibold text-black dark:text-white cursor-pointer hover:opacity-75 transition-default mb-1"
               onClick={() => setEditingTitle(true)}
-              title="Click to rename"
+              title={t("Click to rename")}
             >
               {event.title}
             </h2>
@@ -255,8 +258,8 @@ export default function EventDetail({
             <button
               onClick={() => onDelete(event.id)}
               className="text-gray-400 hover:text-red-500 transition-default p-1"
-              aria-label="Delete project"
-              title="Delete project"
+              aria-label={t("Delete project")}
+              title={t("Delete project")}
             >
               <Trash2 size={13} />
             </button>
@@ -266,9 +269,7 @@ export default function EventDetail({
             <div className="px-4 md:px-5 pb-4 space-y-3 border-t border-black/5 dark:border-white/5 pt-3">
               {/* Color */}
               <div className="flex items-center gap-3">
-                <span className="text-xs text-gray-400 font-medium uppercase tracking-wide w-10 flex-shrink-0">
-                  Color
-                </span>
+                <span className="text-xs text-gray-400 font-medium uppercase tracking-wide w-10 flex-shrink-0">{t("Color")}</span>
                 <input
                   type="color"
                   value={event.color ?? "#6366f1"}
@@ -276,25 +277,23 @@ export default function EventDetail({
                     onUpdate(event.id, { color: e.target.value })
                   }
                   className="w-6 h-6 rounded cursor-pointer border border-black/20 dark:border-white/20"
-                  aria-label="Project colour"
+                  aria-label={t("Project colour")}
                 />
               </div>
 
               {/* Dates */}
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs text-gray-400 font-medium uppercase tracking-wide w-10 flex-shrink-0">
-                  Date
-                </span>
+                <span className="text-xs text-gray-400 font-medium uppercase tracking-wide w-10 flex-shrink-0">{t("Date")}</span>
                 <DatePicker
                   value={event.due_date ?? ""}
                   onChange={(v) => onUpdate(event.id, { due_date: v || null })}
-                  placeholder="Start date"
+                  placeholder={t("Start date")}
                 />
                 <span className="text-xs text-gray-400">→</span>
                 <DatePicker
                   value={event.end_date ?? ""}
                   onChange={(v) => onUpdate(event.id, { end_date: v || null })}
-                  placeholder="End date"
+                  placeholder={t("End date")}
                 />
                 {(event.due_date || event.end_date) && (
                   <button
@@ -310,13 +309,11 @@ export default function EventDetail({
 
               {/* Time */}
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs text-gray-400 font-medium uppercase tracking-wide w-10 flex-shrink-0">
-                  Time
-                </span>
+                <span className="text-xs text-gray-400 font-medium uppercase tracking-wide w-10 flex-shrink-0">{t("Time")}</span>
                 <TimePicker
                   value={event.start_time ?? ""}
                   onChange={(v) => onUpdate(event.id, { start_time: v || null })}
-                  placeholder="Start"
+                  placeholder={t("Start")}
                 />
                 {event.start_time && (
                   <>
@@ -324,7 +321,7 @@ export default function EventDetail({
                     <TimePicker
                       value={event.end_time ?? ""}
                       onChange={(v) => onUpdate(event.id, { end_time: v || null })}
-                      placeholder="End"
+                      placeholder={t("End")}
                     />
                   </>
                 )}
@@ -342,14 +339,12 @@ export default function EventDetail({
 
               {/* Description */}
               <div className="flex items-start gap-3">
-                <span className="text-xs text-gray-400 font-medium uppercase tracking-wide w-10 flex-shrink-0 mt-1.5">
-                  About
-                </span>
+                <span className="text-xs text-gray-400 font-medium uppercase tracking-wide w-10 flex-shrink-0 mt-1.5">{t("About")}</span>
                 <textarea
                   value={descriptionValue}
                   onChange={(e) => setDescriptionValue(e.target.value)}
                   onBlur={saveDescription}
-                  placeholder="What is this project about?"
+                  placeholder={t("What is this project about?")}
                   rows={2}
                   className="flex-1 text-xs bg-white dark:bg-black border border-black/10 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-black dark:text-white placeholder:text-gray-400 focus:outline-none focus:border-black/25 dark:focus:border-white/25 resize-none transition-default"
                 />
@@ -358,9 +353,7 @@ export default function EventDetail({
               {/* List */}
               {lists.length > 0 && (
                 <div className="flex items-center gap-3">
-                  <span className="text-xs text-gray-400 font-medium uppercase tracking-wide w-10 flex-shrink-0">
-                    List
-                  </span>
+                  <span className="text-xs text-gray-400 font-medium uppercase tracking-wide w-10 flex-shrink-0">{t("List")}</span>
                   <CustomSelect
                     value={event.list_id ?? ""}
                     onChange={(v) => onUpdate(event.id, { list_id: v || null })}
@@ -391,9 +384,7 @@ export default function EventDetail({
             onClick={() => setShowAddTask(true)}
             className="flex items-center gap-1 text-xs text-gray-400 hover:text-black dark:hover:text-white transition-default"
           >
-            <Plus size={13} />
-            Add task
-          </button>
+            <Plus size={13} />{t("Add task")}</button>
         )}
       </div>
 
@@ -413,7 +404,7 @@ export default function EventDetail({
                 setShowAddTask(false);
               }
             }}
-            placeholder="New task..."
+            placeholder={t("New task...")}
             className="flex-1 text-sm bg-transparent text-black dark:text-white placeholder:text-gray-400 focus:outline-none"
           />
           <input

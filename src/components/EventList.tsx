@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
+import { useI18n } from "./I18nProvider";
 import type { Event, List, Tag, Priority } from "@/lib/types";
 import EventCard from "./EventCard";
 import EventDetail from "./EventDetail";
@@ -56,6 +57,7 @@ interface EventListProps extends SharedEventCardProps {
 type SortMode = "manual" | "list";
 
 function SortableEventItem({ event, ...props }: { event: Event } & SharedEventCardProps) {
+  const { t } = useI18n();
   const {
     attributes,
     listeners,
@@ -77,7 +79,7 @@ function SortableEventItem({ event, ...props }: { event: Event } & SharedEventCa
         {...attributes}
         {...listeners}
         className="absolute left-0 top-3 text-gray-300 dark:text-gray-700 hover:text-gray-500 dark:hover:text-gray-400 cursor-grab active:cursor-grabbing touch-none p-0.5"
-        aria-label="Drag to reorder"
+        aria-label={t("Drag to reorder")}
       >
         <GripVertical size={14} />
       </button>
@@ -107,6 +109,7 @@ export default function EventList({
   onDefaultEventHandled,
   onReorderEvents,
 }: EventListProps) {
+  const { t } = useI18n();
   const [sortMode, setSortMode] = useState<SortMode>(() => {
     if (typeof window === "undefined") return "list";
     return (localStorage.getItem("eventSortMode") as SortMode) ?? "list";
@@ -243,9 +246,7 @@ export default function EventList({
   if (events.length === 0) {
     return (
       <div className="text-center py-12">
-        <p className="text-gray-400 text-sm">
-          No projects yet. A project groups tasks that belong together, like a trip or a release, and shows their progress in one place.
-        </p>
+        <p className="text-gray-400 text-sm">{t("No projects yet. A project groups tasks that belong together, like a trip or a release, and shows their progress in one place.")}</p>
       </div>
     );
   }
@@ -269,9 +270,7 @@ export default function EventList({
               : "border-black/10 dark:border-white/10 text-gray-400 hover:border-black/20 dark:hover:border-white/20 hover:text-black dark:hover:text-white"
           }`}
         >
-          <GripVertical size={12} />
-          Manual
-        </button>
+          <GripVertical size={12} />{t("Manual")}</button>
         <button
           onClick={() => { setSortMode("list"); localStorage.setItem("eventSortMode", "list"); }}
           className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg border transition-default ${
@@ -280,9 +279,7 @@ export default function EventList({
               : "border-black/10 dark:border-white/10 text-gray-400 hover:border-black/20 dark:hover:border-white/20 hover:text-black dark:hover:text-white"
           }`}
         >
-          <ListIcon size={12} />
-          By List
-        </button>
+          <ListIcon size={12} />{t("By List")}</button>
       </div>
 
       {sortMode === "manual" ? (

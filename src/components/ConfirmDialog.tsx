@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { useI18n } from "./I18nProvider";
 import { X } from "lucide-react";
 
 interface ConfirmDialogProps {
@@ -21,6 +22,7 @@ export default function ConfirmDialog({
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
+  const { t } = useI18n();
   const cancelRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -59,7 +61,7 @@ export default function ConfirmDialog({
         <button
           onClick={onCancel}
           className="absolute top-4 right-4 text-gray-400 hover:text-black dark:hover:text-white transition-default"
-          aria-label="Close dialog"
+          aria-label={t("Close dialog")}
         >
           <X size={18} />
         </button>
@@ -77,9 +79,7 @@ export default function ConfirmDialog({
             ref={cancelRef}
             onClick={onCancel}
             className="px-4 py-2 rounded-xl glass-card-subtle text-sm font-medium text-black dark:text-white hover:bg-black/10 dark:hover:bg-white/15 transition-default"
-          >
-            Cancel
-          </button>
+          >{t("Cancel")}</button>
           <button
             onClick={onConfirm}
             className="px-4 py-2 rounded-xl bg-black dark:bg-white text-white dark:text-black text-sm font-medium hover:opacity-90 active:scale-[0.98] transition-default"

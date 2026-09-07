@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useI18n } from "./I18nProvider";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { LogOut, Settings, MoreHorizontal, Sun, Moon } from "lucide-react";
@@ -12,6 +13,7 @@ interface HeaderProps {
 }
 
 export default function Header({ email }: HeaderProps) {
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const router = useRouter();
   const supabase = createClient();
@@ -41,7 +43,7 @@ export default function Header({ email }: HeaderProps) {
               href="/settings"
               onClick={() => setOpen(false)}
               className="p-2.5 rounded-xl text-gray-400 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-default"
-              aria-label="Settings"
+              aria-label={t("Settings")}
             >
               <Settings size={16} />
             </Link>
@@ -51,7 +53,7 @@ export default function Header({ email }: HeaderProps) {
             <button
               onClick={handleLogout}
               className="p-2.5 rounded-xl text-gray-400 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-default"
-              aria-label="Sign out"
+              aria-label={t("Sign out")}
             >
               <LogOut size={16} />
             </button>

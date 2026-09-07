@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import { useI18n } from "./I18nProvider";
 import { Plus, X, Tag as TagIcon } from "lucide-react";
 import type { Tag } from "@/lib/types";
 
@@ -11,6 +12,7 @@ interface TagManagerProps {
 }
 
 export default function TagManager({ tags, onAdd, onDelete }: TagManagerProps) {
+  const { t } = useI18n();
   const [expanded, setExpanded] = useState(false);
   const [newTag, setNewTag] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -67,7 +69,7 @@ export default function TagManager({ tags, onAdd, onDelete }: TagManagerProps) {
               placeholder="+ add"
               maxLength={30}
               className="w-16 text-xs bg-transparent text-gray-400 placeholder:text-gray-300 dark:placeholder:text-gray-600 focus:outline-none focus:w-24 transition-all duration-200"
-              aria-label="New tag name"
+              aria-label={t("New tag name")}
             />
           </form>
         </div>

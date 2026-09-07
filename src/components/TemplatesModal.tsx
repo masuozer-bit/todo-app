@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useI18n } from "./I18nProvider";
 import { X, Plus, ChevronDown, ChevronUp, LayoutTemplate } from "lucide-react";
 import type {
   Template,
@@ -158,6 +159,7 @@ function TaskRow({
   onRemove: () => void;
   lists: List[];
 }) {
+  const { t: tr } = useI18n();
   const [expanded, setExpanded] = useState(false);
   const [newSub, setNewSub] = useState("");
 
@@ -186,11 +188,11 @@ function TaskRow({
         <input
           value={draft.title}
           onChange={(e) => onChange({ ...draft, title: e.target.value })}
-          placeholder="Task title..."
+          placeholder={tr("Task title...")}
           className="flex-1 bg-transparent text-sm text-white placeholder:text-white/30 focus:outline-none min-w-0"
         />
         <div className="flex items-center gap-1 flex-shrink-0">
-          <span className="text-[11px] text-white/30">Day</span>
+          <span className="text-[11px] text-white/30">{tr("Day")}</span>
           <input
             type="number"
             min={1}
@@ -214,7 +216,7 @@ function TaskRow({
       {expanded && (
         <div className="px-3 pb-3 space-y-3 border-t border-white/5 pt-3">
           <div>
-            <p className={LABEL}>Priority</p>
+            <p className={LABEL}>{tr("Priority")}</p>
             <div className="flex gap-1.5 flex-wrap">
               {PRIORITIES.map((p) => (
                 <button
@@ -249,7 +251,7 @@ function TaskRow({
           </div>
 
           <div>
-            <p className={LABEL}>Default time</p>
+            <p className={LABEL}>{tr("Default time")}</p>
             <div className="flex items-center gap-2 flex-wrap">
               <TimePicker
                 value={draft.start_time}
@@ -266,18 +268,18 @@ function TaskRow({
 
           {lists.length > 0 && (
             <div>
-              <p className={LABEL}>List</p>
+              <p className={LABEL}>{tr("List")}</p>
               <CustomSelect
                 value={draft.list_id}
                 onChange={(v) => onChange({ ...draft, list_id: v })}
                 options={listOpts}
-                placeholder="No list"
+                placeholder={tr("No list")}
               />
             </div>
           )}
 
           <div>
-            <p className={LABEL}>Notes</p>
+            <p className={LABEL}>{tr("Notes")}</p>
             <textarea
               value={draft.notes}
               onChange={(e) => onChange({ ...draft, notes: e.target.value })}
@@ -288,7 +290,7 @@ function TaskRow({
           </div>
 
           <div>
-            <p className={LABEL}>Subtasks</p>
+            <p className={LABEL}>{tr("Subtasks")}</p>
             <div className="space-y-1 mb-1.5">
               {draft.subtasks.map((s, i) => (
                 <div key={i} className="flex items-center gap-2">
@@ -316,7 +318,7 @@ function TaskRow({
                     addSub();
                   }
                 }}
-                placeholder="Add subtask..."
+                placeholder={tr("Add subtask...")}
                 className={`flex-1 ${INPUT}`}
               />
               <button onClick={addSub} className="text-white/30 hover:text-white transition-colors">
@@ -343,6 +345,7 @@ function EventRow({
   onRemove: () => void;
   lists: List[];
 }) {
+  const { t: tr } = useI18n();
   const [expanded, setExpanded] = useState(false);
   const [tasksExpanded, setTasksExpanded] = useState(false);
 
@@ -374,12 +377,12 @@ function EventRow({
           <input
             value={draft.title}
             onChange={(e) => onChange({ ...draft, title: e.target.value })}
-            placeholder="Event title..."
+            placeholder={tr("Event title...")}
             className="flex-1 bg-transparent text-sm text-white placeholder:text-white/30 focus:outline-none min-w-0"
           />
         </div>
         <div className="flex items-center gap-1 flex-shrink-0">
-          <span className="text-[11px] text-white/30">Day</span>
+          <span className="text-[11px] text-white/30">{tr("Day")}</span>
           <input
             type="number"
             min={1}
@@ -413,27 +416,27 @@ function EventRow({
       {expanded && (
         <div className="px-3 pb-3 space-y-3 border-t border-white/5 pt-3">
           <div>
-            <p className={LABEL}>Color</p>
+            <p className={LABEL}>{tr("Color")}</p>
             <CustomSelect
               value={draft.color}
               onChange={(v) => onChange({ ...draft, color: v })}
               options={colorOpts}
-              placeholder="Default color"
+              placeholder={tr("Default color")}
             />
           </div>
           {lists.length > 0 && (
             <div>
-              <p className={LABEL}>List</p>
+              <p className={LABEL}>{tr("List")}</p>
               <CustomSelect
                 value={draft.list_id}
                 onChange={(v) => onChange({ ...draft, list_id: v })}
                 options={listOpts}
-                placeholder="No list"
+                placeholder={tr("No list")}
               />
             </div>
           )}
           <div>
-            <p className={LABEL}>Default time</p>
+            <p className={LABEL}>{tr("Default time")}</p>
             <div className="flex items-center gap-2 flex-wrap">
               <TimePicker
                 value={draft.start_time}
@@ -458,11 +461,11 @@ function EventRow({
             />
           </div>
           <div>
-            <p className={LABEL}>Description</p>
+            <p className={LABEL}>{tr("Description")}</p>
             <textarea
               value={draft.description}
               onChange={(e) => onChange({ ...draft, description: e.target.value })}
-              placeholder="Description..."
+              placeholder={tr("Description...")}
               rows={2}
               className={`w-full ${INPUT} resize-none`}
             />
@@ -487,13 +490,12 @@ function EventRow({
                 }
                 className="flex items-center gap-1 text-[11px] text-white/30 hover:text-white transition-colors"
               >
-                <Plus size={11} /> Add task
-              </button>
+                <Plus size={11} />{tr("Add task")}</button>
             </div>
             {tasksExpanded && (
               <div className="space-y-1.5 pl-2 border-l border-white/8">
                 {draft.tasks.length === 0 && (
-                  <p className="text-[11px] text-white/20 italic">No tasks yet</p>
+                  <p className="text-[11px] text-white/20 italic">{tr("No tasks yet")}</p>
                 )}
                 {draft.tasks.map((t, i) => (
                   <TaskRow
@@ -543,6 +545,7 @@ export default function TemplatesModal({
   onDelete,
   onApply,
 }: TemplatesModalProps) {
+  const { t: tr } = useI18n();
   // Escape closes the modal
   useEffect(() => {
     if (!open) return;
@@ -676,7 +679,7 @@ export default function TemplatesModal({
         {/* ── Left sidebar ── */}
         <div className="w-52 border-r border-white/8 flex flex-col overflow-hidden flex-shrink-0">
           <div className="px-4 py-3 border-b border-white/8 flex items-center justify-between">
-            <p className="text-sm font-semibold text-white">Templates</p>
+            <p className="text-sm font-semibold text-white">{tr("Templates")}</p>
             <button
               onClick={onClose}
               className="text-white/40 hover:text-white transition-colors"
@@ -712,9 +715,7 @@ export default function TemplatesModal({
               onClick={openCreate}
               className="w-full flex items-center justify-center gap-1.5 text-xs py-1.5 rounded-lg border border-white/10 text-white/40 hover:text-white hover:border-white/25 transition-colors"
             >
-              <Plus size={12} />
-              New template
-            </button>
+              <Plus size={12} />{tr("New template")}</button>
           </div>
         </div>
 
@@ -732,9 +733,7 @@ export default function TemplatesModal({
               <button
                 onClick={openCreate}
                 className="text-xs px-4 py-2 rounded-xl border border-white/10 text-white/40 hover:text-white hover:border-white/25 transition-colors"
-              >
-                Create template
-              </button>
+              >{tr("Create template")}</button>
             </div>
           )}
 
@@ -796,9 +795,7 @@ export default function TemplatesModal({
                       <button
                         onClick={() => openEdit(t)}
                         className="text-xs px-3 py-1.5 rounded-lg border border-white/10 text-white/40 hover:text-white hover:border-white/25 transition-colors"
-                      >
-                        Edit
-                      </button>
+                      >{tr("Edit")}</button>
                       {confirmDelete === t.id ? (
                         <div className="flex items-center gap-1.5">
                           <button
@@ -808,15 +805,11 @@ export default function TemplatesModal({
                               setView({ mode: "list" });
                             }}
                             className="text-xs px-2 py-1 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors"
-                          >
-                            Delete
-                          </button>
+                          >{tr("Delete")}</button>
                           <button
                             onClick={() => setConfirmDelete(null)}
                             className="text-xs px-2 py-1 rounded-lg border border-white/10 text-white/40 hover:text-white transition-colors"
-                          >
-                            Cancel
-                          </button>
+                          >{tr("Cancel")}</button>
                         </div>
                       ) : (
                         <button
@@ -924,9 +917,7 @@ export default function TemplatesModal({
                         }}
                         disabled={!applyDate}
                         className="px-4 py-1.5 rounded-xl text-sm font-medium bg-white text-black hover:bg-white/90 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                      >
-                        Apply
-                      </button>
+                      >{tr("Apply")}</button>
                     </div>
                   </div>
                 </>
@@ -950,16 +941,15 @@ export default function TemplatesModal({
                 {/* Tasks */}
                 <div>
                   <div className="flex items-center justify-between mb-3">
-                    <p className="text-xs font-medium text-white/60">Tasks</p>
+                    <p className="text-xs font-medium text-white/60">{tr("Tasks")}</p>
                     <button
                       onClick={() => setTaskDrafts((prev) => [...prev, emptyTask()])}
                       className="flex items-center gap-1 text-[11px] text-white/30 hover:text-white transition-colors"
                     >
-                      <Plus size={12} /> Add task
-                    </button>
+                      <Plus size={12} />{tr("Add task")}</button>
                   </div>
                   {taskDrafts.length === 0 && (
-                    <p className="text-[11px] text-white/20 italic">No tasks yet</p>
+                    <p className="text-[11px] text-white/20 italic">{tr("No tasks yet")}</p>
                   )}
                   <div className="space-y-2">
                     {taskDrafts.map((t, i) => (
@@ -979,16 +969,15 @@ export default function TemplatesModal({
                 {/* Events */}
                 <div>
                   <div className="flex items-center justify-between mb-3">
-                    <p className="text-xs font-medium text-white/60">Projects</p>
+                    <p className="text-xs font-medium text-white/60">{tr("Projects")}</p>
                     <button
                       onClick={() => setEventDrafts((prev) => [...prev, emptyEvent()])}
                       className="flex items-center gap-1 text-[11px] text-white/30 hover:text-white transition-colors"
                     >
-                      <Plus size={12} /> Add event
-                    </button>
+                      <Plus size={12} />{tr("Add event")}</button>
                   </div>
                   {eventDrafts.length === 0 && (
-                    <p className="text-[11px] text-white/20 italic">No projects yet</p>
+                    <p className="text-[11px] text-white/20 italic">{tr("No projects yet")}</p>
                   )}
                   <div className="space-y-2">
                     {eventDrafts.map((e, i) => (
@@ -1010,9 +999,7 @@ export default function TemplatesModal({
                 <button
                   onClick={() => setView({ mode: "list" })}
                   className="text-xs px-3 py-1.5 rounded-lg border border-white/10 text-white/40 hover:text-white hover:border-white/25 transition-colors"
-                >
-                  Cancel
-                </button>
+                >{tr("Cancel")}</button>
                 <button
                   onClick={handleSave}
                   disabled={!templateName.trim()}

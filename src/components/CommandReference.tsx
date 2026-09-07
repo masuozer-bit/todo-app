@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useI18n } from "./I18nProvider";
 import { Search, ChevronDown, ChevronRight, Keyboard } from "lucide-react";
 
 interface Command {
@@ -103,6 +104,7 @@ const EXAMPLES: { input: string; parsed: string }[] = [
 ];
 
 export default function CommandReference() {
+  const { t } = useI18n();
   const [search, setSearch] = useState("");
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
     new Set(CATEGORIES.map((c) => c.name))
@@ -164,15 +166,13 @@ export default function CommandReference() {
           onChange={(e) => setSearch(e.target.value)}
           placeholder={`Search ${totalCommands} commands & ${SHORTCUTS.length} shortcuts...`}
           className="w-full pl-9 pr-3 py-2 text-sm rounded-xl bg-black/[0.03] dark:bg-white/[0.06] border border-black/[0.06] dark:border-white/[0.1] text-black dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-black/10 dark:focus:ring-white/20 transition-all duration-200"
-          aria-label="Search commands"
+          aria-label={t("Search commands")}
         />
         {search && (
           <button
             onClick={() => setSearch("")}
             className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-xs"
-          >
-            Clear
-          </button>
+          >{t("Clear")}</button>
         )}
       </div>
 
@@ -187,9 +187,7 @@ export default function CommandReference() {
               >
                 <div className="flex items-center gap-2">
                   <Keyboard size={13} className="text-gray-400" />
-                  <span className="text-xs font-semibold text-black dark:text-white uppercase tracking-wide">
-                    Keyboard Shortcuts
-                  </span>
+                  <span className="text-xs font-semibold text-black dark:text-white uppercase tracking-wide">{t("Keyboard Shortcuts")}</span>
                   <span className="text-[11px] text-gray-400 bg-black/5 dark:bg-white/10 px-1.5 py-0.5 rounded-full">
                     {filteredShortcuts.length}
                   </span>
@@ -276,9 +274,7 @@ export default function CommandReference() {
             <div className="border border-black/[0.06] dark:border-white/[0.1] rounded-xl overflow-hidden">
               <div className="px-4 py-2.5 flex items-center gap-2">
                 <span className="text-sm">💡</span>
-                <span className="text-xs font-semibold text-black dark:text-white uppercase tracking-wide">
-                  Examples
-                </span>
+                <span className="text-xs font-semibold text-black dark:text-white uppercase tracking-wide">{t("Examples")}</span>
               </div>
               <div className="px-4 pb-3 space-y-3">
                 {filteredExamples.map((ex) => (

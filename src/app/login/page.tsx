@@ -1,12 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import { useI18n } from "@/components/I18nProvider";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Eye, EyeOff, LogIn } from "lucide-react";
 
 export default function LoginPage() {
+  const { t } = useI18n();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -76,10 +78,8 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         <div className="glass-card p-8 md:p-10">
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-black dark:text-white mb-2">
-              Welcome back
-            </h1>
-            <p className="text-gray-400">Sign in to your account</p>
+            <h1 className="text-3xl font-bold text-black dark:text-white mb-2">{t("Welcome back")}</h1>
+            <p className="text-gray-400">{t("Sign in to your account")}</p>
           </div>
 
           {error && (
@@ -102,9 +102,7 @@ export default function LoginPage() {
               <label
                 htmlFor="email"
                 className="block text-sm font-medium text-black dark:text-white mb-1.5"
-              >
-                Email
-              </label>
+              >{t("Email")}</label>
               <input
                 id="email"
                 type="email"
@@ -121,9 +119,7 @@ export default function LoginPage() {
               <label
                 htmlFor="password"
                 className="block text-sm font-medium text-black dark:text-white mb-1.5"
-              >
-                Password
-              </label>
+              >{t("Password")}</label>
               <div className="relative">
                 <input
                   id="password"
@@ -132,7 +128,7 @@ export default function LoginPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   autoComplete="current-password"
-                  placeholder="Enter your password"
+                  placeholder={t("Enter your password")}
                   className="w-full px-4 py-3 rounded-xl bg-gray-50 dark:bg-gray-900 border border-black/10 dark:border-white/10 text-black dark:text-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-black/20 dark:focus:ring-white/20 transition-default pr-12"
                 />
                 <button
@@ -148,9 +144,7 @@ export default function LoginPage() {
                 type="button"
                 onClick={handleForgotPassword}
                 className="mt-2 text-xs text-gray-500 hover:text-black dark:hover:text-white transition-default"
-              >
-                Forgot your password?
-              </button>
+              >{t("Forgot your password?")}</button>
             </div>
 
             <button
@@ -162,9 +156,7 @@ export default function LoginPage() {
                 <div className="w-5 h-5 border-2 border-white/30 dark:border-black/30 border-t-white dark:border-t-black rounded-full animate-spin" />
               ) : (
                 <>
-                  <LogIn size={18} />
-                  Sign in
-                </>
+                  <LogIn size={18} />{t("Sign in")}</>
               )}
             </button>
           </form>
@@ -200,18 +192,14 @@ export default function LoginPage() {
                 d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
                 fill="#A0A0A0"
               />
-            </svg>
-            Continue with Google
-          </button>
+            </svg>{t("Continue with Google")}</button>
 
           <p className="text-center text-sm text-gray-400 mt-6">
             Don&apos;t have an account?{" "}
             <Link
               href="/signup"
               className="text-black dark:text-white font-medium hover:opacity-70 transition-default"
-            >
-              Sign up
-            </Link>
+            >{t("Sign up")}</Link>
           </p>
         </div>
       </div>

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { ToastProvider } from "@/components/Toast";
+import { I18nProvider } from "@/components/I18nProvider";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import "./globals.css";
 
@@ -52,7 +53,9 @@ export default function RootLayout({
       <body className="text-black dark:text-white min-h-screen transition-colors">
         <ErrorBoundary>
           <ThemeProvider>
-            <ToastProvider>{children}</ToastProvider>
+            <I18nProvider>
+              <ToastProvider>{children}</ToastProvider>
+            </I18nProvider>
           </ThemeProvider>
         </ErrorBoundary>
       </body>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import { useI18n } from "./I18nProvider";
 import { Plus, ChevronDown, ChevronUp, Minus, Clock, FileText } from "lucide-react";
 import type { ScheduleType, List } from "@/lib/types";
 import { CustomSelect, TimePicker } from "./Pickers";
@@ -31,6 +32,7 @@ const WEEK_DAYS: { index: number; label: string }[] = [
 ];
 
 export default function HabitInput({ onAdd, lists = [] }: HabitInputProps) {
+  const { t } = useI18n();
   const [title, setTitle] = useState("");
   const [showOptions, setShowOptions] = useState(false);
   const [scheduleType, setScheduleType] = useState<ScheduleType>("interval");
@@ -85,9 +87,9 @@ export default function HabitInput({ onAdd, lists = [] }: HabitInputProps) {
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="Add a new habit..."
+            placeholder={t("Add a new habit...")}
             className="flex-1 bg-transparent text-black dark:text-white placeholder:text-gray-400 focus:outline-none text-base"
-            aria-label="New habit title"
+            aria-label={t("New habit title")}
           />
           <button
             type="button"
@@ -101,7 +103,7 @@ export default function HabitInput({ onAdd, lists = [] }: HabitInputProps) {
             type="submit"
             disabled={!title.trim()}
             className="w-9 h-9 rounded-xl bg-black dark:bg-white text-white dark:text-black flex items-center justify-center hover:opacity-90 active:scale-95 transition-default disabled:opacity-30 disabled:cursor-not-allowed flex-shrink-0"
-            aria-label="Add habit"
+            aria-label={t("Add habit")}
           >
             <Plus size={18} />
           </button>
@@ -112,7 +114,7 @@ export default function HabitInput({ onAdd, lists = [] }: HabitInputProps) {
 
             {/* Schedule rhythm */}
             <div>
-              <p className="text-xs text-black/50 dark:text-gray-400 font-medium mb-1.5">Rhythm</p>
+              <p className="text-xs text-black/50 dark:text-gray-400 font-medium mb-1.5">{t("Rhythm")}</p>
               <div className="flex gap-2">
                 <button
                   type="button"
@@ -122,9 +124,7 @@ export default function HabitInput({ onAdd, lists = [] }: HabitInputProps) {
                       ? "border-black/30 dark:border-white/30 bg-black/5 dark:bg-white/10 font-medium text-black dark:text-white"
                       : "border-black/10 dark:border-white/10 text-black/50 dark:text-gray-400 hover:border-black/20 dark:hover:border-white/20"
                   }`}
-                >
-                  Every X days
-                </button>
+                >{t("Every X days")}</button>
                 <button
                   type="button"
                   onClick={() => setScheduleType("weekly")}
@@ -133,15 +133,13 @@ export default function HabitInput({ onAdd, lists = [] }: HabitInputProps) {
                       ? "border-black/30 dark:border-white/30 bg-black/5 dark:bg-white/10 font-medium text-black dark:text-white"
                       : "border-black/10 dark:border-white/10 text-black/50 dark:text-gray-400 hover:border-black/20 dark:hover:border-white/20"
                   }`}
-                >
-                  Specific days
-                </button>
+                >{t("Specific days")}</button>
               </div>
             </div>
 
             {scheduleType === "interval" && (
               <div>
-                <p className="text-xs text-black/50 dark:text-gray-400 font-medium mb-1.5">Repeat every</p>
+                <p className="text-xs text-black/50 dark:text-gray-400 font-medium mb-1.5">{t("Repeat every")}</p>
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
@@ -169,7 +167,7 @@ export default function HabitInput({ onAdd, lists = [] }: HabitInputProps) {
 
             {scheduleType === "weekly" && (
               <div>
-                <p className="text-xs text-black/50 dark:text-gray-400 font-medium mb-1.5">Days</p>
+                <p className="text-xs text-black/50 dark:text-gray-400 font-medium mb-1.5">{t("Days")}</p>
                 <div className="flex gap-1.5">
                   {WEEK_DAYS.map(({ index: i, label }, position) => (
                     <button
@@ -192,18 +190,18 @@ export default function HabitInput({ onAdd, lists = [] }: HabitInputProps) {
             {/* Time */}
             <div>
               <p className="text-xs text-black/50 dark:text-gray-400 font-medium mb-1.5 flex items-center gap-1">
-                <Clock size={11} /> Time <span className="font-normal opacity-60">(optional)</span>
+                <Clock size={11} />{t("Time")}<span className="font-normal opacity-60">(optional)</span>
               </p>
               <div className="flex items-center gap-2 flex-wrap">
                 <TimePicker
                   value={time}
                   onChange={(v) => { setTime(v); if (!v) setEndTime(""); }}
-                  placeholder="Time"
+                  placeholder={t("Time")}
                 />
                 {time && (
                   <>
                     <span className="text-xs text-black/30 dark:text-gray-600">→</span>
-                    <TimePicker value={endTime} onChange={setEndTime} placeholder="End" />
+                    <TimePicker value={endTime} onChange={setEndTime} placeholder={t("End")} />
                   </>
                 )}
                 {time && (
@@ -211,7 +209,7 @@ export default function HabitInput({ onAdd, lists = [] }: HabitInputProps) {
                     type="button"
                     onClick={() => { setTime(""); setEndTime(""); }}
                     className="text-xs text-black/30 dark:text-gray-600 hover:text-black dark:hover:text-white transition-default"
-                    aria-label="Clear time"
+                    aria-label={t("Clear time")}
                   >
                     ×
                   </button>
@@ -222,7 +220,7 @@ export default function HabitInput({ onAdd, lists = [] }: HabitInputProps) {
             {/* List */}
             {lists.length > 0 && (
               <div>
-                <p className="text-xs text-black/50 dark:text-gray-400 font-medium mb-1.5">List</p>
+                <p className="text-xs text-black/50 dark:text-gray-400 font-medium mb-1.5">{t("List")}</p>
                 <CustomSelect
                   value={listId}
                   onChange={setListId}
@@ -237,15 +235,15 @@ export default function HabitInput({ onAdd, lists = [] }: HabitInputProps) {
             {/* Notes */}
             <div>
               <p className="text-xs text-black/50 dark:text-gray-400 font-medium mb-1.5 flex items-center gap-1">
-                <FileText size={11} /> Notes <span className="font-normal opacity-60">(optional)</span>
+                <FileText size={11} />{t("Notes")}<span className="font-normal opacity-60">(optional)</span>
               </p>
               <textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder="Add notes or context..."
+                placeholder={t("Add notes or context...")}
                 rows={2}
                 className="w-full bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-black dark:text-white placeholder:text-black/30 dark:placeholder:text-gray-600 focus:outline-none focus:border-black/30 dark:focus:border-white/30 transition-default resize-none"
-                aria-label="Habit notes"
+                aria-label={t("Habit notes")}
               />
             </div>
 

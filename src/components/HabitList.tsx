@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useI18n } from "./I18nProvider";
 import {
   DndContext,
   closestCenter,
@@ -129,6 +130,7 @@ export default function HabitList({
   loading,
   highlightedHabitId,
 }: HabitListProps) {
+  const { t } = useI18n();
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const deleteTitle =
     habits.find((h) => h.id === deleteId)?.title ?? "this habit";
@@ -194,7 +196,7 @@ export default function HabitList({
         <div className="mb-4">
           <div className="flex items-center justify-between mb-1.5">
             <span className="text-xs text-gray-400">
-              {completedCount}/{totalCount} completed today
+              {t("{done}/{total} completed today", { done: completedCount, total: totalCount })}
             </span>
             <span className="text-xs text-gray-400">
               {Math.round(progressPct)}%
@@ -212,18 +214,14 @@ export default function HabitList({
       {/* Habit items */}
       {habits.length === 0 ? (
         <div className="text-center py-16">
-          <p className="text-gray-400 text-base">No habits yet</p>
-          <p className="text-gray-400/60 text-sm mt-1">
-            Add one above to build your routine
-          </p>
+          <p className="text-gray-400 text-base">{t("No habits yet")}</p>
+          <p className="text-gray-400/60 text-sm mt-1">{t("Add one above to build your routine")}</p>
         </div>
       ) : (
         <div className="space-y-6">
           {dueToday.length > 0 && (
             <div>
-              <p className="text-[11px] uppercase tracking-wider text-black/40 dark:text-gray-500 font-medium mb-2">
-                Today
-              </p>
+              <p className="text-[11px] uppercase tracking-wider text-black/40 dark:text-gray-500 font-medium mb-2">{t("Today")}</p>
               <DndContext
                 sensors={sensors}
                 collisionDetection={closestCenter}
@@ -255,9 +253,7 @@ export default function HabitList({
 
           {notToday.length > 0 && (
             <div>
-              <p className="text-[11px] uppercase tracking-wider text-black/40 dark:text-gray-500 font-medium mb-2">
-                Not today
-              </p>
+              <p className="text-[11px] uppercase tracking-wider text-black/40 dark:text-gray-500 font-medium mb-2">{t("Not today")}</p>
               <DndContext
                 sensors={sensors}
                 collisionDetection={closestCenter}
@@ -326,6 +322,7 @@ function HabitDeleteDialog({
   onDeleteAll: () => void;
   onCancel: () => void;
 }) {
+  const { t } = useI18n();
   const cancelRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -358,7 +355,7 @@ function HabitDeleteDialog({
         <h2 className="text-lg font-semibold text-black dark:text-white mb-1">
           {title}
         </h2>
-        <p className="text-sm text-gray-400 mb-5">What would you like to do?</p>
+        <p className="text-sm text-gray-400 mb-5">{t("What would you like to do?")}</p>
 
         <div className="space-y-2">
           <button
@@ -367,8 +364,8 @@ function HabitDeleteDialog({
           >
             <CalendarOff size={16} className="text-orange-400 flex-shrink-0" />
             <div>
-              <span className="text-sm font-medium text-black dark:text-white block">Hide for today</span>
-              <span className="text-[11px] text-gray-400">Remove from today only, returns next scheduled day</span>
+              <span className="text-sm font-medium text-black dark:text-white block">{t("Hide for today")}</span>
+              <span className="text-[11px] text-gray-400">{t("Remove from today only, returns next scheduled day")}</span>
             </div>
           </button>
 
@@ -378,8 +375,8 @@ function HabitDeleteDialog({
           >
             <Trash2 size={16} className="text-red-400 flex-shrink-0" />
             <div>
-              <span className="text-sm font-medium text-red-400 block">Delete forever</span>
-              <span className="text-[11px] text-gray-400">Permanently remove habit and all history</span>
+              <span className="text-sm font-medium text-red-400 block">{t("Delete forever")}</span>
+              <span className="text-[11px] text-gray-400">{t("Permanently remove habit and all history")}</span>
             </div>
           </button>
         </div>
@@ -389,9 +386,7 @@ function HabitDeleteDialog({
             ref={cancelRef}
             onClick={onCancel}
             className="px-4 py-2 rounded-xl bg-white dark:bg-black text-sm font-medium text-black dark:text-white hover:bg-gray-50 dark:hover:bg-gray-900 transition-default"
-          >
-            Cancel
-          </button>
+          >{t("Cancel")}</button>
         </div>
       </div>
     </div>

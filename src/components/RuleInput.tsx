@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import { useI18n } from "./I18nProvider";
 import { Plus, ChevronDown, ChevronUp } from "lucide-react";
 import type { List } from "@/lib/types";
 
@@ -11,6 +12,7 @@ interface RuleInputProps {
 }
 
 export default function RuleInput({ onAdd, lists, compact }: RuleInputProps) {
+  const { t } = useI18n();
   const [title, setTitle] = useState("");
   const [showOptions, setShowOptions] = useState(false);
   const [description, setDescription] = useState("");
@@ -38,7 +40,7 @@ export default function RuleInput({ onAdd, lists, compact }: RuleInputProps) {
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="Add a principle..."
+            placeholder={t("Add a principle...")}
             className={`flex-1 bg-transparent outline-none text-black dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 ${compact ? "text-[11px]" : "text-sm"}`}
           />
           <button
@@ -62,7 +64,7 @@ export default function RuleInput({ onAdd, lists, compact }: RuleInputProps) {
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Why this principle matters..."
+              placeholder={t("Why this principle matters...")}
               rows={2}
               className="w-full bg-transparent outline-none text-xs text-black dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 resize-none"
             />

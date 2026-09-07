@@ -1,12 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import { useI18n } from "@/components/I18nProvider";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Eye, EyeOff, UserPlus } from "lucide-react";
 
 export default function SignupPage() {
+  const { t } = useI18n();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -73,9 +75,7 @@ export default function SignupPage() {
       <div className="min-h-screen flex items-center justify-center px-4 transition-colors">
         <div className="w-full max-w-md">
           <div className="glass-card p-8 md:p-10 text-center">
-            <h2 className="text-2xl font-bold text-black dark:text-white mb-3">
-              Check your email
-            </h2>
+            <h2 className="text-2xl font-bold text-black dark:text-white mb-3">{t("Check your email")}</h2>
             <p className="text-gray-400 mb-6">
               We&apos;ve sent a confirmation link to{" "}
               <span className="text-black dark:text-white font-medium">
@@ -85,9 +85,7 @@ export default function SignupPage() {
             <Link
               href="/login"
               className="inline-block py-3 px-6 rounded-xl bg-black dark:bg-white text-white dark:text-black font-medium hover:opacity-90 transition-default"
-            >
-              Back to login
-            </Link>
+            >{t("Back to login")}</Link>
           </div>
         </div>
       </div>
@@ -99,10 +97,8 @@ export default function SignupPage() {
       <div className="w-full max-w-md">
         <div className="glass-card p-8 md:p-10">
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-black dark:text-white mb-2">
-              Create account
-            </h1>
-            <p className="text-gray-400">Get started with your to-dos</p>
+            <h1 className="text-3xl font-bold text-black dark:text-white mb-2">{t("Create account")}</h1>
+            <p className="text-gray-400">{t("Get started with your to-dos")}</p>
           </div>
 
           {error && (
@@ -119,9 +115,7 @@ export default function SignupPage() {
               <label
                 htmlFor="email"
                 className="block text-sm font-medium text-black dark:text-white mb-1.5"
-              >
-                Email
-              </label>
+              >{t("Email")}</label>
               <input
                 id="email"
                 type="email"
@@ -138,9 +132,7 @@ export default function SignupPage() {
               <label
                 htmlFor="password"
                 className="block text-sm font-medium text-black dark:text-white mb-1.5"
-              >
-                Password
-              </label>
+              >{t("Password")}</label>
               <div className="relative">
                 <input
                   id="password"
@@ -149,7 +141,7 @@ export default function SignupPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   autoComplete="new-password"
-                  placeholder="At least 6 characters"
+                  placeholder={t("At least 6 characters")}
                   className="w-full px-4 py-3 rounded-xl bg-gray-50 dark:bg-gray-900 border border-black/10 dark:border-white/10 text-black dark:text-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-black/20 dark:focus:ring-white/20 transition-default pr-12"
                 />
                 <button
@@ -167,9 +159,7 @@ export default function SignupPage() {
               <label
                 htmlFor="confirm-password"
                 className="block text-sm font-medium text-black dark:text-white mb-1.5"
-              >
-                Confirm password
-              </label>
+              >{t("Confirm password")}</label>
               <input
                 id="confirm-password"
                 type={showPassword ? "text" : "password"}
@@ -177,7 +167,7 @@ export default function SignupPage() {
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
                 autoComplete="new-password"
-                placeholder="Confirm your password"
+                placeholder={t("Confirm your password")}
                 className="w-full px-4 py-3 rounded-xl bg-gray-50 dark:bg-gray-900 border border-black/10 dark:border-white/10 text-black dark:text-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-black/20 dark:focus:ring-white/20 transition-default"
               />
             </div>
@@ -191,9 +181,7 @@ export default function SignupPage() {
                 <div className="w-5 h-5 border-2 border-white/30 dark:border-black/30 border-t-white dark:border-t-black rounded-full animate-spin" />
               ) : (
                 <>
-                  <UserPlus size={18} />
-                  Create account
-                </>
+                  <UserPlus size={18} />{t("Create account")}</>
               )}
             </button>
           </form>
@@ -229,18 +217,14 @@ export default function SignupPage() {
                 d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
                 fill="#A0A0A0"
               />
-            </svg>
-            Continue with Google
-          </button>
+            </svg>{t("Continue with Google")}</button>
 
           <p className="text-center text-sm text-gray-400 mt-6">
             Already have an account?{" "}
             <Link
               href="/login"
               className="text-black dark:text-white font-medium hover:opacity-70 transition-default"
-            >
-              Sign in
-            </Link>
+            >{t("Sign in")}</Link>
           </p>
         </div>
       </div>

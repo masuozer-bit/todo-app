@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
+import { useI18n } from "./I18nProvider";
 import { createPortal } from "react-dom";
 import { X, ChevronLeft, ChevronRight, Repeat, ChevronDown, CalendarDays } from "lucide-react";
 import {
@@ -504,6 +505,7 @@ function UnscheduledPanel({
   listMap: Map<string, string>;
   eventMap: Map<string, string>;
 }) {
+  const { t } = useI18n();
   const { setNodeRef, isOver } = useDroppable({
     id: "unscheduled-pool",
     data: { type: "unscheduled-pool" },
@@ -588,18 +590,14 @@ function UnscheduledPanel({
       style={{ width: UNSCHEDULED_W }}
     >
       <div className="px-4 py-3 border-b border-white/[0.05]">
-        <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400">
-          Unscheduled
-        </span>
+        <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400">{t("Unscheduled")}</span>
         <span className="ml-2 text-[11px] text-gray-600 tabular-nums">
           {todos.length}
         </span>
       </div>
       <div className="flex-1 overflow-y-auto px-2 py-2">
         {todos.length === 0 && (
-          <p className="text-[11px] text-gray-600 text-center py-8 select-none">
-            All tasks scheduled
-          </p>
+          <p className="text-[11px] text-gray-600 text-center py-8 select-none">{t("All tasks scheduled")}</p>
         )}
         {groups.map(section => (
           <div key={section.id} className="mb-3">
@@ -652,6 +650,7 @@ function UnscheduledPanel({
 export default function ScheduleWeekModal({
   todos, habits, lists, events, onTodoClick, onHabitClick, onUpdateTodo, onClose,
 }: ScheduleWeekModalProps) {
+  const { t } = useI18n();
 
   const now      = useMemo(() => new Date(), []);
   const today    = useMemo(() => { const d = new Date(now); d.setHours(0,0,0,0); return d; }, [now]);
@@ -940,9 +939,7 @@ export default function ScheduleWeekModal({
             <div className="flex items-center gap-3 flex-1 justify-center">
               <span className="text-base font-bold text-white tabular-nums">{weekLabel}</span>
               {!isCurrentWeek && (
-                <button onClick={() => setWeekStart(getWeekStart(today))} className="text-[11px] px-2.5 py-1 rounded-lg bg-white/[0.08] text-gray-400 hover:text-white hover:bg-white/[0.12] transition-default">
-                  Today
-                </button>
+                <button onClick={() => setWeekStart(getWeekStart(today))} className="text-[11px] px-2.5 py-1 rounded-lg bg-white/[0.08] text-gray-400 hover:text-white hover:bg-white/[0.12] transition-default">{t("Today")}</button>
               )}
             </div>
             <button onClick={nextWeek} className="w-8 h-8 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] flex items-center justify-center text-gray-400 hover:text-white transition-default">

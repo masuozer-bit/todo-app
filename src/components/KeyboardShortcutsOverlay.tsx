@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { useI18n } from "./I18nProvider";
 import { X } from "lucide-react";
 
 interface KeyboardShortcutsOverlayProps {
@@ -66,6 +67,7 @@ export default function KeyboardShortcutsOverlay({
   open,
   onClose,
 }: KeyboardShortcutsOverlayProps) {
+  const { t } = useI18n();
   useEffect(() => {
     if (!open) return;
     function handleKey(e: KeyboardEvent) {
@@ -89,13 +91,11 @@ export default function KeyboardShortcutsOverlay({
 
       <div className="relative glass-card-raised p-5 w-full max-w-md mx-4 animate-in fade-in zoom-in-95 duration-200">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-semibold text-black dark:text-white">
-            Keyboard Shortcuts
-          </h3>
+          <h3 className="text-sm font-semibold text-black dark:text-white">{t("Keyboard Shortcuts")}</h3>
           <button
             onClick={onClose}
             className="p-1 rounded-lg text-gray-500 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-default"
-            aria-label="Close"
+            aria-label={t("Close")}
           >
             <X size={14} />
           </button>

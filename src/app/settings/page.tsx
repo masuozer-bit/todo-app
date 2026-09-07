@@ -8,7 +8,7 @@ import ConfirmDialog from "@/components/ConfirmDialog";
 import { useTodos } from "@/hooks/useTodos";
 import { useTags } from "@/hooks/useTags";
 import Link from "next/link";
-import { Download, Trash2, User, AlertTriangle, Calendar, FileText, Terminal, Bell, Palette, ChevronRight, ArrowLeft } from "lucide-react";
+import { Download, Trash2, User, AlertTriangle, Calendar, FileText, Terminal, Bell, Palette, ChevronRight, ArrowLeft, Languages } from "lucide-react";
 import { useTheme, PRESET_TINTS } from "@/components/ThemeProvider";
 import ColorWheelPicker from "@/components/ColorWheelPicker";
 import { exportTodosPDF } from "@/lib/pdf-export";
@@ -19,18 +19,27 @@ import {
   bulkSyncCalendar,
 } from "@/lib/calendar-sync-client";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
+import { useI18n } from "@/components/I18nProvider";
+import { LOCALES } from "@/lib/i18n";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 
-type Tab = "profile" | "appearance" | "calendar" | "notifications" | "data" | "commands" | "danger";
+type Tab = "profile" | "appearance" | "language" | "calendar" | "notifications" | "data" | "commands" | "danger";
 
 const TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
   { id: "profile", label: "Profile", icon: User },
   { id: "appearance", label: "Appearance", icon: Palette },
+  { id: "language", label: "Language & format", icon: Languages },
   { id: "calendar", label: "Calendar", icon: Calendar },
   { id: "notifications", label: "Notifications", icon: Bell },
   { id: "data", label: "Data & Export", icon: Download },
   { id: "commands", label: "Commands", icon: Terminal },
   { id: "danger", label: "Danger Zone", icon: AlertTriangle },
+];
+
+const DEFAULT_VIEWS: { value: string; label: string }[] = [
+  { value: "today", label: "Today" },
+  { value: "week", label: "This Week" },
+  { value: "all", label: "All Tasks" },
 ];
 
 export default function SettingsPage() {
@@ -40,6 +49,7 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const [defaultView, setDefaultView] = useState("today");
   const [passwordMsg, setPasswordMsg] = useState("");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
@@ -59,6 +69,14 @@ export default function SettingsPage() {
   const { todos, clearCompleted, exportTodos } = useTodos(dataUserId, tags);
   const { permission: notifPermission, isSubscribed: notifSubscribed, subscribe: subscribeNotifications, unsubscribe: unsubscribeNotifications } = usePushNotifications();
   const { tint, setTint, lavaLamp, setLavaLamp, lavaColor, setLavaColor, lavaOpacity, setLavaOpacity, theme } = useTheme();
+  const { locale, setLocale, t } = useI18n();
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("defaultView");
+      if (stored) setDefaultView(stored);
+    } catch { /* ignore */ }
+  }, []);
 
   useEffect(() => {
     supabase.auth
@@ -183,10 +201,8 @@ export default function SettingsPage() {
             href="/dashboard"
             className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-sm text-gray-500 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-default"
           >
-            <ArrowLeft size={15} />
-            Back to tasks
-          </Link>
-          <h2 className="text-2xl font-bold text-black dark:text-white">Settings</h2>
+            <ArrowLeft size={15} />{t("Back to tasks")}</Link>
+          <h2 className="text-2xl font-bold text-black dark:text-white">{t("Settings")}</h2>
         </div>
 
         <div className="flex gap-6">
@@ -212,7 +228,7 @@ export default function SettingsPage() {
                     }`}
                   >
                     <Icon size={14} />
-                    {tab.label}
+                    {t(tab.label)}
                   </button>
                 );
               })}
@@ -235,7 +251,7 @@ export default function SettingsPage() {
                   }`}
                 >
                   <Icon size={12} />
-                  {tab.label}
+                  {t(tab.label)}
                 </button>
               );
             })}
@@ -244,7 +260,7 @@ export default function SettingsPage() {
           {/* Content */}
           <div className="flex-1 min-w-0">
             {activeTab === "profile" && (
-              <Section title="Profile" subtitle="Your account information">
+              <Section title={t("Profile")} subtitle={t("Your account information")}>
                 <form onSubmit={handleSaveProfile} className="space-y-5">
                   <Field label="Email">
                     <p className="text-sm text-black dark:text-white">{user?.email}</p>
@@ -254,7 +270,7 @@ export default function SettingsPage() {
                       type="text"
                       value={displayName}
                       onChange={(e) => setDisplayName(e.target.value)}
-                      placeholder="Your name"
+                      placeholder={t("Your name")}
                       maxLength={50}
                       className="w-full max-w-xs bg-transparent border border-black/10 dark:border-white/10 rounded-xl px-3 py-2 text-sm text-black dark:text-white placeholder:text-gray-400 focus:outline-none focus:border-black/30 dark:focus:border-white/30 transition-default"
                     />
@@ -279,7 +295,7 @@ export default function SettingsPage() {
                       type="password"
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
-                      placeholder="At least 8 characters"
+                      placeholder={t("At least 8 characters")}
                       autoComplete="new-password"
                       className="w-full max-w-xs bg-transparent border border-black/10 dark:border-white/10 rounded-xl px-3 py-2 text-sm text-black dark:text-white placeholder:text-gray-400 focus:outline-none focus:border-black/30 dark:focus:border-white/30 transition-default"
                     />
@@ -289,9 +305,7 @@ export default function SettingsPage() {
                       type="submit"
                       disabled={newPassword.length < 8}
                       className="px-4 py-2 rounded-xl bg-black dark:bg-white text-white dark:text-black text-sm font-medium hover:opacity-80 transition-default disabled:opacity-40"
-                    >
-                      Change password
-                    </button>
+                    >{t("Change password")}</button>
                     {passwordMsg && <span className="text-xs text-green-500">{passwordMsg}</span>}
                   </div>
                 </form>
@@ -299,9 +313,9 @@ export default function SettingsPage() {
             )}
 
             {activeTab === "appearance" && (
-              <Section title="Appearance" subtitle="Customize the look and feel">
+              <Section title={t("Appearance")} subtitle={t("Customize the look and feel")}>
                 {/* Preset quick picks */}
-                <p className="text-xs text-gray-400 mb-3 font-medium">Presets</p>
+                <p className="text-xs text-gray-400 mb-3 font-medium">{t("Presets")}</p>
                 <div className="flex flex-wrap gap-2 mb-5">
                   {PRESET_TINTS.map((t) => {
                     const isActive = tint.toLowerCase() === t.hex.toLowerCase();
@@ -327,7 +341,7 @@ export default function SettingsPage() {
                 </div>
 
                 {/* Color wheel */}
-                <p className="text-xs text-gray-400 mb-3 font-medium">Custom color</p>
+                <p className="text-xs text-gray-400 mb-3 font-medium">{t("Custom color")}</p>
                 <div className="rounded-2xl glass-card-subtle p-4">
                   <ColorWheelPicker
                     value={tint}
@@ -337,7 +351,7 @@ export default function SettingsPage() {
                 {/* Lava Lamp toggle — dark mode only */}
                 <div className="mt-6 flex items-center justify-between">
                   <div>
-                    <p className="text-xs font-medium text-black dark:text-white">Lava lamp background</p>
+                    <p className="text-xs font-medium text-black dark:text-white">{t("Lava lamp background")}</p>
                     <p className="text-[11px] text-gray-400 mt-0.5">Animated glowing blobs behind glass cards{theme !== "dark" ? " (dark mode only)" : ""}</p>
                   </div>
                   <button
@@ -356,7 +370,7 @@ export default function SettingsPage() {
                 {/* Lava blob color picker */}
                 {theme === "dark" && (
                   <div className="mt-4">
-                    <p className="text-xs text-gray-400 mb-3 font-medium">Bubble color</p>
+                    <p className="text-xs text-gray-400 mb-3 font-medium">{t("Bubble color")}</p>
                     <div className="rounded-2xl glass-card-subtle p-4">
                       <ColorWheelPicker
                         value={lavaColor}
@@ -366,14 +380,12 @@ export default function SettingsPage() {
                     <button
                       onClick={() => setLavaColor(tint)}
                       className="mt-2 text-[11px] text-gray-400 hover:text-black dark:hover:text-white transition-default"
-                    >
-                      Reset to app color
-                    </button>
+                    >{t("Reset to app color")}</button>
 
                     {/* Opacity slider */}
                     <div className="mt-4">
                       <div className="flex items-center justify-between mb-2">
-                        <p className="text-xs text-gray-400 font-medium">Opacity</p>
+                        <p className="text-xs text-gray-400 font-medium">{t("Opacity")}</p>
                         <span className="text-xs font-mono text-black dark:text-white">{Math.round(lavaOpacity * 100)}%</span>
                       </div>
                       <input
@@ -389,14 +401,64 @@ export default function SettingsPage() {
                   </div>
                 )}
 
-                <p className="text-[11px] text-gray-500 mt-4">
-                  Use <kbd className="px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 text-[11px] font-mono">⌘D</kbd> to toggle dark/light mode
+                <p className="text-[11px] text-gray-500 mt-4">{t("Use")}<kbd className="px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 text-[11px] font-mono">⌘D</kbd> to toggle dark/light mode
+                </p>
+              </Section>
+            )}
+
+            {activeTab === "language" && (
+              <Section title={t("Language & format")} subtitle={t("How the app talks to you")}>
+                <Field label={t("Language")}>
+                  <div className="flex gap-2">
+                    {LOCALES.map((l) => (
+                      <button
+                        key={l.value}
+                        onClick={() => setLocale(l.value)}
+                        className={`px-3 py-1.5 rounded-xl text-sm border transition-default ${
+                          locale === l.value
+                            ? "border-black/30 dark:border-white/30 bg-black/5 dark:bg-white/10 text-black dark:text-white font-medium"
+                            : "border-black/10 dark:border-white/10 text-gray-500 hover:text-black dark:hover:text-white"
+                        }`}
+                      >
+                        {l.label}
+                      </button>
+                    ))}
+                  </div>
+                </Field>
+
+                <Divider />
+
+                <Field label={t("Default view")}>
+                  <div className="flex flex-wrap gap-2">
+                    {DEFAULT_VIEWS.map((v) => (
+                      <button
+                        key={v.value}
+                        onClick={() => {
+                          setDefaultView(v.value);
+                          try { localStorage.setItem("defaultView", v.value); } catch { /* ignore */ }
+                        }}
+                        className={`px-3 py-1.5 rounded-xl text-sm border transition-default ${
+                          defaultView === v.value
+                            ? "border-black/30 dark:border-white/30 bg-black/5 dark:bg-white/10 text-black dark:text-white font-medium"
+                            : "border-black/10 dark:border-white/10 text-gray-500 hover:text-black dark:hover:text-white"
+                        }`}
+                      >
+                        {t(v.label)}
+                      </button>
+                    ))}
+                  </div>
+                </Field>
+
+                <Divider />
+
+                <p className="text-xs text-gray-500">
+                  {t("Times are shown in 24-hour format and weeks start on Monday.")}
                 </p>
               </Section>
             )}
 
             {activeTab === "calendar" && (
-              <Section title="Google Calendar" subtitle="Sync tasks and events with Google Calendar">
+              <Section title={t("Google Calendar")} subtitle={t("Sync tasks and events with Google Calendar")}>
                 <Row
                   label="Calendar sync"
                   description={
@@ -409,9 +471,9 @@ export default function SettingsPage() {
                   action={
                     !calendarLoading && (
                       calendarConnected ? (
-                        <ActionButton onClick={handleDisconnectCalendar} variant="danger">Disconnect</ActionButton>
+                        <ActionButton onClick={handleDisconnectCalendar} variant="danger">{t("Disconnect")}</ActionButton>
                       ) : (
-                        <ActionButton onClick={handleConnectCalendar}>Connect</ActionButton>
+                        <ActionButton onClick={handleConnectCalendar}>{t("Connect")}</ActionButton>
                       )
                     )
                   }
@@ -421,7 +483,7 @@ export default function SettingsPage() {
                   <>
                     <Divider />
                     <div className="py-3">
-                      <p className="text-xs text-gray-400 font-medium mb-2">What syncs</p>
+                      <p className="text-xs text-gray-400 font-medium mb-2">{t("What syncs")}</p>
                       <div className="grid grid-cols-2 gap-1.5">
                         {[
                           "Tasks with due dates",
@@ -467,7 +529,7 @@ export default function SettingsPage() {
             )}
 
             {activeTab === "notifications" && (
-              <Section title="Notifications" subtitle="Stay on top of your tasks">
+              <Section title={t("Notifications")} subtitle={t("Stay on top of your tasks")}>
                 <Row
                   label="Push notifications"
                   description={
@@ -513,17 +575,17 @@ export default function SettingsPage() {
             )}
 
             {activeTab === "data" && (
-              <Section title="Data & Export" subtitle="Export or clean up your data">
+              <Section title={t("Data & Export")} subtitle={t("Export or clean up your data")}>
                 <Row
                   label="Export JSON"
                   description="All tasks with subtasks, notes, and tags"
-                  action={<ActionButton onClick={() => exportTodos("json")}>Export</ActionButton>}
+                  action={<ActionButton onClick={() => exportTodos("json")}>{t("Export")}</ActionButton>}
                 />
                 <Divider />
                 <Row
                   label="Export CSV"
                   description="Compatible with Excel and Google Sheets"
-                  action={<ActionButton onClick={() => exportTodos("csv")}>Export</ActionButton>}
+                  action={<ActionButton onClick={() => exportTodos("csv")}>{t("Export")}</ActionButton>}
                 />
                 <Divider />
                 <Row
@@ -531,9 +593,7 @@ export default function SettingsPage() {
                   description="Printable task report"
                   action={
                     <ActionButton onClick={() => exportTodosPDF(todos, { title: "Task Report" })}>
-                      <FileText size={13} className="mr-1.5" />
-                      Export
-                    </ActionButton>
+                      <FileText size={13} className="mr-1.5" />{t("Export")}</ActionButton>
                   }
                 />
                 <Divider />
@@ -541,29 +601,25 @@ export default function SettingsPage() {
                   label="Clear completed"
                   description={`${completedCount} completed task${completedCount !== 1 ? "s" : ""} will be deleted`}
                   action={
-                    <ActionButton onClick={() => setShowClearConfirm(true)} disabled={completedCount === 0}>
-                      Clear
-                    </ActionButton>
+                    <ActionButton onClick={() => setShowClearConfirm(true)} disabled={completedCount === 0}>{t("Clear")}</ActionButton>
                   }
                 />
               </Section>
             )}
 
             {activeTab === "commands" && (
-              <Section title="Smart Input Commands" subtitle="Type these shortcuts in the task input to quickly set dates, times, priorities, and tags">
+              <Section title={t("Smart Input Commands")} subtitle="Type these shortcuts in the task input to quickly set dates, times, priorities, and tags">
                 <CommandReference />
               </Section>
             )}
 
             {activeTab === "danger" && (
-              <Section title="Danger Zone" subtitle="Irreversible actions" danger>
+              <Section title={t("Danger Zone")} subtitle={t("Irreversible actions")} danger>
                 <Row
                   label="Delete all data"
                   description="Removes every task, project, habit, list and setting. Your login stays, so you can start over with an empty account. Cannot be undone."
                   action={
-                    <ActionButton onClick={() => setShowDeleteConfirm(true)} variant="danger">
-                      Delete all data
-                    </ActionButton>
+                    <ActionButton onClick={() => setShowDeleteConfirm(true)} variant="danger">{t("Delete all data")}</ActionButton>
                   }
                 />
               </Section>
@@ -574,7 +630,7 @@ export default function SettingsPage() {
 
       <ConfirmDialog
         open={showClearConfirm}
-        title="Clear completed tasks"
+        title={t("Clear completed tasks")}
         message={`Are you sure you want to delete ${completedCount} completed task${completedCount !== 1 ? "s" : ""}? This cannot be undone.`}
         onConfirm={handleClearCompleted}
         onCancel={() => setShowClearConfirm(false)}
@@ -582,7 +638,7 @@ export default function SettingsPage() {
 
       <ConfirmDialog
         open={showDeleteConfirm}
-        title="Delete all data"
+        title={t("Delete all data")}
         message="This removes every task, project, habit, list and setting. Your login stays and the account will be empty. This cannot be undone."
         confirmLabel="Delete everything"
         onConfirm={handleDeleteAccount}

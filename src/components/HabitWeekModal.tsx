@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useI18n } from "./I18nProvider";
 import { X, ChevronLeft, ChevronRight, Check } from "lucide-react";
 import { formatTime } from "@/lib/format";
 import type { HabitWithStatus, HabitCompletion } from "@/lib/types";
@@ -47,6 +48,7 @@ function isScheduledForDate(habit: HabitWithStatus, date: Date): boolean {
 
 
 export default function HabitWeekModal({ habit, completions, onClose }: HabitWeekModalProps) {
+  const { t } = useI18n();
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
@@ -110,7 +112,7 @@ export default function HabitWeekModal({ habit, completions, onClose }: HabitWee
           <button
             onClick={onClose}
             className="text-black/40 dark:text-gray-500 hover:text-black dark:hover:text-white transition-default flex-shrink-0"
-            aria-label="Close"
+            aria-label={t("Close")}
           >
             <X size={18} />
           </button>
@@ -121,7 +123,7 @@ export default function HabitWeekModal({ habit, completions, onClose }: HabitWee
           <button
             onClick={prevWeek}
             className="w-8 h-8 rounded-lg border border-black/10 dark:border-white/10 flex items-center justify-center text-black/50 dark:text-gray-400 hover:text-black dark:hover:text-white hover:border-black/20 dark:hover:border-white/20 transition-default"
-            aria-label="Previous week"
+            aria-label={t("Previous week")}
           >
             <ChevronLeft size={16} />
           </button>
@@ -141,7 +143,7 @@ export default function HabitWeekModal({ habit, completions, onClose }: HabitWee
           <button
             onClick={nextWeek}
             className="w-8 h-8 rounded-lg border border-black/10 dark:border-white/10 flex items-center justify-center text-black/50 dark:text-gray-400 hover:text-black dark:hover:text-white hover:border-black/20 dark:hover:border-white/20 transition-default"
-            aria-label="Next week"
+            aria-label={t("Next week")}
           >
             <ChevronRight size={16} />
           </button>
@@ -212,17 +214,11 @@ export default function HabitWeekModal({ habit, completions, onClose }: HabitWee
         {/* Legend */}
         <div className="flex items-center gap-4 mt-3 pt-3 border-t border-black/5 dark:border-white/5">
           <span className="flex items-center gap-1.5 text-[11px] text-black/40 dark:text-gray-600">
-            <Check size={10} className="text-green-500" strokeWidth={2.5} />
-            Completed
-          </span>
+            <Check size={10} className="text-green-500" strokeWidth={2.5} />{t("Completed")}</span>
           <span className="flex items-center gap-1.5 text-[11px] text-black/40 dark:text-gray-600">
-            <span className="w-3 h-3 rounded-md bg-black/10 dark:bg-white/10 inline-block" />
-            Scheduled
-          </span>
+            <span className="w-3 h-3 rounded-md bg-black/10 dark:bg-white/10 inline-block" />{t("Scheduled")}</span>
           <span className="flex items-center gap-1.5 text-[11px] text-black/40 dark:text-gray-600">
-            <span className="w-3 h-3 rounded-md bg-transparent border border-black/10 dark:border-white/10 inline-block" />
-            Not scheduled
-          </span>
+            <span className="w-3 h-3 rounded-md bg-transparent border border-black/10 dark:border-white/10 inline-block" />{t("Not scheduled")}</span>
         </div>
       </div>
     </div>

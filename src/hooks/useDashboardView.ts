@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 
 export type ViewKind =
@@ -43,6 +43,18 @@ function buildQuery(view: DashboardView): string {
  */
 export function useDashboardView() {
   const searchParams = useSearchParams();
+
+  // A stored default view applies when the URL says nothing
+  useEffect(() => {
+    if (searchParams.get("view")) return;
+    if (searchParams.get("list") || searchParams.get("folder") || searchParams.get("dates")) return;
+    let stored: string | null = null;
+    try { stored = localStorage.getItem("defaultView"); } catch { /* ignore */ }
+    if (!stored || stored === DEFAULT_VIEW) return;
+    if (!VIEW_KINDS.includes(stored as ViewKind)) return;
+    window.history.replaceState(null, "", `${window.location.pathname}?view=${stored}`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const view = useMemo<DashboardView>(() => {
     const raw = searchParams.get("view");

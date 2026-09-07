@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useI18n } from "./I18nProvider";
 import { Plus } from "lucide-react";
 import type { List } from "@/lib/types";
 import { DatePicker, TimePicker } from "./Pickers";
@@ -11,6 +12,7 @@ interface EventInputProps {
 }
 
 export default function EventInput({ onAdd, lists = [] }: EventInputProps) {
+  const { t } = useI18n();
   const [title, setTitle] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [startTime, setStartTime] = useState("");
@@ -39,20 +41,20 @@ export default function EventInput({ onAdd, lists = [] }: EventInputProps) {
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="New project... (e.g. Sprint planning, Kitchen renovation)"
+            placeholder={t("New project... (e.g. Sprint planning, Kitchen renovation)")}
             className="flex-1 bg-transparent text-black dark:text-white placeholder:text-gray-400 focus:outline-none text-base"
-            aria-label="New project title"
+            aria-label={t("New project title")}
           />
-          <DatePicker value={dueDate} onChange={setDueDate} placeholder="Date" />
+          <DatePicker value={dueDate} onChange={setDueDate} placeholder={t("Date")} />
           {dueDate && (
             <>
               <TimePicker
                 value={startTime}
                 onChange={(v) => { setStartTime(v); if (!v) setEndTime(""); }}
-                placeholder="Time"
+                placeholder={t("Time")}
               />
               {startTime && (
-                <TimePicker value={endTime} onChange={setEndTime} placeholder="End" />
+                <TimePicker value={endTime} onChange={setEndTime} placeholder={t("End")} />
               )}
             </>
           )}
@@ -60,7 +62,7 @@ export default function EventInput({ onAdd, lists = [] }: EventInputProps) {
             type="submit"
             disabled={!title.trim()}
             className="w-9 h-9 rounded-xl bg-black dark:bg-white text-white dark:text-black flex items-center justify-center hover:opacity-90 active:scale-95 transition-default disabled:opacity-30 disabled:cursor-not-allowed flex-shrink-0"
-            aria-label="Create project"
+            aria-label={t("Create project")}
           >
             <Plus size={18} />
           </button>

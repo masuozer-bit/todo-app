@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useI18n } from "./I18nProvider";
 import { Check, Trash2, X, ArrowRight, CalendarDays, Flag } from "lucide-react";
 import type { List, Priority } from "@/lib/types";
 import { getToday, getTomorrow, getNextMonday } from "@/lib/date-helpers";
@@ -106,6 +107,7 @@ export default function BulkActionBar({
   onCancel,
   lists = [],
 }: BulkActionBarProps) {
+  const { t } = useI18n();
   if (!visible && selectedCount === 0) return null;
 
   const nothingSelected = selectedCount === 0;
@@ -114,7 +116,7 @@ export default function BulkActionBar({
     <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-[80] animate-in fade-in slide-in-from-bottom-4 duration-200">
       <div className="flex items-center gap-1 bg-black dark:bg-white text-white dark:text-black rounded-2xl px-4 py-2.5 shadow-2xl border border-white/10 dark:border-black/10">
         <span className="text-sm font-medium tabular-nums mr-1">
-          {selectedCount} selected
+          {t("{n} selected", { n: selectedCount })}
         </span>
 
         <div className="w-px h-5 bg-white/20 dark:bg-black/20" />
@@ -123,20 +125,20 @@ export default function BulkActionBar({
           onClick={onComplete}
           disabled={nothingSelected}
           className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-xl hover:bg-white/15 dark:hover:bg-black/10 transition-default disabled:opacity-40"
-          title="Complete selected"
+          title={t("Complete selected")}
         >
           <Check size={14} />
-          <span className="hidden sm:inline">Done</span>
+          <span className="hidden sm:inline">{t("Done")}</span>
         </button>
 
         {onSetDueDate && (
           <Menu label="Date" icon={<CalendarDays size={14} />} disabled={nothingSelected}>
             {(close) => (
               <>
-                <MenuItem onClick={() => { onSetDueDate(getToday()); close(); }}>Today</MenuItem>
-                <MenuItem onClick={() => { onSetDueDate(getTomorrow()); close(); }}>Tomorrow</MenuItem>
-                <MenuItem onClick={() => { onSetDueDate(getNextMonday()); close(); }}>Next Monday</MenuItem>
-                <MenuItem muted onClick={() => { onSetDueDate(null); close(); }}>No date</MenuItem>
+                <MenuItem onClick={() => { onSetDueDate(getToday()); close(); }}>{t("Today")}</MenuItem>
+                <MenuItem onClick={() => { onSetDueDate(getTomorrow()); close(); }}>{t("Tomorrow")}</MenuItem>
+                <MenuItem onClick={() => { onSetDueDate(getNextMonday()); close(); }}>{t("Next Monday")}</MenuItem>
+                <MenuItem muted onClick={() => { onSetDueDate(null); close(); }}>{t("No date")}</MenuItem>
               </>
             )}
           </Menu>
@@ -146,10 +148,10 @@ export default function BulkActionBar({
           <Menu label="Priority" icon={<Flag size={14} />} disabled={nothingSelected}>
             {(close) => (
               <>
-                <MenuItem onClick={() => { onSetPriority("high"); close(); }}>High</MenuItem>
-                <MenuItem onClick={() => { onSetPriority("medium"); close(); }}>Medium</MenuItem>
-                <MenuItem onClick={() => { onSetPriority("low"); close(); }}>Low</MenuItem>
-                <MenuItem muted onClick={() => { onSetPriority("none"); close(); }}>None</MenuItem>
+                <MenuItem onClick={() => { onSetPriority("high"); close(); }}>{t("High")}</MenuItem>
+                <MenuItem onClick={() => { onSetPriority("medium"); close(); }}>{t("Medium")}</MenuItem>
+                <MenuItem onClick={() => { onSetPriority("low"); close(); }}>{t("Low")}</MenuItem>
+                <MenuItem muted onClick={() => { onSetPriority("none"); close(); }}>{t("None")}</MenuItem>
               </>
             )}
           </Menu>
@@ -159,7 +161,7 @@ export default function BulkActionBar({
           <Menu label="Move" icon={<ArrowRight size={14} />} disabled={nothingSelected}>
             {(close) => (
               <>
-                <MenuItem muted onClick={() => { onMoveToList(null); close(); }}>No list</MenuItem>
+                <MenuItem muted onClick={() => { onMoveToList(null); close(); }}>{t("No list")}</MenuItem>
                 {lists.map((list) => (
                   <MenuItem key={list.id} onClick={() => { onMoveToList(list.id); close(); }}>
                     {list.name}
@@ -174,10 +176,10 @@ export default function BulkActionBar({
           onClick={onDelete}
           disabled={nothingSelected}
           className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-xl hover:bg-red-500/30 dark:hover:bg-red-500/20 text-red-300 dark:text-red-500 transition-default disabled:opacity-40"
-          title="Delete selected"
+          title={t("Delete selected")}
         >
           <Trash2 size={14} />
-          <span className="hidden sm:inline">Delete</span>
+          <span className="hidden sm:inline">{t("Delete")}</span>
         </button>
 
         <div className="w-px h-5 bg-white/20 dark:bg-black/20" />
@@ -185,8 +187,8 @@ export default function BulkActionBar({
         <button
           onClick={onCancel}
           className="p-1.5 rounded-xl hover:bg-white/15 dark:hover:bg-black/10 transition-default"
-          title="Cancel selection"
-          aria-label="Cancel selection"
+          title={t("Cancel selection")}
+          aria-label={t("Cancel selection")}
         >
           <X size={14} />
         </button>

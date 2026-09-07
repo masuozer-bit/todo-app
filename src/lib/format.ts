@@ -3,7 +3,18 @@
  * "Sep 6" and "6 Sep" from one card to the next.
  */
 
-const DEFAULT_LOCALE = "en-GB";
+let activeLocale = "en-GB";
+
+/* Set once by the i18n provider after mount, so server and first client
+   render agree and only the second render switches language */
+export function setFormatLocale(locale: "de" | "en") {
+  activeLocale = locale === "de" ? "de-DE" : "en-GB";
+}
+
+/* The locale tag to hand to Intl */
+export function formatLocale(): string {
+  return activeLocale;
+}
 
 /* "HH:MM" — 24 hours, the format the app stores anyway */
 export function formatTime(time: string | null | undefined): string {
@@ -30,21 +41,21 @@ function toDate(dateStr: string): Date | null {
 }
 
 /* "6 Sep" */
-export function formatShortDate(dateStr: string, locale: string = DEFAULT_LOCALE): string {
+export function formatShortDate(dateStr: string, locale: string = ""): string {
   const d = toDate(dateStr);
   if (!d) return dateStr;
-  return d.toLocaleDateString(locale, { day: "numeric", month: "short" });
+  return d.toLocaleDateString(locale || activeLocale, { day: "numeric", month: "short" });
 }
 
 /* "Sat, 6 Sep" */
-export function formatDateWithWeekday(dateStr: string, locale: string = DEFAULT_LOCALE): string {
+export function formatDateWithWeekday(dateStr: string, locale: string = ""): string {
   const d = toDate(dateStr);
   if (!d) return dateStr;
-  return d.toLocaleDateString(locale, { weekday: "short", day: "numeric", month: "short" });
+  return d.toLocaleDateString(locale || activeLocale, { weekday: "short", day: "numeric", month: "short" });
 }
 
 /* "Today", "Tomorrow", "Yesterday", otherwise a short date */
-export function formatRelativeDate(dateStr: string, locale: string = DEFAULT_LOCALE): string {
+export function formatRelativeDate(dateStr: string, locale: string = ""): string {
   const d = toDate(dateStr);
   if (!d) return dateStr;
   const today = new Date();
@@ -53,5 +64,19 @@ export function formatRelativeDate(dateStr: string, locale: string = DEFAULT_LOC
   if (diff === 0) return "Today";
   if (diff === 1) return "Tomorrow";
   if (diff === -1) return "Yesterday";
-  return formatShortDate(dateStr, locale);
+  return formatShortDate(dateStr, locale || activeLocale);
+}
+
+
+/* Month names in the active locale, January first */
+export function monthNames(): string[] {
+  const fmt = new Intl.DateTimeFormat(activeLocale, { month: "long" });
+  return Array.from({ length: 12 }, (_, m) => fmt.format(new Date(2021, m, 1)));
+}
+
+/* Weekday labels in the active locale, Monday first */
+export function weekdayLabels(style: "short" | "narrow" = "short"): string[] {
+  const fmt = new Intl.DateTimeFormat(activeLocale, { weekday: style });
+  // 2021-03-01 was a Monday
+  return Array.from({ length: 7 }, (_, i) => fmt.format(new Date(2021, 2, 1 + i)));
 }

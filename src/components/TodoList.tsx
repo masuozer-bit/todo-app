@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useCallback, useEffect } from "react";
+import { useI18n } from "./I18nProvider";
 import {
   DndContext,
   closestCenter,
@@ -21,7 +22,7 @@ import type { Todo, Tag, Priority, List, Event, HabitWithStatus } from "@/lib/ty
 import SortableItem from "./SortableItem";
 import ManualSortWrapper from "./ManualSortWrapper";
 import TodoItem from "./TodoItem";
-import { formatTime } from "@/lib/format";
+import { formatTime, formatLocale } from "@/lib/format";
 import { PRIORITY_META } from "@/lib/priority";
 import ConfirmDialog from "./ConfirmDialog";
 import BulkActionBar from "./BulkActionBar";
@@ -188,7 +189,7 @@ function formatShortDate(dateStr: string): string {
   if (diffDays < 0) return `${Math.abs(diffDays)}d overdue`;
   if (diffDays === 0) return "Today";
   if (diffDays === 1) return "Tomorrow";
-  return due.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  return due.toLocaleDateString(formatLocale(), { day: "numeric", month: "short" });
 }
 
 // ── Event peek ticker (cycling animated strip) ────────────────────
@@ -350,6 +351,7 @@ export default function TodoList({
   onStartLiveTask,
   liveTaskId,
 }: TodoListProps) {
+  const { t } = useI18n();
   const gridCols = wideMode ? "grid grid-cols-1 md:grid-cols-3 gap-2" : "grid grid-cols-1 md:grid-cols-2 gap-2";
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
   const [search, setSearch] = useState("");
@@ -834,8 +836,8 @@ export default function TodoList({
                 <button
                   onClick={() => onOpenEventDetail(event.id)}
                   className="text-gray-400 hover:text-black dark:hover:text-white transition-default p-1.5 [@media(hover:none)]:p-2.5"
-                  aria-label="Open project"
-                  title="Open project view"
+                  aria-label={t("Open project")}
+                  title={t("Open project view")}
                 >
                   <Maximize2 size={13} />
                 </button>
@@ -844,8 +846,8 @@ export default function TodoList({
                 <button
                   onClick={() => onDeleteEvent(event.id)}
                   className="text-gray-400 hover:text-red-500 transition-default p-1.5 [@media(hover:none)]:p-2.5"
-                  aria-label="Delete project"
-                  title="Delete project"
+                  aria-label={t("Delete project")}
+                  title={t("Delete project")}
                 >
                   <Trash2 size={14} />
                 </button>
@@ -962,7 +964,7 @@ export default function TodoList({
       {!focusMode && showFilters && (
         <div className="mb-4 glass-card-subtle p-3 space-y-3">
           <div>
-            <p className="text-xs text-black/60 dark:text-gray-400 mb-1.5 font-medium">Status</p>
+            <p className="text-xs text-black/60 dark:text-gray-400 mb-1.5 font-medium">{t("Status")}</p>
             <div className="flex gap-2">
               {(["all", "active", "completed"] as FilterStatus[]).map((s) => (
                 <button
@@ -974,21 +976,21 @@ export default function TodoList({
                       : "border-black/10 dark:border-white/10 text-black/55 dark:text-gray-400 hover:border-black/20 dark:hover:border-white/20"
                   }`}
                 >
-                  {s}
+                  {t(s)}
                 </button>
               ))}
             </div>
           </div>
 
           <div>
-            <p className="text-xs text-black/60 dark:text-gray-400 mb-1.5 font-medium">Sort by</p>
+            <p className="text-xs text-black/60 dark:text-gray-400 mb-1.5 font-medium">{t("Sort by")}</p>
             <div className="flex gap-2">
               {(
                 [
-                  ["default", "Manual"],
+                  ["default", t("Manual")],
                   ["alpha", "A–Z"],
-                  ["priority", "Priority"],
-                  ["timeline", "Timeline"],
+                  ["priority", t("Priority")],
+                  ["timeline", t("Timeline")],
                 ] as [SortBy, string][]
               ).map(([val, label]) => (
                 <button
@@ -1008,7 +1010,7 @@ export default function TodoList({
 
           {allTags.length > 0 && (
             <div>
-              <p className="text-xs text-black/60 dark:text-gray-400 mb-1.5 font-medium">Tag</p>
+              <p className="text-xs text-black/60 dark:text-gray-400 mb-1.5 font-medium">{t("Tag")}</p>
               <div className="flex gap-2 flex-wrap">
                 <button
                   onClick={() => setFilterTagId(null)}
@@ -1017,9 +1019,7 @@ export default function TodoList({
                       ? "border-black/30 dark:border-white/30 bg-black/5 dark:bg-white/10 text-black dark:text-white font-medium"
                       : "border-black/10 dark:border-white/10 text-black/55 dark:text-gray-400 hover:border-black/20 dark:hover:border-white/20"
                   }`}
-                >
-                  All
-                </button>
+                >{t("All")}</button>
                 {allTags.map((tag) => (
                   <button
                     key={tag.id}
@@ -1041,9 +1041,7 @@ export default function TodoList({
             <button
               onClick={() => { setSearch(""); setFilterStatus("all"); setFilterTagId(null); setSortBy(defaultSortBy); }}
               className="text-xs text-gray-400 hover:text-black dark:hover:text-white transition-default"
-            >
-              Clear all filters
-            </button>
+            >{t("Clear all filters")}</button>
           )}
         </div>
       )}
@@ -1056,9 +1054,9 @@ export default function TodoList({
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search tasks..."
+            placeholder={t("Search tasks...")}
             className="flex-1 bg-transparent text-sm text-black dark:text-white placeholder:text-gray-400 focus:outline-none"
-            aria-label="Search tasks"
+            aria-label={t("Search tasks")}
           />
           {search && (
             <button onClick={() => setSearch("")} className="text-gray-400 hover:text-black dark:hover:text-white transition-default">
@@ -1074,9 +1072,9 @@ export default function TodoList({
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search tasks..."
+              placeholder={t("Search tasks...")}
               className="flex-1 bg-transparent text-sm text-black dark:text-white placeholder:text-gray-400 focus:outline-none"
-              aria-label="Search tasks"
+              aria-label={t("Search tasks")}
             />
             {search && (
               <button onClick={() => setSearch("")} className="text-gray-400 hover:text-black dark:hover:text-white transition-default">
@@ -1091,7 +1089,7 @@ export default function TodoList({
             className={`glass-card-subtle p-2 transition-default relative ${
               showFilters || hasFilters ? "text-black dark:text-white bg-black/5 dark:bg-white/10" : "text-gray-400 hover:text-black dark:hover:text-white"
             }`}
-            aria-label="Filter and sort"
+            aria-label={t("Filter and sort")}
             aria-expanded={showFilters}
             title="Filter and sort (M)"
           >
@@ -1169,24 +1167,20 @@ export default function TodoList({
       {/* Todo items */}
       {loadError && todos.length === 0 ? (
         <div className="text-center py-16">
-          <p className="text-gray-400 text-base">Tasks could not be loaded</p>
+          <p className="text-gray-400 text-base">{t("Tasks could not be loaded")}</p>
           <button
             onClick={onRetry}
             className="mt-2 text-sm font-medium text-black dark:text-white underline underline-offset-2"
-          >
-            Try again
-          </button>
+          >{t("Try again")}</button>
         </div>
       ) : todos.length === 0 ? (
         <div className="text-center py-16">
-          <p className="text-gray-400 text-base">No tasks yet</p>
-          <p className="text-gray-400/60 text-sm mt-1">
-            Add one above to get started
-          </p>
+          <p className="text-gray-400 text-base">{t("No tasks yet")}</p>
+          <p className="text-gray-400/60 text-sm mt-1">{t("Add one above to get started")}</p>
         </div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-12">
-          <p className="text-gray-400 text-base">No tasks match your search</p>
+          <p className="text-gray-400 text-base">{t("No tasks match your search")}</p>
           <button
             onClick={() => {
               setSearch("");
@@ -1205,6 +1199,7 @@ export default function TodoList({
             const isSomeday = group.key === "someday";
             const isSuppressed = group.key === suppressGroupKey;
             const count = group.todos.length + group.events.length;
+            const groupLabel = t(group.label);
             const isOpen = !isSomeday || showSomeday;
             return (
             <div key={group.key}>
@@ -1228,7 +1223,7 @@ export default function TodoList({
                       ? "text-black dark:text-white"
                       : "text-black/50 dark:text-gray-500"
                   }`}>
-                    {group.label}
+                    {groupLabel}
                   </span>
                   <span className="text-[11px] text-black/35 dark:text-gray-600 font-normal tabular-nums whitespace-nowrap">
                     {count}
@@ -1259,9 +1254,7 @@ export default function TodoList({
                 className="flex items-center gap-2 w-full text-left mb-3 cursor-pointer transition-default"
               >
                 <ChevronRight size={10} className={`flex-shrink-0 text-black/40 dark:text-gray-400 transition-transform duration-200 ${showDone ? "rotate-90" : ""}`} />
-                <span className="text-[11px] font-bold uppercase tracking-widest text-black/50 dark:text-gray-500 whitespace-nowrap">
-                  Done
-                </span>
+                <span className="text-[11px] font-bold uppercase tracking-widest text-black/50 dark:text-gray-500 whitespace-nowrap">{t("Done")}</span>
                 <span className="text-[11px] text-black/35 dark:text-gray-600 font-normal tabular-nums whitespace-nowrap">
                   {standaloneCompletedTodos.length}
                 </span>
@@ -1326,9 +1319,7 @@ export default function TodoList({
                 className="flex items-center gap-2 w-full text-left mb-3 cursor-pointer transition-default"
               >
                 <ChevronRight size={10} className={`flex-shrink-0 text-black/40 dark:text-gray-400 transition-transform duration-200 ${showDone ? "rotate-90" : ""}`} />
-                <span className="text-[11px] font-bold uppercase tracking-widest text-black/50 dark:text-gray-500 whitespace-nowrap">
-                  Done
-                </span>
+                <span className="text-[11px] font-bold uppercase tracking-widest text-black/50 dark:text-gray-500 whitespace-nowrap">{t("Done")}</span>
                 <span className="text-[11px] text-black/35 dark:text-gray-600 font-normal tabular-nums whitespace-nowrap">
                   {standaloneCompletedTodos.length}
                 </span>
@@ -1359,8 +1350,8 @@ export default function TodoList({
 
       <ConfirmDialog
         open={confirmBulkDelete}
-        title="Delete tasks"
-        message={`Delete ${selectedIds.size} selected task${selectedIds.size !== 1 ? "s" : ""}? This cannot be undone.`}
+        title={t("Delete tasks")}
+        message={t("Delete {n} selected tasks? This cannot be undone.", { n: selectedIds.size })}
         confirmLabel="Delete"
         onConfirm={handleBulkDeleteConfirm}
         onCancel={() => setConfirmBulkDelete(false)}

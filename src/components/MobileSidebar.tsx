@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useI18n } from "./I18nProvider";
 import { X, Inbox, Repeat, List, Plus, Sun, CalendarDays, CalendarRange, Shield, Check, Trash2 } from "lucide-react";
 import type { List as ListType, Todo } from "@/lib/types";
 import ProductivityStats from "./ProductivityStats";
@@ -49,6 +50,7 @@ export default function MobileSidebar({
   onDeleteList,
   todos,
 }: MobileSidebarProps) {
+  const { t } = useI18n();
   const [showNewList, setShowNewList] = useState(false);
   const [newListName, setNewListName] = useState("");
   const backdropRef = useRef<HTMLDivElement>(null);
@@ -100,13 +102,11 @@ export default function MobileSidebar({
         <div className="flex flex-col h-full">
           {/* Header */}
           <div className="flex items-center justify-between px-4 pt-5 pb-3">
-            <h2 className="text-base font-semibold text-black dark:text-white">
-              Menu
-            </h2>
+            <h2 className="text-base font-semibold text-black dark:text-white">{t("Menu")}</h2>
             <button
               onClick={onClose}
               className="p-1.5 rounded-xl text-gray-400 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-default"
-              aria-label="Close menu"
+              aria-label={t("Close menu")}
             >
               <X size={18} />
             </button>
@@ -123,9 +123,7 @@ export default function MobileSidebar({
                   : "text-gray-500 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/10"
               }`}
             >
-              <Inbox size={16} />
-              All Tasks
-            </button>
+              <Inbox size={16} />{t("All Tasks")}</button>
 
             {/* Today */}
             {onSwitchToToday && (
@@ -137,9 +135,7 @@ export default function MobileSidebar({
                     : "text-gray-500 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/10"
                 }`}
               >
-                <Sun size={16} />
-                Today
-              </button>
+                <Sun size={16} />{t("Today")}</button>
             )}
 
             {/* This Week */}
@@ -152,9 +148,7 @@ export default function MobileSidebar({
                     : "text-gray-500 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/10"
                 }`}
               >
-                <CalendarDays size={16} />
-                This Week
-              </button>
+                <CalendarDays size={16} />{t("This Week")}</button>
             )}
 
             {/* Projects */}
@@ -167,9 +161,7 @@ export default function MobileSidebar({
                     : "text-gray-500 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/10"
                 }`}
               >
-                <CalendarRange size={16} />
-                Projects
-              </button>
+                <CalendarRange size={16} />{t("Projects")}</button>
             )}
 
             {/* Habits */}
@@ -181,9 +173,7 @@ export default function MobileSidebar({
                   : "text-gray-500 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/10"
               }`}
             >
-              <Repeat size={16} />
-              Habits
-            </button>
+              <Repeat size={16} />{t("Habits")}</button>
 
             {/* Principles */}
             {onSwitchToRules && (
@@ -195,17 +185,13 @@ export default function MobileSidebar({
                     : "text-gray-500 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/10"
                 }`}
               >
-                <Shield size={16} />
-                Principles
-              </button>
+                <Shield size={16} />{t("Principles")}</button>
             )}
 
             {/* Lists */}
             {lists.length > 0 && (
               <div className="mt-4 mb-2">
-                <p className="text-xs font-medium text-gray-400 px-3 mb-2 uppercase tracking-wide">
-                  Lists
-                </p>
+                <p className="text-xs font-medium text-gray-400 px-3 mb-2 uppercase tracking-wide">{t("Lists")}</p>
                 {lists.map((list) => (
                   <div
                     key={list.id}
@@ -259,17 +245,17 @@ export default function MobileSidebar({
                     value={newListName}
                     onChange={(e) => setNewListName(e.target.value)}
                     onKeyDown={(e) => { if (e.key === "Escape") { setShowNewList(false); setNewListName(""); } }}
-                    placeholder="List name..."
+                    placeholder={t("List name...")}
                     className="flex-1 min-w-0 text-sm bg-transparent border-b border-black/20 dark:border-white/20 pb-1 text-black dark:text-white placeholder:text-gray-400 focus:outline-none"
                   />
-                  <button type="submit" className="p-2 text-gray-400 hover:text-black dark:hover:text-white" aria-label="Create list">
+                  <button type="submit" className="p-2 text-gray-400 hover:text-black dark:hover:text-white" aria-label={t("Create list")}>
                     <Check size={16} />
                   </button>
                   <button
                     type="button"
                     onClick={() => { setShowNewList(false); setNewListName(""); }}
                     className="p-2 text-gray-400 hover:text-black dark:hover:text-white"
-                    aria-label="Cancel"
+                    aria-label={t("Cancel")}
                   >
                     <X size={16} />
                   </button>
@@ -279,9 +265,7 @@ export default function MobileSidebar({
                   onClick={() => setShowNewList(true)}
                   className="flex items-center gap-2 px-3 py-2.5 text-xs text-gray-400 hover:text-black dark:hover:text-white transition-default w-full rounded-xl hover:bg-black/5 dark:hover:bg-white/10"
                 >
-                  <Plus size={14} />
-                  New list
-                </button>
+                  <Plus size={14} />{t("New list")}</button>
               )
             ) : (
               <button
@@ -291,9 +275,7 @@ export default function MobileSidebar({
                 }}
                 className="flex items-center gap-2 px-3 py-2.5 text-xs text-gray-400 hover:text-black dark:hover:text-white transition-default w-full rounded-xl hover:bg-black/5 dark:hover:bg-white/10"
               >
-                <Plus size={14} />
-                New list
-              </button>
+                <Plus size={14} />{t("New list")}</button>
             )}
 
             {/* Stats */}

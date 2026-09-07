@@ -1,6 +1,7 @@
 "use client";
 
 import { useSortable } from "@dnd-kit/sortable";
+import { useI18n } from "./I18nProvider";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical } from "lucide-react";
 
@@ -16,6 +17,7 @@ export default function ManualSortWrapper({
   id: string;
   children: React.ReactNode;
 }) {
+  const { t } = useI18n();
   const {
     attributes,
     listeners,
@@ -42,7 +44,7 @@ export default function ManualSortWrapper({
         {...attributes}
         {...listeners}
         className="flex-shrink-0 w-4 flex items-center justify-center opacity-25 group-hover/drag:opacity-60 focus-visible:opacity-100 hover:!opacity-100 [@media(hover:none)]:opacity-50 cursor-grab active:cursor-grabbing text-gray-400 transition-default"
-        aria-label="Drag to reorder"
+        aria-label={t("Drag to reorder")}
         tabIndex={0}
       >
         <GripVertical size={13} />

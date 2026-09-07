@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { useI18n } from "./I18nProvider";
 import {
   DndContext,
   closestCenter,
@@ -51,6 +52,7 @@ function SortableRuleItem({
   onDelete: (id: string) => void;
   allCategories: string[];
 }) {
+  const { t } = useI18n();
   const {
     attributes,
     listeners,
@@ -127,7 +129,7 @@ function SortableRuleItem({
             <textarea
               value={editDesc}
               onChange={(e) => setEditDesc(e.target.value)}
-              placeholder="Why this principle matters..."
+              placeholder={t("Why this principle matters...")}
               rows={2}
               className="w-full bg-transparent outline-none text-xs text-black/60 dark:text-gray-400 placeholder:text-gray-400 dark:placeholder:text-gray-500 resize-none"
             />
@@ -173,7 +175,7 @@ function SortableRuleItem({
 
       <ConfirmDialog
         open={confirmDelete}
-        title="Delete principle"
+        title={t("Delete principle")}
         message={`Delete "${rule.title}"?`}
         onConfirm={() => { onDelete(rule.id); setConfirmDelete(false); }}
         onCancel={() => setConfirmDelete(false)}
@@ -193,6 +195,7 @@ interface RuleListProps {
 }
 
 export default function RuleList({ rules, loading, onUpdate, onDelete, onReorder }: RuleListProps) {
+  const { t } = useI18n();
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
@@ -226,8 +229,8 @@ export default function RuleList({ rules, loading, onUpdate, onDelete, onReorder
   if (rules.length === 0) {
     return (
       <div className="text-center py-16">
-        <p className="text-sm text-black/30 dark:text-gray-600">No principles yet</p>
-        <p className="text-xs text-black/20 dark:text-gray-700 mt-1">Principles you want to work by, always in view</p>
+        <p className="text-sm text-black/30 dark:text-gray-600">{t("No principles yet")}</p>
+        <p className="text-xs text-black/20 dark:text-gray-700 mt-1">{t("Principles you want to work by, always in view")}</p>
       </div>
     );
   }

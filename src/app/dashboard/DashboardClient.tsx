@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import { formatLocale } from "@/lib/format";
+import { useI18n } from "@/components/I18nProvider";
 import Header from "@/components/Header";
 import TodoInput from "@/components/TodoInput";
 import TodoList from "@/components/TodoList";
@@ -68,6 +70,7 @@ const URGENCY_STYLE: Record<Urgency, React.CSSProperties> = {
 
 
 function ColorPickerPopover({ color, onChange, onClose }: { color?: string | null; onChange: (c: string | null) => void; onClose: () => void }) {
+  const { t } = useI18n();
   return (
     <div className="absolute z-50 top-full left-0 mt-1 p-2 rounded-xl glass-card-raised flex items-center gap-2 w-auto" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
       <input
@@ -75,13 +78,13 @@ function ColorPickerPopover({ color, onChange, onClose }: { color?: string | nul
         value={color || "#60a5fa"}
         onChange={(e) => onChange(e.target.value)}
         className="w-8 h-8 rounded-lg cursor-pointer border-0 bg-transparent [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:rounded-lg [&::-webkit-color-swatch]:border-2 [&::-webkit-color-swatch]:border-white/30"
-        title="Pick a color"
+        title={t("Pick a color")}
       />
       <button
         onClick={() => { onChange(null); onClose(); }}
         className="w-8 h-8 rounded-lg border-2 border-white/20 flex items-center justify-center transition-default hover:border-white/50"
         style={{ background: "rgba(120,120,120,0.3)" }}
-        title="Remove color"
+        title={t("Remove color")}
       >
         <X size={12} className="text-white/60" />
       </button>
@@ -100,6 +103,7 @@ function SortableListItem({
   onSelect: () => void;
   badges?: { overdue: number; today: number; thisWeek: number };
 }) {
+  const { t } = useI18n();
   const {
     attributes,
     listeners,
@@ -203,6 +207,7 @@ function FolderGroup({
   onSelectList: (id: string) => void;
   listBadges: Record<string, { overdue: number; today: number; thisWeek: number }>;
 }) {
+  const { t } = useI18n();
   const { setNodeRef, isOver } = useDroppable({ id: `folder-drop-${folder.id}` });
 
   return (
@@ -250,8 +255,8 @@ function FolderGroup({
         ) : (
           <>
             <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-default">
-              <button onClick={onStartEdit} className={`p-1 rounded transition-default ${isActive ? "text-white/70 hover:text-white" : "text-gray-400 hover:text-black dark:hover:text-white"}`} aria-label="Rename folder"><Edit2 size={10} /></button>
-              <button onClick={onDelete} className={`p-1 rounded transition-default ${isActive ? "text-white/70 hover:text-white" : "text-gray-400 hover:text-black dark:hover:text-white"}`} aria-label="Delete folder"><Trash2 size={10} /></button>
+              <button onClick={onStartEdit} className={`p-1 rounded transition-default ${isActive ? "text-white/70 hover:text-white" : "text-gray-400 hover:text-black dark:hover:text-white"}`} aria-label={t("Rename folder")}><Edit2 size={10} /></button>
+              <button onClick={onDelete} className={`p-1 rounded transition-default ${isActive ? "text-white/70 hover:text-white" : "text-gray-400 hover:text-black dark:hover:text-white"}`} aria-label={t("Delete folder")}><Trash2 size={10} /></button>
             </div>
             {(badges.overdue > 0 || badges.today > 0 || badges.thisWeek > 0) && (
               <div className="flex items-center gap-0.5 flex-shrink-0 mr-3">
@@ -283,7 +288,7 @@ function FolderGroup({
             />
           ))}
           {folderLists.length === 0 && (
-            <p className="text-[11px] text-gray-300 dark:text-gray-600 px-1 py-1">Drop lists here</p>
+            <p className="text-[11px] text-gray-300 dark:text-gray-600 px-1 py-1">{t("Drop lists here")}</p>
           )}
         </div>
       )}
@@ -309,6 +314,7 @@ export default function DashboardClient({
   email?: string;
   serverTheme?: "light" | "dark" | null;
 }) {
+  const { t } = useI18n();
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [newListName, setNewListName] = useState("");
   const [showNewList, setShowNewList] = useState(false);
@@ -555,7 +561,7 @@ export default function DashboardClient({
       deleteTodo(id);
       if (!todo) return;
       showToast({
-        message: `"${todo.title}" deleted`,
+        message: t('"{title}" deleted', { title: todo.title }),
         onUndo: () => restoreTodo(todo),
       });
     },
@@ -646,7 +652,7 @@ export default function DashboardClient({
         },
       });
       showToast({
-        message: `Saved "${todo.title}" as a template`,
+        message: t('Saved "{title}" as a template', { title: todo.title }),
         action: { label: "Open", onClick: () => setShowTemplates(true) },
       });
     },
@@ -660,7 +666,7 @@ export default function DashboardClient({
       if (!completed) return;
       const todo = todos.find((t) => t.id === id);
       showToast({
-        message: todo ? `"${todo.title}" completed` : "Completed",
+        message: todo ? t('"{title}" completed', { title: todo.title }) : t("Completed"),
         duration: 4000,
         onUndo: () => toggleTodo(id, false),
       });
@@ -675,14 +681,14 @@ export default function DashboardClient({
       try { localStorage.setItem("showTaskBar", "true"); } catch {}
       setTimeout(() => {
         const input = document.querySelector<HTMLInputElement>(
-          'input[aria-label="New task title"]'
+          'input[aria-label={t("New task title")}]'
         );
         input?.focus();
       }, 0);
     },
     onSearch: () => {
       const input = document.querySelector<HTMLInputElement>(
-        'input[aria-label="Search tasks"]'
+        'input[aria-label={t("Search tasks")}]'
       );
       input?.focus();
     },
@@ -1127,7 +1133,7 @@ export default function DashboardClient({
             <div className="glass-card px-2 py-2 space-y-0.5">
               <button onClick={switchToAllTasks} className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-sm transition-default ${!activeListId && !habitsView && !eventsView && !quickFilter ? "glass-nav-active font-medium" : "text-black dark:text-white glass-nav-hover border border-transparent"}`}>
                 <Inbox size={14} className="flex-shrink-0" />
-                <span className="flex-1 text-left truncate">All Tasks</span>
+                <span className="flex-1 text-left truncate">{t("All Tasks")}</span>
                 {(taskCounts.overdue > 0 || taskCounts.today > 0 || taskCounts.thisWeek > 0) && (
                   <div className="flex items-center gap-0.5 flex-shrink-0">
                     {taskCounts.overdue > 0 && <span className="min-w-[18px] h-[18px] rounded-full text-[11px] font-semibold flex items-center justify-center px-1 tabular-nums leading-none" style={URGENCY_STYLE.overdue}>{taskCounts.overdue}</span>}
@@ -1139,20 +1145,20 @@ export default function DashboardClient({
 
               <button onClick={switchToToday} className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-sm transition-default ${quickFilter === "today" ? "glass-nav-active font-medium" : "text-black dark:text-white glass-nav-hover border border-transparent"}`}>
                 <Sun size={14} className="flex-shrink-0" />
-                <span className="flex-1 text-left truncate">Today</span>
+                <span className="flex-1 text-left truncate">{t("Today")}</span>
                 {taskCounts.today > 0 && <span className="flex-shrink-0 min-w-[18px] h-[18px] rounded-full text-[11px] font-semibold flex items-center justify-center px-1 tabular-nums leading-none" style={URGENCY_STYLE["today"]}>{taskCounts.today}</span>}
               </button>
 
               <button onClick={switchToThisWeek} className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-sm transition-default ${quickFilter === "thisWeek" ? "glass-nav-active font-medium" : "text-black dark:text-white glass-nav-hover border border-transparent"}`}>
                 <CalendarDays size={14} className="flex-shrink-0" />
-                <span className="flex-1 text-left truncate">This Week</span>
+                <span className="flex-1 text-left truncate">{t("This Week")}</span>
                 {taskCounts.thisWeekTotal > 0 && <span className="flex-shrink-0 min-w-[18px] h-[18px] rounded-full text-[11px] font-semibold flex items-center justify-center px-1 tabular-nums leading-none" style={URGENCY_STYLE[taskCounts.thisWeekUrgency]}>{taskCounts.thisWeekTotal}</span>}
               </button>
 
               {taskCounts.overdue > 0 && (
                 <button onClick={switchToOverdue} className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-sm transition-default ${quickFilter === "overdue" ? "glass-nav-active font-medium" : "text-black dark:text-white glass-nav-hover border border-transparent"}`}>
                   <AlertCircle size={14} className={`flex-shrink-0 ${quickFilter !== "overdue" ? "text-red-400" : ""}`} />
-                  <span className="flex-1 text-left truncate">Overdue</span>
+                  <span className="flex-1 text-left truncate">{t("Overdue")}</span>
                   <span className="flex-shrink-0 min-w-[18px] h-[18px] rounded-full text-[11px] font-semibold flex items-center justify-center px-1 tabular-nums leading-none" style={URGENCY_STYLE["overdue"]}>{taskCounts.overdue}</span>
                 </button>
               )}
@@ -1161,15 +1167,15 @@ export default function DashboardClient({
             {/* Lists pill */}
             <div className="glass-card px-2 py-2 space-y-0.5">
               <div className="flex items-center justify-between px-2.5 py-1">
-                <span className="text-[11px] text-black/40 dark:text-gray-600 uppercase tracking-wider font-medium">Lists</span>
+                <span className="text-[11px] text-black/40 dark:text-gray-600 uppercase tracking-wider font-medium">{t("Lists")}</span>
                 <div className="flex items-center gap-1">
                   {!showNewFolder && (
-                    <button onClick={() => setShowNewFolder(true)} className="text-gray-400 dark:text-gray-400 hover:text-black dark:hover:text-white transition-default" aria-label="New folder" title="New folder">
+                    <button onClick={() => setShowNewFolder(true)} className="text-gray-400 dark:text-gray-400 hover:text-black dark:hover:text-white transition-default" aria-label={t("New folder")} title={t("New folder")}>
                       <FolderPlus size={13} />
                     </button>
                   )}
                   {!showNewList && (
-                    <button onClick={() => setShowNewList(true)} className="text-gray-400 dark:text-gray-400 hover:text-black dark:hover:text-white transition-default" aria-label="New list" title="New list">
+                    <button onClick={() => setShowNewList(true)} className="text-gray-400 dark:text-gray-400 hover:text-black dark:hover:text-white transition-default" aria-label={t("New list")} title={t("New list")}>
                       <Plus size={13} />
                     </button>
                   )}
@@ -1179,7 +1185,7 @@ export default function DashboardClient({
               {showNewFolder && (
                 <form onSubmit={handleAddFolder} className="flex items-center gap-1 px-2.5 pb-1">
                   <Folder size={11} className="text-gray-400 flex-shrink-0" />
-                  <input autoFocus type="text" value={newFolderName} onChange={(e) => setNewFolderName(e.target.value)} onKeyDown={(e) => { if (e.key === "Escape") setShowNewFolder(false); }} placeholder="Folder name..." className="flex-1 text-sm bg-transparent border-b border-black/20 dark:border-white/20 pb-0.5 text-black dark:text-white placeholder:text-gray-400 focus:outline-none min-w-0" />
+                  <input autoFocus type="text" value={newFolderName} onChange={(e) => setNewFolderName(e.target.value)} onKeyDown={(e) => { if (e.key === "Escape") setShowNewFolder(false); }} placeholder={t("Folder name...")} className="flex-1 text-sm bg-transparent border-b border-black/20 dark:border-white/20 pb-0.5 text-black dark:text-white placeholder:text-gray-400 focus:outline-none min-w-0" />
                   <button type="submit" className="text-gray-400 hover:text-black dark:hover:text-white transition-default"><Check size={12} /></button>
                   <button type="button" onClick={() => setShowNewFolder(false)} className="text-gray-400 hover:text-black dark:hover:text-white transition-default"><X size={12} /></button>
                 </form>
@@ -1187,7 +1193,7 @@ export default function DashboardClient({
 
               {showNewList && (
                 <form onSubmit={handleAddList} className="flex items-center gap-1 px-2.5 pb-1">
-                  <input autoFocus type="text" value={newListName} onChange={(e) => setNewListName(e.target.value)} onKeyDown={(e) => { if (e.key === "Escape") setShowNewList(false); }} placeholder="List name..." className="flex-1 text-sm bg-transparent border-b border-black/20 dark:border-white/20 pb-0.5 text-black dark:text-white placeholder:text-gray-400 focus:outline-none min-w-0" />
+                  <input autoFocus type="text" value={newListName} onChange={(e) => setNewListName(e.target.value)} onKeyDown={(e) => { if (e.key === "Escape") setShowNewList(false); }} placeholder={t("List name...")} className="flex-1 text-sm bg-transparent border-b border-black/20 dark:border-white/20 pb-0.5 text-black dark:text-white placeholder:text-gray-400 focus:outline-none min-w-0" />
                   <button type="submit" className="text-gray-400 hover:text-black dark:hover:text-white transition-default"><Check size={12} /></button>
                   <button type="button" onClick={() => setShowNewList(false)} className="text-gray-400 hover:text-black dark:hover:text-white transition-default"><X size={12} /></button>
                 </form>
@@ -1252,17 +1258,17 @@ export default function DashboardClient({
             <div className="glass-card px-2 py-2 space-y-0.5">
               <button onClick={switchToEvents} className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-sm transition-default ${eventsView ? "glass-nav-active font-medium" : "text-black dark:text-white glass-nav-hover border border-transparent"}`}>
                 <CalendarRange size={14} className="flex-shrink-0" />
-                <span className="flex-1 text-left truncate">Projects</span>
+                <span className="flex-1 text-left truncate">{t("Projects")}</span>
               </button>
 
               <button onClick={switchToHabits} className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-sm transition-default ${habitsView ? "glass-nav-active font-medium" : "text-black dark:text-white glass-nav-hover border border-transparent"}`}>
                 <Repeat size={14} className="flex-shrink-0" />
-                <span className="flex-1 text-left truncate">Habits</span>
+                <span className="flex-1 text-left truncate">{t("Habits")}</span>
               </button>
 
               <button onClick={() => setShowTemplates(true)} className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-sm transition-default text-black dark:text-white glass-nav-hover border border-transparent">
                 <LayoutTemplate size={14} className="flex-shrink-0" />
-                <span className="flex-1 text-left truncate">Templates</span>
+                <span className="flex-1 text-left truncate">{t("Templates")}</span>
                 <span className="text-[11px] text-gray-400 font-mono">T</span>
               </button>
             </div>
@@ -1274,14 +1280,12 @@ export default function DashboardClient({
                 <button
                   onClick={switchToRules}
                   className="flex-1 text-left truncate opacity-50 hover:opacity-100 transition-default"
-                >
-                  Principles
-                </button>
+                >{t("Principles")}</button>
                 <button
                   onClick={() => setShowRuleInput((v) => !v)}
                   className="text-gray-400 hover:text-black dark:hover:text-white transition-default"
-                  aria-label="New principle"
-                  title="New principle (R)"
+                  aria-label={t("New principle")}
+                  title={t("New principle (R)")}
                 >
                   <Plus size={13} />
                 </button>
@@ -1315,7 +1319,7 @@ export default function DashboardClient({
                 </div>
               )}
               {rules.length === 0 && !showRuleInput && (
-                <p className="text-[11px] text-gray-600 text-center py-2">No principles yet</p>
+                <p className="text-[11px] text-gray-600 text-center py-2">{t("No principles yet")}</p>
               )}
             </div>
 
@@ -1325,7 +1329,7 @@ export default function DashboardClient({
               className="w-full flex items-center gap-2 px-3 py-1.5 rounded-xl text-sm transition-default text-black/40 dark:text-gray-600 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5"
             >
               <Clock size={13} className="flex-shrink-0" />
-              <span className="flex-1 text-left truncate text-xs">Time Tracking</span>
+              <span className="flex-1 text-left truncate text-xs">{t("Time Tracking")}</span>
               <ChevronRight size={11} className={`transition-transform ${showTimeStats ? "rotate-90" : ""}`} />
             </button>
             {showTimeStats && (
@@ -1346,7 +1350,7 @@ export default function DashboardClient({
               <button
                 onClick={() => setMobileSidebarOpen(true)}
                 className="md:hidden p-1.5 -ml-1.5 rounded-xl text-gray-400 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-default"
-                aria-label="Open menu"
+                aria-label={t("Open menu")}
               >
                 <Menu size={20} />
               </button>
@@ -1354,26 +1358,26 @@ export default function DashboardClient({
               <div className="display-inset inline-flex items-center gap-3 px-4 py-2 rounded-2xl">
                 <h2 className="text-2xl md:text-3xl font-bold text-white" style={{ textShadow: "0 2px 10px rgba(0,0,0,0.85), 0 1px 3px rgba(0,0,0,0.7)" }}>
                   {eventsView
-                    ? "Projects"
+                    ? t("Projects")
                     : rulesView
-                      ? "Principles"
+                      ? t("Principles")
                     : habitsView
-                      ? "Habits"
+                      ? t("Habits")
                       : calendarDates.length > 0
                         ? calendarDates.length === 1
-                          ? new Date(calendarDates[0] + "T00:00:00").toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })
-                          : `${calendarDates.length} days selected`
+                          ? new Date(calendarDates[0] + "T00:00:00").toLocaleDateString(formatLocale(), { weekday: "short", day: "numeric", month: "short" })
+                          : t("{n} days selected", { n: calendarDates.length })
                         : quickFilter === "today"
-                          ? "Today"
+                          ? t("Today")
                           : quickFilter === "thisWeek"
-                            ? "This Week"
+                            ? t("This Week")
                             : quickFilter === "overdue"
-                              ? "Overdue"
+                              ? t("Overdue")
                               : activeList
                                 ? activeList.name
                                 : activeFolder
                                   ? activeFolder.name
-                                  : "All Tasks"}
+                                  : t("All Tasks")}
                 </h2>
                 {activeList && !editingListId && (
                   <div className="flex items-center gap-1">
@@ -1381,7 +1385,7 @@ export default function DashboardClient({
                       <button
                         onClick={() => setShowListColorPicker((v) => !v)}
                         className="p-1.5 rounded-lg text-white/50 hover:text-white transition-default"
-                        aria-label="Change color"
+                        aria-label={t("Change color")}
                       >
                         {activeList.color ? (
                           <span className="w-3.5 h-3.5 rounded-full block" style={{ backgroundColor: activeList.color }} />
@@ -1396,14 +1400,14 @@ export default function DashboardClient({
                     <button
                       onClick={() => { setEditingListId(activeList.id); setEditListName(activeList.name); }}
                       className="p-1.5 rounded-lg text-white/50 hover:text-white transition-default"
-                      aria-label="Edit list"
+                      aria-label={t("Edit list")}
                     >
                       <Edit2 size={16} />
                     </button>
                     <button
                       onClick={() => { deleteList(activeList.id); switchToAllTasks(); }}
                       className="p-1.5 rounded-lg text-white/50 hover:text-red-400 transition-default"
-                      aria-label="Delete list"
+                      aria-label={t("Delete list")}
                     >
                       <Trash2 size={16} />
                     </button>
@@ -1428,7 +1432,7 @@ export default function DashboardClient({
                 )}
                 <div className="flex items-center gap-3 text-sm text-black/50 dark:text-gray-400">
                   {eventsView ? (
-                    <span>{events.length} project{events.length !== 1 ? "s" : ""}</span>
+                    <span>{t(events.length === 1 ? "{n} project" : "{n} projects", { n: events.length })}</span>
                   ) : habitsView ? (
                     <span>
                       {todaysHabits.filter((h) => h.completedToday).length}/
@@ -1436,9 +1440,9 @@ export default function DashboardClient({
                     </span>
                   ) : (
                     <>
-                      <span>{activeTodoCount} active</span>
+                      <span>{t("{n} active", { n: activeTodoCount })}</span>
                       {completedTodoCount > 0 && (
-                        <span>{completedTodoCount} done</span>
+                        <span>{t("{n} done", { n: completedTodoCount })}</span>
                       )}
                     </>
                   )}
@@ -1455,9 +1459,9 @@ export default function DashboardClient({
                     ? "glass-card-subtle text-black dark:text-white"
                     : "text-gray-400 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10"
                 }`}
-                aria-label="Toggle calendar panel"
+                aria-label={t("Toggle calendar panel")}
                 aria-pressed={showCalendar}
-                title="Calendar (C)"
+                title={t("Calendar (C)")}
               >
                 <CalendarDays size={16} />
               </button>
@@ -1468,25 +1472,25 @@ export default function DashboardClient({
                     ? "glass-card-subtle text-black dark:text-white"
                     : "text-gray-400 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10"
                 }`}
-                aria-label="Toggle week planner"
+                aria-label={t("Toggle week planner")}
                 aria-pressed={showScheduleWeek}
-                title="Week planner (S)"
+                title={t("Week planner (S)")}
               >
                 <CalendarRange size={16} />
               </button>
               <button
                 onClick={() => setShowTemplates(true)}
                 className="p-2 rounded-xl text-gray-400 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-default"
-                aria-label="Open templates"
-                title="Templates (T)"
+                aria-label={t("Open templates")}
+                title={t("Templates (T)")}
               >
                 <LayoutTemplate size={16} />
               </button>
               <button
                 onClick={() => setShowShortcuts(true)}
                 className="hidden md:flex p-2 rounded-xl text-gray-400 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-default"
-                aria-label="Show keyboard shortcuts"
-                title="Keyboard shortcuts (?)"
+                aria-label={t("Show keyboard shortcuts")}
+                title={t("Keyboard shortcuts (?)")}
               >
                 <Keyboard size={16} />
               </button>
@@ -1505,7 +1509,7 @@ export default function DashboardClient({
                 />
               </div>
               <div className="flex items-center justify-between mt-1">
-                <span className="text-[11px] text-black/50 dark:text-gray-400">{completedTodoCount}/{totalTodoCount} completed</span>
+                <span className="text-[11px] text-black/50 dark:text-gray-400">{t("{done}/{total} completed", { done: completedTodoCount, total: totalTodoCount })}</span>
                 <span className="text-[11px] text-black/50 dark:text-gray-400">{Math.round(progressPct)}%</span>
               </div>
             </div>
@@ -1546,9 +1550,7 @@ export default function DashboardClient({
                   ? "bg-black dark:bg-white text-white"
                   : "text-black dark:text-white border border-black/15 dark:border-white/15"
               }`}
-            >
-              All
-            </button>
+            >{t("All")}</button>
             <button
               onClick={switchToOverdue}
               className={`flex-shrink-0 text-sm px-4 py-2 rounded-full font-medium transition-default ${
@@ -1556,9 +1558,7 @@ export default function DashboardClient({
                   ? "bg-black dark:bg-white text-white"
                   : "text-black dark:text-white border border-black/15 dark:border-white/15"
               }`}
-            >
-              Overdue
-            </button>
+            >{t("Overdue")}</button>
             <button
               onClick={switchToToday}
               className={`flex-shrink-0 text-sm px-4 py-2 rounded-full font-medium transition-default ${
@@ -1566,9 +1566,7 @@ export default function DashboardClient({
                   ? "bg-black dark:bg-white text-white"
                   : "text-black dark:text-white border border-black/15 dark:border-white/15"
               }`}
-            >
-              Today
-            </button>
+            >{t("Today")}</button>
             <button
               onClick={switchToThisWeek}
               className={`flex-shrink-0 text-sm px-4 py-2 rounded-full font-medium transition-default ${
@@ -1576,9 +1574,7 @@ export default function DashboardClient({
                   ? "bg-black dark:bg-white text-white"
                   : "text-black dark:text-white border border-black/15 dark:border-white/15"
               }`}
-            >
-              This Week
-            </button>
+            >{t("This Week")}</button>
             <button
               onClick={switchToEvents}
               className={`flex-shrink-0 text-sm px-4 py-2 rounded-full font-medium transition-default ${
@@ -1586,9 +1582,7 @@ export default function DashboardClient({
                   ? "bg-black dark:bg-white text-white"
                   : "text-black dark:text-white border border-black/15 dark:border-white/15"
               }`}
-            >
-              Projects
-            </button>
+            >{t("Projects")}</button>
             <button
               onClick={switchToHabits}
               className={`flex-shrink-0 text-sm px-4 py-2 rounded-full font-medium transition-default ${
@@ -1596,15 +1590,11 @@ export default function DashboardClient({
                   ? "bg-black dark:bg-white text-white"
                   : "text-black dark:text-white border border-black/15 dark:border-white/15"
               }`}
-            >
-              Habits
-            </button>
+            >{t("Habits")}</button>
             <button
               onClick={() => setFocusMode(true)}
               className="flex-shrink-0 text-sm px-4 py-2 rounded-full font-medium transition-default text-black dark:text-white border border-black/15 dark:border-white/15"
-            >
-              Focus
-            </button>
+            >{t("Focus")}</button>
             {lists.map((list) => (
               <button
                 key={list.id}
@@ -1806,7 +1796,7 @@ export default function DashboardClient({
       {/* Confirm event deletion */}
       <ConfirmDialog
         open={deleteEventId !== null}
-        title="Delete project"
+        title={t("Delete project")}
         message={`Are you sure you want to delete "${deleteEventTitle}" and all its tasks? This cannot be undone.`}
         onConfirm={confirmDeleteEvent}
         onCancel={() => setDeleteEventId(null)}
@@ -1828,8 +1818,8 @@ export default function DashboardClient({
         <button
           onClick={() => setFocusMode(true)}
           className="md:hidden fixed bottom-4 right-16 z-50 flex items-center justify-center w-11 h-11 rounded-full glass-card-subtle text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white transition-all"
-          aria-label="Enter focus mode"
-          title="Focus Mode"
+          aria-label={t("Enter focus mode")}
+          title={t("Focus Mode")}
         >
           <Target size={18} />
         </button>

@@ -150,7 +150,7 @@ export default function MobileSidebar({
               </button>
             )}
 
-            {/* Events */}
+            {/* Projects */}
             {onSwitchToEvents && (
               <button
                 onClick={() => handleNav(onSwitchToEvents)}
@@ -161,7 +161,7 @@ export default function MobileSidebar({
                 }`}
               >
                 <CalendarRange size={16} />
-                Events
+                Projects
               </button>
             )}
 
@@ -178,7 +178,7 @@ export default function MobileSidebar({
               Habits
             </button>
 
-            {/* Rules */}
+            {/* Principles */}
             {onSwitchToRules && (
               <button
                 onClick={() => handleNav(onSwitchToRules)}
@@ -189,7 +189,7 @@ export default function MobileSidebar({
                 }`}
               >
                 <Shield size={16} />
-                Rules
+                Principles
               </button>
             )}
 

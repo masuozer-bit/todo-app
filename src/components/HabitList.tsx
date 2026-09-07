@@ -29,6 +29,8 @@ function SortableHabitItem({
   onToggle,
   onUpdate,
   onDelete,
+  onSkip,
+  scheduledToday,
   highlighted,
 }: {
   habit: HabitWithStatus;
@@ -49,6 +51,8 @@ function SortableHabitItem({
     }
   ) => void;
   onDelete: (id: string) => void;
+  onSkip?: (id: string) => void;
+  scheduledToday?: boolean;
   highlighted?: boolean;
 }) {
   const {
@@ -74,6 +78,8 @@ function SortableHabitItem({
         onToggle={onToggle}
         onUpdate={onUpdate}
         onDelete={onDelete}
+        onSkip={onSkip}
+        scheduledToday={scheduledToday}
         dragHandleProps={{ ...attributes, ...listeners }}
         isDragging={isDragging}
         highlighted={highlighted}
@@ -83,7 +89,10 @@ function SortableHabitItem({
 }
 
 interface HabitListProps {
+  /** All habits — the list splits them into due today and the rest */
   habits: HabitWithStatus[];
+  /** IDs of the habits scheduled for today (and not skipped) */
+  todayHabitIds?: string[];
   completions?: HabitCompletion[];
   lists?: List[];
   onToggle: (habitId: string) => void;
@@ -109,6 +118,7 @@ interface HabitListProps {
 
 export default function HabitList({
   habits,
+  todayHabitIds,
   completions = [],
   lists = [],
   onToggle,
@@ -130,17 +140,30 @@ export default function HabitList({
     })
   );
 
-  const completedCount = habits.filter((h) => h.completedToday).length;
-  const totalCount = habits.length;
+  // Only today's habits count towards today's progress
+  const todaySet = new Set(todayHabitIds ?? habits.map((h) => h.id));
+  const dueToday = habits.filter((h) => todaySet.has(h.id));
+  const notToday = habits.filter((h) => !todaySet.has(h.id));
+
+  const completedCount = dueToday.filter((h) => h.completedToday).length;
+  const totalCount = dueToday.length;
   const progressPct = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
 
-  function handleDragEnd(event: DragEndEvent) {
+  /* Reordering inside a group keeps the other group where it is */
+  function reorderWithin(group: HabitWithStatus[], inToday: boolean, event: DragEndEvent) {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
-    const oldIndex = habits.findIndex((h) => h.id === active.id);
-    const newIndex = habits.findIndex((h) => h.id === over.id);
-    const reordered = arrayMove(habits, oldIndex, newIndex);
-    onReorder(reordered);
+    const oldIndex = group.findIndex((h) => h.id === active.id);
+    const newIndex = group.findIndex((h) => h.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+    const moved = arrayMove(group, oldIndex, newIndex);
+    const positions: number[] = [];
+    habits.forEach((h, i) => {
+      if (todaySet.has(h.id) === inToday) positions.push(i);
+    });
+    const next = [...habits];
+    positions.forEach((pos, idx) => { next[pos] = moved[idx]; });
+    onReorder(next);
   }
 
   if (loading) {
@@ -195,31 +218,76 @@ export default function HabitList({
           </p>
         </div>
       ) : (
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragEnd={handleDragEnd}
-        >
-          <SortableContext
-            items={habits.map((h) => h.id)}
-            strategy={verticalListSortingStrategy}
-          >
-            <div className="space-y-2">
-              {habits.map((habit) => (
-                <SortableHabitItem
-                  key={habit.id}
-                  habit={habit}
-                  completions={completions.filter((c) => c.habit_id === habit.id)}
-                  lists={lists}
-                  onToggle={onToggle}
-                  onUpdate={onUpdate}
-                  onDelete={(id) => setDeleteId(id)}
-                  highlighted={highlightedHabitId === habit.id}
-                />
-              ))}
+        <div className="space-y-6">
+          {dueToday.length > 0 && (
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-black/40 dark:text-gray-500 font-medium mb-2">
+                Today
+              </p>
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={(e) => reorderWithin(dueToday, true, e)}
+              >
+                <SortableContext
+                  items={dueToday.map((h) => h.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <div className="space-y-2">
+                    {dueToday.map((habit) => (
+                      <SortableHabitItem
+                        key={habit.id}
+                        habit={habit}
+                        completions={completions.filter((c) => c.habit_id === habit.id)}
+                        lists={lists}
+                        onToggle={onToggle}
+                        onUpdate={onUpdate}
+                        onDelete={(id) => setDeleteId(id)}
+                        onSkip={onSkip}
+                        highlighted={highlightedHabitId === habit.id}
+                      />
+                    ))}
+                  </div>
+                </SortableContext>
+              </DndContext>
             </div>
-          </SortableContext>
-        </DndContext>
+          )}
+
+          {notToday.length > 0 && (
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-black/40 dark:text-gray-500 font-medium mb-2">
+                Not today
+              </p>
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={(e) => reorderWithin(notToday, false, e)}
+              >
+                <SortableContext
+                  items={notToday.map((h) => h.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <div className="space-y-2 opacity-70">
+                    {notToday.map((habit) => (
+                      <SortableHabitItem
+                        key={habit.id}
+                        habit={habit}
+                        completions={completions.filter((c) => c.habit_id === habit.id)}
+                        lists={lists}
+                        onToggle={onToggle}
+                        onUpdate={onUpdate}
+                        onDelete={(id) => setDeleteId(id)}
+                        onSkip={onSkip}
+                        scheduledToday={false}
+                        highlighted={highlightedHabitId === habit.id}
+                      />
+                    ))}
+                  </div>
+                </SortableContext>
+              </DndContext>
+            </div>
+          )}
+        </div>
       )}
 
       {/* Delete choice dialog */}

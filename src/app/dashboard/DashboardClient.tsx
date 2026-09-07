@@ -31,6 +31,7 @@ import { useEvents } from "@/hooks/useEvents";
 import { useRules } from "@/hooks/useRules";
 import { useTemplates } from "@/hooks/useTemplates";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
+import { useDashboardView } from "@/hooks/useDashboardView";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { useTheme } from "@/components/ThemeProvider";
 import LavaLampBackground from "@/components/LavaLampBackground";
@@ -52,10 +53,10 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Plus, Inbox, Trash2, Edit2, Check, X, Repeat, Menu, Sun, CalendarDays, CalendarRange, Target, AlertCircle, FolderPlus, Folder, Shield, Palette, Clock, ChevronRight, LayoutTemplate } from "lucide-react";
+import { Plus, Inbox, Trash2, Edit2, Check, X, Repeat, Menu, Sun, CalendarDays, CalendarRange, Target, AlertCircle, FolderPlus, Folder, Shield, Palette, Clock, ChevronRight, LayoutTemplate, Keyboard } from "lucide-react";
 import { getToday } from "@/lib/date-helpers";
 import { fetchCalendarEvents } from "@/lib/calendar-sync-client";
-import type { List as ListType, Folder as FolderType } from "@/lib/types";
+import type { List as ListType, Folder as FolderType, Todo } from "@/lib/types";
 
 type Urgency = "overdue" | "today" | "soon" | "normal";
 const URGENCY_STYLE: Record<Urgency, React.CSSProperties> = {
@@ -308,8 +309,6 @@ export default function DashboardClient({
   email?: string;
   serverTheme?: "light" | "dark" | null;
 }) {
-  const [activeListId, setActiveListId] = useState<string | null>(null);
-  const [activeFolderId, setActiveFolderId] = useState<string | null>(null);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [newListName, setNewListName] = useState("");
   const [showNewList, setShowNewList] = useState(false);
@@ -320,8 +319,6 @@ export default function DashboardClient({
   const [newFolderName, setNewFolderName] = useState("");
   const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
   const [editFolderName, setEditFolderName] = useState("");
-  const [calendarDates, setCalendarDates] = useState<string[]>([]);
-  const [habitsView, setHabitsView] = useState(false);
   const [showHabitsInTasks, setShowHabitsInTasks] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
     try { return localStorage.getItem("showHabitsInTasks") === "true"; } catch { return false; }
@@ -330,11 +327,12 @@ export default function DashboardClient({
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [highlightedTodoId, setHighlightedTodoId] = useState<string | null>(null);
   const [highlightedHabitId, setHighlightedHabitId] = useState<string | null>(null);
-  const [quickFilter, setQuickFilter] = useState<"overdue" | "today" | "thisWeek" | null>("today");
-  const [eventsView, setEventsView] = useState(false);
-  const [rulesView, setRulesView] = useState(false);
   const [showRuleInput, setShowRuleInput] = useState(false);
-  const [liveTaskId, setLiveTaskId] = useState<string | null>(null);
+  // The running timer survives a reload
+  const [liveTaskId, setLiveTaskId] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    try { return localStorage.getItem("liveTaskId"); } catch { return null; }
+  });
   const [showTimeStats, setShowTimeStats] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
   const [showScheduleWeek, setShowScheduleWeek] = useState(false);
@@ -351,6 +349,22 @@ export default function DashboardClient({
     try { return localStorage.getItem("showTaskBar") !== "false"; } catch { return true; }
   });
   const { toggleTheme, theme, tint, lavaLamp, lavaColor, lavaOpacity, syncServerTheme } = useTheme();
+
+  // The active view comes from the URL: back button, reload and deep links
+  // all work, and switching views costs no server roundtrip
+  const { view, navigate } = useDashboardView();
+  const activeListId = view.listId;
+  const activeFolderId = view.folderId;
+  const calendarDates = view.dates;
+  const habitsView = view.kind === "habits";
+  const eventsView = view.kind === "events";
+  const rulesView = view.kind === "rules";
+  const quickFilter: "overdue" | "today" | "thisWeek" | null =
+    view.kind === "today" ? "today"
+    : view.kind === "week" ? "thisWeek"
+    : view.kind === "overdue" ? "overdue"
+    : null;
+  const openEventDetailId = view.eventId;
   const { showToast } = useToast();
 
   // Mobile detection
@@ -441,16 +455,29 @@ export default function DashboardClient({
   usePushNotifications(todos);
 
 
-  // Assign todo to event — inherit the event's list_id
+  // Assign todo to event — the event's list is only inherited when the task
+  // has none of its own; otherwise the move is offered, never forced
   const handleAssignTodoToEvent = useCallback(
     async (todoId: string, eventId: string | null) => {
-      // When assigning to an event, apply the event's list_id to the task too
       const targetEvent = eventId ? events.find((e) => e.id === eventId) : null;
-      // Only pass listId (to overwrite) when assigning TO an event; leave undefined when removing
-      const listId = targetEvent ? targetEvent.list_id : undefined;
-      await assignTodoToEvent(todoId, eventId, listId);
+      const todo = todos.find((t) => t.id === todoId);
+      const eventListId = targetEvent?.list_id ?? null;
+      const inherits = !!targetEvent && !!eventListId && !todo?.list_id;
+
+      await assignTodoToEvent(todoId, eventId, inherits ? eventListId : undefined);
+
+      if (targetEvent && eventListId && todo?.list_id && todo.list_id !== eventListId) {
+        const eventListName = lists.find((l) => l.id === eventListId)?.name ?? "the event's list";
+        showToast({
+          message: `Task kept its own list`,
+          action: {
+            label: `Move to ${eventListName}`,
+            onClick: () => updateTodo(todoId, { list_id: eventListId }),
+          },
+        });
+      }
     },
-    [assignTodoToEvent, events]
+    [assignTodoToEvent, events, todos, lists, updateTodo, showToast]
   );
 
   // Add task directly to an event — a normal task with an event_id
@@ -499,18 +526,16 @@ export default function DashboardClient({
   );
 
   // Open event detail from any view (list, today, this-week…)
-  const [openEventDetailId, setOpenEventDetailId] = useState<string | null>(null);
-
-  const handleOpenEventDetail = useCallback((eventId: string) => {
-    switchToEvents();
-    setOpenEventDetailId(eventId);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const handleOpenEventDetail = useCallback(
+    (eventId: string) => navigate({ kind: "events", eventId }),
+    [navigate]
+  );
 
   // Delete event — show confirm dialog first
   const [deleteEventId, setDeleteEventId] = useState<string | null>(null);
   const deleteEventTitle = deleteEventId
-    ? (events.find((e) => e.id === deleteEventId)?.title ?? "this event")
-    : "this event";
+    ? (events.find((e) => e.id === deleteEventId)?.title ?? "this project")
+    : "this project";
 
   const handleDeleteEvent = useCallback((id: string) => {
     setDeleteEventId(id);
@@ -539,13 +564,7 @@ export default function DashboardClient({
 
   // Bring a task on screen no matter which view is active
   const revealTodo = useCallback((todoId: string) => {
-    setHabitsView(false);
-    setEventsView(false);
-    setRulesView(false);
-    setActiveListId(null);
-    setActiveFolderId(null);
-    setCalendarDates([]);
-    setQuickFilter(null);
+    navigate({ kind: "all", listId: null, folderId: null, dates: [] });
     setHighlightedTodoId(todoId);
     setTimeout(() => {
       document
@@ -553,7 +572,7 @@ export default function DashboardClient({
         ?.scrollIntoView({ behavior: "smooth", block: "center" });
       setTimeout(() => setHighlightedTodoId(null), 2500);
     }, 150);
-  }, []);
+  }, [navigate]);
 
   /* Would a task with this date and list show up in the view we are looking at? */
   const isVisibleHere = useCallback(
@@ -609,6 +628,31 @@ export default function DashboardClient({
     [addTodo, activeListId, isVisibleHere, revealTodo, showToast]
   );
 
+  // Turn a task into a reusable template
+  const handleSaveAsTemplate = useCallback(
+    (todo: Todo) => {
+      addTemplate({
+        name: todo.title,
+        type: "task",
+        data: {
+          title: todo.title,
+          priority: todo.priority,
+          estimated_time: todo.estimated_time ?? null,
+          list_id: todo.list_id ?? null,
+          notes: todo.notes ?? null,
+          start_time: todo.start_time ?? null,
+          end_time: todo.end_time ?? null,
+          subtasks: (todo.subtasks ?? []).map((s) => s.title),
+        },
+      });
+      showToast({
+        message: `Saved "${todo.title}" as a template`,
+        action: { label: "Open", onClick: () => setShowTemplates(true) },
+      });
+    },
+    [addTemplate, showToast]
+  );
+
   // Completing a task is undoable too
   const handleToggleTodo = useCallback(
     (id: string, completed: boolean) => {
@@ -653,10 +697,15 @@ export default function DashboardClient({
       try { localStorage.setItem("showTaskBar", String(next)); } catch {}
       return next;
     }),
+    // Escape closes what is open — it must not make the input bar disappear
     onEscape: () => {
-      setShowBar(false);
-      try { localStorage.setItem("showTaskBar", "false"); } catch {}
+      setShowShortcuts(false);
+      setShowTemplates(false);
+      setShowScheduleWeek(false);
+      setMobileSidebarOpen(false);
+      setShowRuleInput(false);
     },
+    enabled: !showTemplates && !showShortcuts && !showScheduleWeek && !mobileSidebarOpen,
   });
 
   // Keep a ref to refetchTodos so the calendar sync effect always has the latest version
@@ -766,6 +815,13 @@ export default function DashboardClient({
     setLiveTaskId(todoId);
   }, []);
 
+  useEffect(() => {
+    try {
+      if (liveTaskId) localStorage.setItem("liveTaskId", liveTaskId);
+      else localStorage.removeItem("liveTaskId");
+    } catch { /* ignore */ }
+  }, [liveTaskId]);
+
   const handleSaveLiveTime = useCallback((todoId: string, totalSeconds: number) => {
     updateTodo(todoId, { time_spent: totalSeconds });
   }, [updateTodo]);
@@ -828,128 +884,39 @@ export default function DashboardClient({
     }
   }, [addTodo, updateTodo, addSubtask, addEvent]);
 
-  function switchToRules() {
-    setRulesView(true);
-    setHabitsView(false);
-    setEventsView(false);
-    setActiveListId(null);
-    setActiveFolderId(null);
-    setCalendarDates([]);
-    setQuickFilter(null);
-  }
+  const switchToRules = useCallback(() => navigate({ kind: "rules" }), [navigate]);
+  const switchToHabits = useCallback(() => navigate({ kind: "habits" }), [navigate]);
+  const switchToEvents = useCallback(() => navigate({ kind: "events" }), [navigate]);
+  const switchToAllTasks = useCallback(
+    () => navigate({ kind: "all", listId: null, folderId: null, dates: [] }),
+    [navigate]
+  );
+  const switchToList = useCallback(
+    (listId: string) => navigate({ kind: "all", listId, folderId: null, dates: [] }),
+    [navigate]
+  );
+  const switchToFolder = useCallback(
+    (folderId: string) => navigate({ kind: "all", folderId, listId: null, dates: [] }),
+    [navigate]
+  );
+  const switchToToday = useCallback(() => navigate({ kind: "today" }), [navigate]);
+  const switchToThisWeek = useCallback(() => navigate({ kind: "week" }), [navigate]);
+  const switchToOverdue = useCallback(() => navigate({ kind: "overdue" }), [navigate]);
 
-  function switchToHabits() {
-    setHabitsView(true);
-    setEventsView(false);
-    setRulesView(false);
-    setActiveListId(null);
-    setActiveFolderId(null);
-    setCalendarDates([]);
-    setQuickFilter(null);
-  }
+  const handleCalendarDatesChange = useCallback(
+    (dates: string[]) => navigate({ kind: "all", dates }),
+    [navigate]
+  );
 
-  function switchToEvents() {
-    setEventsView(true);
-    setHabitsView(false);
-    setRulesView(false);
-    setActiveListId(null);
-    setActiveFolderId(null);
-    setCalendarDates([]);
-    setQuickFilter(null);
-  }
+  const handleTimelineTodoClick = useCallback((todoId: string) => {
+    revealTodo(todoId);
+  }, [revealTodo]);
 
-  function switchToAllTasks() {
-    setHabitsView(false);
-    setEventsView(false);
-    setRulesView(false);
-    setActiveListId(null);
-    setActiveFolderId(null);
-    setQuickFilter(null);
-  }
-
-  function switchToList(listId: string) {
-    setHabitsView(false);
-    setEventsView(false);
-    setRulesView(false);
-    setActiveListId(listId);
-    setActiveFolderId(null);
-    setQuickFilter(null);
-  }
-
-  function switchToFolder(folderId: string) {
-    setActiveFolderId(folderId);
-    setActiveListId(null);
-    setHabitsView(false);
-    setEventsView(false);
-    setRulesView(false);
-    setQuickFilter(null);
-    setCalendarDates([]);
-  }
-
-  function handleCalendarDatesChange(dates: string[]) {
-    setCalendarDates(dates);
-    if (dates.length > 0) setQuickFilter(null);
-  }
-
-  function switchToToday() {
-    setHabitsView(false);
-    setEventsView(false);
-    setRulesView(false);
-    setActiveListId(null);
-    setActiveFolderId(null);
-    setQuickFilter("today");
-    setCalendarDates([]);
-  }
-
-  function switchToThisWeek() {
-    setHabitsView(false);
-    setEventsView(false);
-    setRulesView(false);
-    setActiveListId(null);
-    setActiveFolderId(null);
-    setQuickFilter("thisWeek");
-    setCalendarDates([]);
-  }
-
-  function switchToOverdue() {
-    setHabitsView(false);
-    setEventsView(false);
-    setRulesView(false);
-    setActiveListId(null);
-    setActiveFolderId(null);
-    setQuickFilter("overdue");
-    setCalendarDates([]);
-  }
-
-  function handleTimelineTodoClick(todoId: string) {
-    // Switch to "all tasks" view so the todo is visible, then scroll to it
-    setHabitsView(false);
-    setEventsView(false);
-    setActiveListId(null);
-    setActiveFolderId(null);
-    setCalendarDates([]);
-    setQuickFilter(null);
-    setHighlightedTodoId(todoId);
-    // Scroll to the todo after the view updates
-    setTimeout(() => {
-      const el = document.querySelector(`[data-todo-id="${todoId}"]`);
-      el?.scrollIntoView({ behavior: "smooth", block: "center" });
-      // Clear highlight after a moment
-      setTimeout(() => setHighlightedTodoId(null), 2000);
-    }, 150);
-  }
-
-  function handleTimelineHabitClick(habitId: string) {
-    // Switch to habits view and highlight the habit via React state
-    setHabitsView(true);
-    setEventsView(false);
-    setActiveListId(null);
-    setActiveFolderId(null);
-    setCalendarDates([]);
-    setQuickFilter(null);
+  const handleTimelineHabitClick = useCallback((habitId: string) => {
+    navigate({ kind: "habits" });
     setHighlightedHabitId(habitId);
     setTimeout(() => setHighlightedHabitId(null), 2200);
-  }
+  }, [navigate]);
 
   async function handleAddFolder(e: React.FormEvent) {
     e.preventDefault();
@@ -1146,6 +1113,7 @@ export default function DashboardClient({
         lists={lists}
         events={eventsWithTodos}
         onExitFocusMode={() => setFocusMode(false)}
+        onCreateTag={addTag}
         {...focusModeHandlers}
       />
     )}
@@ -1263,7 +1231,7 @@ export default function DashboardClient({
                       onCancelEdit={() => setEditingFolderId(null)}
                       onDelete={() => {
                         deleteFolder(folder.id, () => unassignFolder(folder.id));
-                        if (activeFolderId === folder.id) setActiveFolderId(null);
+                        if (activeFolderId === folder.id) switchToAllTasks();
                       }}
                       badges={taskCounts.folderBadges[folder.id] ?? { overdue: 0, today: 0, thisWeek: 0 }}
                       activeListId={activeListId}
@@ -1284,7 +1252,7 @@ export default function DashboardClient({
             <div className="glass-card px-2 py-2 space-y-0.5">
               <button onClick={switchToEvents} className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-sm transition-default ${eventsView ? "glass-nav-active font-medium" : "text-black dark:text-white glass-nav-hover border border-transparent"}`}>
                 <CalendarRange size={14} className="flex-shrink-0" />
-                <span className="flex-1 text-left truncate">Events</span>
+                <span className="flex-1 text-left truncate">Projects</span>
               </button>
 
               <button onClick={switchToHabits} className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-sm transition-default ${habitsView ? "glass-nav-active font-medium" : "text-black dark:text-white glass-nav-hover border border-transparent"}`}>
@@ -1303,7 +1271,20 @@ export default function DashboardClient({
             <div className="glass-card px-2 py-2 space-y-1">
               <div className="flex items-center gap-2 px-2.5 py-1 text-sm text-black dark:text-white">
                 <Shield size={14} className="flex-shrink-0 opacity-50" />
-                <span className="flex-1 text-left truncate opacity-50">Rules</span>
+                <button
+                  onClick={switchToRules}
+                  className="flex-1 text-left truncate opacity-50 hover:opacity-100 transition-default"
+                >
+                  Principles
+                </button>
+                <button
+                  onClick={() => setShowRuleInput((v) => !v)}
+                  className="text-gray-400 hover:text-black dark:hover:text-white transition-default"
+                  aria-label="New principle"
+                  title="New principle (R)"
+                >
+                  <Plus size={13} />
+                </button>
               </div>
               {showRuleInput && (
                 <div className="px-1 pb-1 border-b border-white/[0.06] mb-1">
@@ -1334,7 +1315,7 @@ export default function DashboardClient({
                 </div>
               )}
               {rules.length === 0 && !showRuleInput && (
-                <p className="text-[10px] text-gray-600 text-center py-2">Press R to add a rule</p>
+                <p className="text-[10px] text-gray-600 text-center py-2">No principles yet</p>
               )}
             </div>
 
@@ -1373,7 +1354,9 @@ export default function DashboardClient({
               <div className="display-inset inline-flex items-center gap-3 px-4 py-2 rounded-2xl">
                 <h2 className="text-2xl md:text-3xl font-bold text-white" style={{ textShadow: "0 2px 10px rgba(0,0,0,0.85), 0 1px 3px rgba(0,0,0,0.7)" }}>
                   {eventsView
-                    ? "Events"
+                    ? "Projects"
+                    : rulesView
+                      ? "Principles"
                     : habitsView
                       ? "Habits"
                       : calendarDates.length > 0
@@ -1418,7 +1401,7 @@ export default function DashboardClient({
                       <Edit2 size={16} />
                     </button>
                     <button
-                      onClick={() => { deleteList(activeList.id); setActiveListId(null); }}
+                      onClick={() => { deleteList(activeList.id); switchToAllTasks(); }}
                       className="p-1.5 rounded-lg text-white/50 hover:text-red-400 transition-default"
                       aria-label="Delete list"
                     >
@@ -1445,7 +1428,7 @@ export default function DashboardClient({
                 )}
                 <div className="flex items-center gap-3 text-sm text-black/50 dark:text-gray-400">
                   {eventsView ? (
-                    <span>{events.length} event{events.length !== 1 ? "s" : ""}</span>
+                    <span>{events.length} project{events.length !== 1 ? "s" : ""}</span>
                   ) : habitsView ? (
                     <span>
                       {todaysHabits.filter((h) => h.completedToday).length}/
@@ -1461,6 +1444,52 @@ export default function DashboardClient({
                   )}
                 </div>
               </div>
+            </div>
+
+            {/* Toolbar — every shortcut also has a button */}
+            <div className="flex items-center gap-1 flex-shrink-0">
+              <button
+                onClick={() => setShowCalendar((prev) => !prev)}
+                className={`hidden md:flex p-2 rounded-xl transition-default ${
+                  showCalendar
+                    ? "glass-card-subtle text-black dark:text-white"
+                    : "text-gray-400 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10"
+                }`}
+                aria-label="Toggle calendar panel"
+                aria-pressed={showCalendar}
+                title="Calendar (C)"
+              >
+                <CalendarDays size={16} />
+              </button>
+              <button
+                onClick={() => setShowScheduleWeek((prev) => !prev)}
+                className={`hidden md:flex p-2 rounded-xl transition-default ${
+                  showScheduleWeek
+                    ? "glass-card-subtle text-black dark:text-white"
+                    : "text-gray-400 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10"
+                }`}
+                aria-label="Toggle week planner"
+                aria-pressed={showScheduleWeek}
+                title="Week planner (S)"
+              >
+                <CalendarRange size={16} />
+              </button>
+              <button
+                onClick={() => setShowTemplates(true)}
+                className="p-2 rounded-xl text-gray-400 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-default"
+                aria-label="Open templates"
+                title="Templates (T)"
+              >
+                <LayoutTemplate size={16} />
+              </button>
+              <button
+                onClick={() => setShowShortcuts(true)}
+                className="hidden md:flex p-2 rounded-xl text-gray-400 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-default"
+                aria-label="Show keyboard shortcuts"
+                title="Keyboard shortcuts (?)"
+              >
+                <Keyboard size={16} />
+              </button>
             </div>
 
           </div>
@@ -1484,12 +1513,16 @@ export default function DashboardClient({
 
 
           {/* Input */}
-          {(eventsView || habitsView || showBar) && (
+          {(eventsView || habitsView || rulesView || showBar) && (
             <div className="mb-4">
               {eventsView ? (
                 <EventInput onAdd={addEvent} lists={lists} />
               ) : habitsView ? (
                 <HabitInput onAdd={addHabit} lists={lists} />
+              ) : rulesView ? (
+                <div className="glass-card p-4">
+                  <RuleInput onAdd={(title, desc, cat) => addRule(title, desc, cat)} lists={lists} />
+                </div>
               ) : (
                 <TodoInput
                   onAdd={handleAddTodo}
@@ -1554,7 +1587,7 @@ export default function DashboardClient({
                   : "text-black dark:text-white border border-black/15 dark:border-white/15"
               }`}
             >
-              Events
+              Projects
             </button>
             <button
               onClick={switchToHabits}
@@ -1608,11 +1641,20 @@ export default function DashboardClient({
               onAssignEvent={handleAssignTodoToEvent}
               onReorderEvents={reorderEvents}
               defaultSelectedEventId={openEventDetailId}
-              onDefaultEventHandled={() => setOpenEventDetailId(null)}
+              onDefaultEventHandled={() => navigate({ kind: "events", eventId: null })}
+            />
+          ) : rulesView ? (
+            <RuleList
+              rules={rules}
+              loading={rulesLoading}
+              onUpdate={updateRule}
+              onDelete={deleteRule}
+              onReorder={reorderRules}
             />
           ) : habitsView ? (
             <HabitList
-              habits={todaysHabits}
+              habits={habits}
+              todayHabitIds={todaysHabits.map((h) => h.id)}
               completions={habitCompletions}
               lists={lists}
               onToggle={toggleCompletion}
@@ -1637,6 +1679,7 @@ export default function DashboardClient({
               onToggleSubtask={toggleSubtask}
               onDeleteSubtask={deleteSubtask}
               onCreateTag={addTag}
+              onSaveAsTemplate={handleSaveAsTemplate}
               loading={todosLoading}
               loadError={todosLoadError}
               onRetry={refetchTodos}
@@ -1709,7 +1752,7 @@ export default function DashboardClient({
       {showScheduleWeek && (
         <ScheduleWeekModal
           todos={todos}
-          habits={todaysHabits}
+          habits={habits}
           lists={lists}
           events={eventsWithTodos}
           onTodoClick={handleTimelineTodoClick}
@@ -1761,7 +1804,7 @@ export default function DashboardClient({
       {/* Confirm event deletion */}
       <ConfirmDialog
         open={deleteEventId !== null}
-        title="Delete event"
+        title="Delete project"
         message={`Are you sure you want to delete "${deleteEventTitle}" and all its tasks? This cannot be undone.`}
         onConfirm={confirmDeleteEvent}
         onCancel={() => setDeleteEventId(null)}

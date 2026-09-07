@@ -19,6 +19,7 @@ import {
   RotateCcw,
   ChevronRight,
   Pencil,
+  LayoutTemplate,
 } from "lucide-react";
 import type { Todo, Tag, Priority, List, Event } from "@/lib/types";
 import { CustomSelect, DatePicker, TimePicker } from "./Pickers";
@@ -53,6 +54,8 @@ interface TodoItemProps {
   onDeleteSubtask: (todoId: string, subtaskId: string) => void;
   /** Create a tag from inside the detail panel */
   onCreateTag?: (name: string) => Promise<Tag | undefined>;
+  /** Save this task as a reusable template */
+  onSaveAsTemplate?: (todo: Todo) => void;
   dragHandleProps?: Record<string, unknown>;
   isDragging?: boolean;
   lists?: List[];
@@ -135,6 +138,7 @@ export default function TodoItem({
   onToggleSubtask,
   onDeleteSubtask,
   onCreateTag,
+  onSaveAsTemplate,
   dragHandleProps,
   isDragging = false,
   lists = [],
@@ -913,11 +917,11 @@ export default function TodoItem({
             {/* Event assignment */}
             {!todo.completed && onAssignEvent && events.length > 0 && (
               <div>
-                <p className="text-[10px] uppercase tracking-wide text-white/35 font-medium mb-2">Event</p>
+                <p className="text-[10px] uppercase tracking-wide text-white/35 font-medium mb-2">Project</p>
                 <CustomSelect
                   value={todo.event_id ?? ""}
                   onChange={(v) => onAssignEvent(todo.id, v || null)}
-                  options={[{ value: "", label: "No event" }, ...events.map((ev) => ({ value: ev.id, label: ev.title }))]}
+                  options={[{ value: "", label: "No project" }, ...events.map((ev) => ({ value: ev.id, label: ev.title }))]}
                   className="w-full"
                 />
               </div>
@@ -1147,6 +1151,30 @@ export default function TodoItem({
                       </button>
                     </div>
                   </div>
+                )}
+              </div>
+            )}
+
+            {/* Timer and template */}
+            {!todo.completed && (onStartLiveTask || onSaveAsTemplate) && (
+              <div className="pt-2 border-t border-white/5 flex flex-wrap items-center gap-4">
+                {onStartLiveTask && (
+                  <button
+                    onClick={() => { onStartLiveTask(todo.id); setExpanded(false); }}
+                    className="flex items-center gap-2 text-xs text-white/60 hover:text-white transition-default"
+                  >
+                    <Play size={12} />
+                    {isLiveTask ? "Timer running" : "Start timer"}
+                  </button>
+                )}
+                {onSaveAsTemplate && (
+                  <button
+                    onClick={() => onSaveAsTemplate(todo)}
+                    className="flex items-center gap-2 text-xs text-white/60 hover:text-white transition-default"
+                  >
+                    <LayoutTemplate size={12} />
+                    Save as template
+                  </button>
                 )}
               </div>
             )}

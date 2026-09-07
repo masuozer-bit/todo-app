@@ -543,6 +543,19 @@ export default function TemplatesModal({
   onDelete,
   onApply,
 }: TemplatesModalProps) {
+  // Escape closes the modal
+  useEffect(() => {
+    if (!open) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        onClose();
+      }
+    }
+    document.addEventListener("keydown", onKey, true);
+    return () => document.removeEventListener("keydown", onKey, true);
+  }, [open, onClose]);
+
   const [view, setView] = useState<View>({ mode: "list" });
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [applyDate, setApplyDate] = useState("");
@@ -966,7 +979,7 @@ export default function TemplatesModal({
                 {/* Events */}
                 <div>
                   <div className="flex items-center justify-between mb-3">
-                    <p className="text-xs font-medium text-white/60">Events</p>
+                    <p className="text-xs font-medium text-white/60">Projects</p>
                     <button
                       onClick={() => setEventDrafts((prev) => [...prev, emptyEvent()])}
                       className="flex items-center gap-1 text-[11px] text-white/30 hover:text-white transition-colors"
@@ -975,7 +988,7 @@ export default function TemplatesModal({
                     </button>
                   </div>
                   {eventDrafts.length === 0 && (
-                    <p className="text-[11px] text-white/20 italic">No events yet</p>
+                    <p className="text-[11px] text-white/20 italic">No projects yet</p>
                   )}
                   <div className="space-y-2">
                     {eventDrafts.map((e, i) => (

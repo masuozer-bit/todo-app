@@ -25,6 +25,7 @@ export default function LiveTaskBar({ todo, lists, onSaveTime, onClose }: LiveTa
   const previousTime = todo.time_spent ?? 0;
   const [elapsed, setElapsed] = useState(previousTime);
   const [running, setRunning] = useState(true); // auto-start
+  const [confirmReset, setConfirmReset] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startRef = useRef<number>(Date.now() - previousTime * 1000);
 
@@ -64,7 +65,14 @@ export default function LiveTaskBar({ todo, lists, onSaveTime, onClose }: LiveTa
     onClose();
   };
 
+  /* Reset throws away tracked time, so it asks first */
   const handleReset = () => {
+    if (!confirmReset) {
+      setConfirmReset(true);
+      setTimeout(() => setConfirmReset(false), 4000);
+      return;
+    }
+    setConfirmReset(false);
     setRunning(false);
     if (intervalRef.current) clearInterval(intervalRef.current);
     setElapsed(0);
@@ -97,7 +105,7 @@ export default function LiveTaskBar({ todo, lists, onSaveTime, onClose }: LiveTa
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-black dark:text-white truncate">{todo.title}</p>
         <p className="text-[10px] text-black/40 dark:text-gray-500">
-          {running ? "Tracking..." : "Paused"}
+          {confirmReset ? "Click reset again to clear the time" : running ? "Tracking..." : "Paused"}
         </p>
       </div>
 
@@ -127,8 +135,13 @@ export default function LiveTaskBar({ todo, lists, onSaveTime, onClose }: LiveTa
         )}
         <button
           onClick={handleReset}
-          className="p-2 rounded-xl bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 transition-default"
-          title="Reset"
+          className={`p-2 rounded-xl transition-default ${
+            confirmReset
+              ? "bg-red-500/25 text-red-400"
+              : "bg-white/5 text-gray-400 hover:text-white hover:bg-white/10"
+          }`}
+          title={confirmReset ? "Click again to reset" : "Reset"}
+          aria-label={confirmReset ? "Confirm reset" : "Reset timer"}
         >
           <RotateCcw size={14} />
         </button>

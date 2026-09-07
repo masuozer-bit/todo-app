@@ -244,7 +244,7 @@ export default function EventList({
     return (
       <div className="text-center py-12">
         <p className="text-gray-400 text-sm">
-          No events yet — create one to group related tasks together
+          No projects yet. A project groups tasks that belong together, like a trip or a release, and shows their progress in one place.
         </p>
       </div>
     );

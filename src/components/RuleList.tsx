@@ -127,7 +127,7 @@ function SortableRuleItem({
             <textarea
               value={editDesc}
               onChange={(e) => setEditDesc(e.target.value)}
-              placeholder="Why this rule matters..."
+              placeholder="Why this principle matters..."
               rows={2}
               className="w-full bg-transparent outline-none text-xs text-black/60 dark:text-gray-400 placeholder:text-gray-400 dark:placeholder:text-gray-500 resize-none"
             />
@@ -173,7 +173,7 @@ function SortableRuleItem({
 
       <ConfirmDialog
         open={confirmDelete}
-        title="Delete rule"
+        title="Delete principle"
         message={`Delete "${rule.title}"?`}
         onConfirm={() => { onDelete(rule.id); setConfirmDelete(false); }}
         onCancel={() => setConfirmDelete(false)}
@@ -226,8 +226,8 @@ export default function RuleList({ rules, loading, onUpdate, onDelete, onReorder
   if (rules.length === 0) {
     return (
       <div className="text-center py-16">
-        <p className="text-sm text-black/30 dark:text-gray-600">No rules yet</p>
-        <p className="text-xs text-black/20 dark:text-gray-700 mt-1">Add rules you want to live by</p>
+        <p className="text-sm text-black/30 dark:text-gray-600">No principles yet</p>
+        <p className="text-xs text-black/20 dark:text-gray-700 mt-1">Principles you want to work by, always in view</p>
       </div>
     );
   }

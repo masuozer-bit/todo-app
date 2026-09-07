@@ -3,7 +3,7 @@
 import { useState, useRef } from "react";
 import { Plus, ChevronDown, ChevronUp, Minus, Clock, FileText } from "lucide-react";
 import type { ScheduleType, List } from "@/lib/types";
-import { CustomSelect } from "./Pickers";
+import { CustomSelect, TimePicker } from "./Pickers";
 
 interface HabitInputProps {
   lists?: List[];
@@ -19,14 +19,16 @@ interface HabitInputProps {
   ) => void;
 }
 
-const DAY_LABELS = ["S", "M", "T", "W", "T", "F", "S"];
-
-function formatTime12(time24: string): string {
-  const [h, m] = time24.split(":").map(Number);
-  const ampm = h >= 12 ? "PM" : "AM";
-  const h12 = h % 12 || 12;
-  return `${h12}:${String(m).padStart(2, "0")} ${ampm}`;
-}
+/* Monday first — index is the JS weekday (0 = Sunday) */
+const WEEK_DAYS: { index: number; label: string }[] = [
+  { index: 1, label: "M" },
+  { index: 2, label: "T" },
+  { index: 3, label: "W" },
+  { index: 4, label: "T" },
+  { index: 5, label: "F" },
+  { index: 6, label: "S" },
+  { index: 0, label: "S" },
+];
 
 export default function HabitInput({ onAdd, lists = [] }: HabitInputProps) {
   const [title, setTitle] = useState("");
@@ -169,9 +171,9 @@ export default function HabitInput({ onAdd, lists = [] }: HabitInputProps) {
               <div>
                 <p className="text-xs text-black/50 dark:text-gray-400 font-medium mb-1.5">Days</p>
                 <div className="flex gap-1.5">
-                  {DAY_LABELS.map((label, i) => (
+                  {WEEK_DAYS.map(({ index: i, label }, position) => (
                     <button
-                      key={i}
+                      key={position}
                       type="button"
                       onClick={() => toggleDay(i)}
                       className={`w-9 h-9 rounded-lg text-xs font-medium transition-default ${
@@ -193,29 +195,15 @@ export default function HabitInput({ onAdd, lists = [] }: HabitInputProps) {
                 <Clock size={11} /> Time <span className="font-normal opacity-60">(optional)</span>
               </p>
               <div className="flex items-center gap-2 flex-wrap">
-                <input
-                  type="time"
+                <TimePicker
                   value={time}
-                  onChange={(e) => { setTime(e.target.value); if (!e.target.value) setEndTime(""); }}
-                  className="bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-black dark:text-white focus:outline-none focus:border-black/30 dark:focus:border-white/30 transition-default"
-                  aria-label="Habit start time"
+                  onChange={(v) => { setTime(v); if (!v) setEndTime(""); }}
+                  placeholder="Time"
                 />
-                {time && (
-                  <span className="text-xs text-black/50 dark:text-gray-400">{formatTime12(time)}</span>
-                )}
                 {time && (
                   <>
                     <span className="text-xs text-black/30 dark:text-gray-600">→</span>
-                    <input
-                      type="time"
-                      value={endTime}
-                      onChange={(e) => setEndTime(e.target.value)}
-                      className="bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-black dark:text-white focus:outline-none focus:border-black/30 dark:focus:border-white/30 transition-default"
-                      aria-label="Habit end time"
-                    />
-                    {endTime && (
-                      <span className="text-xs text-black/50 dark:text-gray-400">{formatTime12(endTime)}</span>
-                    )}
+                    <TimePicker value={endTime} onChange={setEndTime} placeholder="End" />
                   </>
                 )}
                 {time && (

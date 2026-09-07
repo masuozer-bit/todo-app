@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { Trash2, Check, X, Flame, Repeat, FileText, ChevronDown, Settings2, Minus, Plus } from "lucide-react";
+import { Trash2, Check, X, Flame, Repeat, FileText, ChevronDown, Settings2, Minus, Plus, Clock, CalendarOff } from "lucide-react";
 import type { HabitWithStatus, HabitCompletion, ScheduleType, List } from "@/lib/types";
 import HabitWeekModal from "./HabitWeekModal";
 import { CustomSelect, TimePicker } from "./Pickers";
@@ -26,16 +26,33 @@ interface HabitItemProps {
     }
   ) => void;
   onDelete: (id: string) => void;
+  /** Skip this habit for today */
+  onSkip?: (id: string) => void;
+  /** false when the habit is not scheduled for today */
+  scheduledToday?: boolean;
   dragHandleProps?: Record<string, unknown>;
   isDragging?: boolean;
   highlighted?: boolean;
 }
 
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+/* Monday first — index is the JS weekday (0 = Sunday) */
+const WEEK_DAYS: { index: number; label: string }[] = [
+  { index: 1, label: "M" },
+  { index: 2, label: "T" },
+  { index: 3, label: "W" },
+  { index: 4, label: "T" },
+  { index: 5, label: "F" },
+  { index: 6, label: "S" },
+  { index: 0, label: "S" },
+];
 
 function formatSchedule(habit: HabitWithStatus): string {
   if (habit.schedule_type === "weekly") {
-    return habit.schedule_days.map((d) => DAY_LABELS[d]).join(", ");
+    return [...habit.schedule_days]
+      .sort((a, b) => ((a + 6) % 7) - ((b + 6) % 7))
+      .map((d) => DAY_LABELS[d])
+      .join(", ");
   }
   const interval = habit.schedule_interval || 1;
   if (interval === 1) return "Daily";
@@ -56,6 +73,8 @@ export default function HabitItem({
   onToggle,
   onUpdate,
   onDelete,
+  onSkip,
+  scheduledToday,
   dragHandleProps,
   isDragging = false,
   highlighted = false,
@@ -73,6 +92,7 @@ export default function HabitItem({
   const [editEndTime, setEditEndTime] = useState(habit.end_time ?? "");
   const [editNotes, setEditNotes] = useState(habit.notes ?? "");
   const [showNotes, setShowNotes] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
   const [editingNotes, setEditingNotes] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState(false);
   const [showWeekView, setShowWeekView] = useState(false);
@@ -165,6 +185,7 @@ export default function HabitItem({
   }
 
   const hasNotes = !!(habit.notes?.trim());
+  const listName = habit.list_id ? lists.find((l) => l.id === habit.list_id)?.name ?? null : null;
 
   return (
   <>
@@ -201,27 +222,36 @@ export default function HabitItem({
           </button>
         </div>
       ) : (
-      <div
-        className="relative px-3 py-2 cursor-pointer"
-        onClick={() => onToggle(habit.id)}
-        onDoubleClick={(e) => { e.stopPropagation(); setEditing(true); }}
-        {...dragHandleProps}
-        aria-label={`Mark "${habit.title}" as ${habit.completedToday ? "incomplete" : "complete"} for today`}
-      >
-        <div className="flex-1 min-w-0">
-          {/* Title */}
-          <p
-            className={`text-sm transition-default leading-snug ${
-              habit.completedToday ? "line-through text-gray-400" : "text-black dark:text-white"
+      <div className="relative px-3 py-2">
+        <div className="flex items-start gap-2.5">
+          {/* Completion toggle — only this completes the habit */}
+          <button
+            onClick={() => onToggle(habit.id)}
+            className={`mt-0.5 w-4 h-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-default ${
+              habit.completedToday
+                ? "bg-green-500/80 border-green-500/80"
+                : "border-black/25 dark:border-white/25 hover:border-green-500/60"
             }`}
+            aria-label={`Mark "${habit.title}" as ${habit.completedToday ? "not done" : "done"} for today`}
+            aria-pressed={habit.completedToday}
           >
-            {habit.title}
-          </p>
+            {habit.completedToday && <Check size={9} strokeWidth={3} className="text-white" />}
+          </button>
 
-          {/* Meta row: schedule + time + streak */}
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5" onClick={(e) => e.stopPropagation()}>
-            {/* Schedule: text opens week view, gear opens edit panel */}
-            <span className="flex items-center gap-1">
+          <div className="flex-1 min-w-0" {...dragHandleProps}>
+            {/* Title */}
+            <p
+              onDoubleClick={(e) => { e.stopPropagation(); setEditing(true); }}
+              title="Double-click to rename"
+              className={`text-sm transition-default leading-snug pr-16 ${
+                habit.completedToday ? "line-through text-gray-400" : "text-black dark:text-white"
+              }`}
+            >
+              {habit.title}
+            </p>
+
+            {/* Meta row — read only, editing lives behind the gear */}
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5">
               <button
                 type="button"
                 onClick={() => setShowWeekView(true)}
@@ -231,87 +261,92 @@ export default function HabitItem({
                 <Repeat size={10} />
                 {formatSchedule(habit)}
               </button>
-              <button
-                type="button"
-                onClick={() => setEditingSchedule((v) => !v)}
-                className="text-black/25 dark:text-gray-700 hover:text-black dark:hover:text-white transition-default"
-                aria-label="Edit schedule"
-              >
-                <Settings2 size={9} />
-              </button>
-            </span>
 
-            {/* Start time */}
-            <TimePicker
-              value={editTime}
-              placeholder="Add time"
-              onChange={(v) => {
-                setEditTime(v);
-                handleSaveTime(v);
-                if (!v) { setEditEndTime(""); handleSaveEndTime(""); }
-              }}
-            />
-            {/* End time — only shown when start time is set */}
-            {editTime && (
-              <>
-                <span className="text-[10px] text-black/25 dark:text-gray-700">→</span>
-                <TimePicker
-                  value={editEndTime}
-                  placeholder="End time"
-                  onChange={(v) => {
-                    setEditEndTime(v);
-                    handleSaveEndTime(v);
-                  }}
-                />
-              </>
-            )}
+              {habit.time && (
+                <span className="flex items-center gap-1 text-xs text-black/40 dark:text-gray-500">
+                  <Clock size={10} />
+                  {habit.time}{habit.end_time ? `\u2013${habit.end_time}` : ""}
+                </span>
+              )}
 
-            {habit.streak > 0 && (
-              <span className="flex items-center gap-1 text-xs text-orange-500 dark:text-orange-400">
-                <Flame size={10} />
-                {habit.streak}
-              </span>
-            )}
+              {habit.streak > 0 && (
+                <span className="flex items-center gap-1 text-xs text-orange-500 dark:text-orange-400">
+                  <Flame size={10} />
+                  {habit.streak}
+                </span>
+              )}
 
-            {/* List picker */}
-            {lists.length > 0 && (
-              <CustomSelect
-                value={editListId}
-                onChange={(v) => {
-                  setEditListId(v);
-                  onUpdate(habit.id, { list_id: v || null });
-                }}
-                options={[
-                  { value: "", label: "No list" },
-                  ...lists.map((l) => ({ value: l.id, label: l.name, color: l.color ?? undefined })),
-                ]}
-              />
-            )}
+              {listName && (
+                <span className="text-xs text-black/40 dark:text-gray-500">{listName}</span>
+              )}
 
-            {/* Notes toggle */}
-            <button
-              type="button"
-              onClick={() => { setShowNotes((v) => !v); if (!showNotes && !editingNotes) setEditingNotes(false); }}
-              className={`flex items-center gap-1 text-xs transition-default ${
-                hasNotes
-                  ? "text-black/50 dark:text-gray-400 hover:text-black dark:hover:text-white"
-                  : "text-black/25 dark:text-gray-600 hover:text-black/50 dark:hover:text-gray-400"
-              }`}
-              aria-label={showNotes ? "Hide notes" : hasNotes ? "Show notes" : "Add notes"}
-            >
-              <FileText size={10} />
-              {hasNotes ? (
-                <span className="flex items-center gap-0.5">
+              {hasNotes && (
+                <button
+                  type="button"
+                  onClick={() => setShowNotes((v) => !v)}
+                  className="flex items-center gap-1 text-xs text-black/40 dark:text-gray-500 hover:text-black dark:hover:text-white transition-default"
+                  aria-label={showNotes ? "Hide notes" : "Show notes"}
+                >
+                  <FileText size={10} />
                   Notes
                   <ChevronDown size={9} className={`transition-transform duration-150 ${showNotes ? "rotate-180" : ""}`} />
-                </span>
-              ) : (
-                <span className="opacity-60">Add notes</span>
+                </button>
               )}
-            </button>
-          </div>
 
-          {/* Schedule editing panel */}
+              {scheduledToday === false && (
+                <span className="text-xs text-black/30 dark:text-gray-600">Not today</span>
+              )}
+            </div>
+
+            {/* Editing panel — opened from the gear */}
+            {showEdit && (
+              <div className="mt-2 p-3 rounded-lg bg-black/[0.04] dark:bg-white/[0.04] space-y-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <TimePicker
+                    value={editTime}
+                    placeholder="Add time"
+                    onChange={(v) => {
+                      setEditTime(v);
+                      handleSaveTime(v);
+                      if (!v) { setEditEndTime(""); handleSaveEndTime(""); }
+                    }}
+                  />
+                  {editTime && (
+                    <>
+                      <span className="text-[10px] text-black/25 dark:text-gray-700">\u2192</span>
+                      <TimePicker
+                        value={editEndTime}
+                        placeholder="End time"
+                        onChange={(v) => { setEditEndTime(v); handleSaveEndTime(v); }}
+                      />
+                    </>
+                  )}
+                  {lists.length > 0 && (
+                    <CustomSelect
+                      value={editListId}
+                      onChange={(v) => { setEditListId(v); onUpdate(habit.id, { list_id: v || null }); }}
+                      options={[
+                        { value: "", label: "No list" },
+                        ...lists.map((l) => ({ value: l.id, label: l.name, color: l.color ?? undefined })),
+                      ]}
+                    />
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setEditingSchedule((v) => !v)}
+                    className="text-xs px-2.5 py-1.5 rounded-lg border border-black/10 dark:border-white/10 text-black/60 dark:text-gray-400 hover:text-black dark:hover:text-white transition-default"
+                  >
+                    {editingSchedule ? "Close schedule" : "Change schedule"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setShowNotes(true); setEditingNotes(true); }}
+                    className="text-xs px-2.5 py-1.5 rounded-lg border border-black/10 dark:border-white/10 text-black/60 dark:text-gray-400 hover:text-black dark:hover:text-white transition-default"
+                  >
+                    {hasNotes ? "Edit notes" : "Add notes"}
+                  </button>
+                </div>
+                {/* Schedule editor */}
           {editingSchedule && (
             <div className="mt-2 p-3 bg-black/[0.04] dark:bg-white/[0.04] rounded-lg space-y-3" onClick={(e) => e.stopPropagation()}>
               {/* Rhythm toggle */}
@@ -371,9 +406,9 @@ export default function HabitItem({
                 <div>
                   <p className="text-[10px] font-semibold uppercase tracking-widest text-black/40 dark:text-gray-500 mb-1.5">Days</p>
                   <div className="flex gap-1">
-                    {["S", "M", "T", "W", "T", "F", "S"].map((label, i) => (
+                    {WEEK_DAYS.map(({ index: i, label }, position) => (
                       <button
-                        key={i}
+                        key={position}
                         type="button"
                         onClick={() => toggleScheduleDay(i)}
                         className={`w-8 h-8 rounded-lg text-xs font-medium transition-default ${
@@ -407,6 +442,9 @@ export default function HabitItem({
               </div>
             </div>
           )}
+
+              </div>
+            )}
 
           {/* Notes panel */}
           {showNotes && (
@@ -452,16 +490,28 @@ export default function HabitItem({
               )}
             </div>
           )}
+          </div>
         </div>
 
-        {/* Hover actions — top right corner */}
-        <div className="absolute top-1 right-1 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-default">
+        {/* Actions — also reachable by keyboard and on touch */}
+        <div className="absolute top-1 right-1 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100 transition-default">
+          {onSkip && scheduledToday !== false && !habit.completedToday && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onSkip(habit.id); }}
+              className="p-1 rounded-lg text-gray-400 hover:text-orange-500 hover:bg-orange-500/10 transition-default"
+              aria-label={`Skip "${habit.title}" today`}
+              title="Skip today"
+            >
+              <CalendarOff size={14} />
+            </button>
+          )}
           <button
-            onClick={(e) => { e.stopPropagation(); setEditing(true); }}
+            onClick={(e) => { e.stopPropagation(); setShowEdit((v) => !v); }}
             className="p-1 rounded-lg text-gray-400 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-default"
-            aria-label="Edit habit"
+            aria-label={showEdit ? "Close habit settings" : "Edit habit"}
+            aria-expanded={showEdit}
           >
-            <FileText size={14} />
+            <Settings2 size={14} />
           </button>
           <button
             onClick={(e) => { e.stopPropagation(); onDelete(habit.id); }}

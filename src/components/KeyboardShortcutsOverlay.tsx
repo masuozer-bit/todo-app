@@ -19,9 +19,12 @@ const GROUPS: ShortcutGroup[] = [
     shortcuts: [
       { keys: [["N"]], description: "New task" },
       { keys: [["/"], ["⌘", "K"]], description: "Search" },
-      { keys: [["C"]], description: "Toggle calendar & schedule" },
+      { keys: [["C"]], description: "Toggle calendar panel" },
       { keys: [["S"]], description: "Open week planner" },
+      { keys: [["M"]], description: "Filter and sort" },
+      { keys: [["T"]], description: "Templates" },
       { keys: [["R"]], description: "New rule" },
+      { keys: [["B"]], description: "Show or hide the task input" },
       { keys: [["?"]], description: "Shortcuts" },
     ],
   },
@@ -30,7 +33,7 @@ const GROUPS: ShortcutGroup[] = [
     shortcuts: [
       { keys: [["Enter"]], description: "Save / confirm" },
       { keys: [["Esc"]], description: "Cancel / close" },
-      { keys: [["⌘", "D"]], description: "Dark / light mode" },
+      { keys: [["⌘", "⇧", "L"]], description: "Dark / light mode" },
     ],
   },
   {
@@ -41,7 +44,7 @@ const GROUPS: ShortcutGroup[] = [
       { keys: [["!high"], ["!med"], ["!low"]], description: "Priority" },
       { keys: [["#tag"]], description: "Add a tag (creates it if new)" },
       { keys: [["@List"]], description: "Assign a list" },
-      { keys: [["@Event"]], description: "Assign an event" },
+      { keys: [["@Project"]], description: "Assign a project" },
     ],
   },
 ];

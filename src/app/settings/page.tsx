@@ -7,7 +7,8 @@ import Header from "@/components/Header";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { useTodos } from "@/hooks/useTodos";
 import { useTags } from "@/hooks/useTags";
-import { Download, Trash2, User, AlertTriangle, Calendar, FileText, Terminal, Bell, Palette, ChevronRight } from "lucide-react";
+import Link from "next/link";
+import { Download, Trash2, User, AlertTriangle, Calendar, FileText, Terminal, Bell, Palette, ChevronRight, ArrowLeft } from "lucide-react";
 import { useTheme, PRESET_TINTS } from "@/components/ThemeProvider";
 import ColorWheelPicker from "@/components/ColorWheelPicker";
 import { exportTodosPDF } from "@/lib/pdf-export";
@@ -38,6 +39,8 @@ export default function SettingsPage() {
   const [displayName, setDisplayName] = useState("");
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [passwordMsg, setPasswordMsg] = useState("");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -108,6 +111,15 @@ export default function SettingsPage() {
     if (success) setCalendarConnected(false);
   }
 
+  async function handleChangePassword(e: React.FormEvent) {
+    e.preventDefault();
+    if (newPassword.length < 8) return;
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    setPasswordMsg(error ? error.message : "Password changed");
+    if (!error) setNewPassword("");
+    setTimeout(() => setPasswordMsg(""), 3000);
+  }
+
   async function handleSaveProfile(e: React.FormEvent) {
     e.preventDefault();
     if (!user) return;
@@ -121,17 +133,27 @@ export default function SettingsPage() {
     setTimeout(() => setSaveMsg(""), 2000);
   }
 
+  /* Deletes the data, not the login — the wording says so */
   async function handleDeleteAccount() {
     if (!user) return;
     setDeleting(true);
-    await supabase.from("push_subscriptions").delete().eq("user_id", user.id);
-    await supabase.from("calendar_sync").delete().eq("user_id", user.id);
-    await supabase.from("habit_calendar_sync").delete().eq("user_id", user.id);
-    await supabase.from("google_tokens").delete().eq("user_id", user.id);
-    await supabase.from("todos").delete().eq("user_id", user.id);
-    await supabase.from("tags").delete().eq("user_id", user.id);
-    await supabase.from("lists").delete().eq("user_id", user.id);
-    await supabase.from("profiles").delete().eq("id", user.id);
+    const tables = [
+      "push_subscriptions",
+      "calendar_sync",
+      "habit_calendar_sync",
+      "google_tokens",
+      "todos",
+      "events",
+      "habits",
+      "rules",
+      "templates",
+      "tags",
+      "lists",
+      "folders",
+    ];
+    for (const table of tables) {
+      await supabase.from(table).delete().eq("user_id", user.id);
+    }
     await supabase.auth.signOut();
     router.push("/login");
   }
@@ -156,7 +178,14 @@ export default function SettingsPage() {
       <Header email={user?.email} />
 
       <main className="max-w-4xl mx-auto px-4 pb-16">
-        <div className="mt-4 mb-6">
+        <div className="mt-4 mb-6 flex items-center gap-3">
+          <Link
+            href="/dashboard"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-sm text-gray-500 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-default"
+          >
+            <ArrowLeft size={15} />
+            Back to tasks
+          </Link>
           <h2 className="text-2xl font-bold text-black dark:text-white">Settings</h2>
         </div>
 
@@ -239,6 +268,31 @@ export default function SettingsPage() {
                       {saving ? "Saving..." : "Save"}
                     </button>
                     {saveMsg && <span className="text-xs text-green-500">{saveMsg}</span>}
+                  </div>
+                </form>
+
+                <Divider />
+
+                <form onSubmit={handleChangePassword} className="space-y-3">
+                  <Field label="New password">
+                    <input
+                      type="password"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      placeholder="At least 8 characters"
+                      autoComplete="new-password"
+                      className="w-full max-w-xs bg-transparent border border-black/10 dark:border-white/10 rounded-xl px-3 py-2 text-sm text-black dark:text-white placeholder:text-gray-400 focus:outline-none focus:border-black/30 dark:focus:border-white/30 transition-default"
+                    />
+                  </Field>
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="submit"
+                      disabled={newPassword.length < 8}
+                      className="px-4 py-2 rounded-xl bg-black dark:bg-white text-white dark:text-black text-sm font-medium hover:opacity-80 transition-default disabled:opacity-40"
+                    >
+                      Change password
+                    </button>
+                    {passwordMsg && <span className="text-xs text-green-500">{passwordMsg}</span>}
                   </div>
                 </form>
               </Section>
@@ -451,7 +505,7 @@ export default function SettingsPage() {
                           </p>
                         ))}
                       </div>
-                      <p className="text-[10px] text-gray-600 mt-3">Times based on UTC. Works when browser is closed.</p>
+                      <p className="text-[10px] text-gray-600 mt-3">Reminders are sent at 08:00 and 09:00 UTC, which is 09:00 and 10:00 in Berlin in winter, an hour later in summer. They arrive even when the browser is closed.</p>
                     </div>
                   </>
                 )}
@@ -504,11 +558,11 @@ export default function SettingsPage() {
             {activeTab === "danger" && (
               <Section title="Danger Zone" subtitle="Irreversible actions" danger>
                 <Row
-                  label="Delete account"
-                  description="Permanently delete your account and all data. Cannot be undone."
+                  label="Delete all data"
+                  description="Removes every task, project, habit, list and setting. Your login stays, so you can start over with an empty account. Cannot be undone."
                   action={
                     <ActionButton onClick={() => setShowDeleteConfirm(true)} variant="danger">
-                      Delete account
+                      Delete all data
                     </ActionButton>
                   }
                 />
@@ -528,8 +582,9 @@ export default function SettingsPage() {
 
       <ConfirmDialog
         open={showDeleteConfirm}
-        title="Delete account"
-        message="Are you sure you want to permanently delete your account and all your data? This cannot be undone."
+        title="Delete all data"
+        message="This removes every task, project, habit, list and setting. Your login stays and the account will be empty. This cannot be undone."
+        confirmLabel="Delete everything"
         onConfirm={handleDeleteAccount}
         onCancel={() => setShowDeleteConfirm(false)}
       />

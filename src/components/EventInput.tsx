@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Plus } from "lucide-react";
 import type { List } from "@/lib/types";
+import { DatePicker, TimePicker } from "./Pickers";
 
 interface EventInputProps {
   onAdd: (title: string, options?: { description?: string; list_id?: string | null; color?: string; due_date?: string | null; end_date?: string | null; start_time?: string | null; end_time?: string | null }) => void;
@@ -38,38 +39,20 @@ export default function EventInput({ onAdd, lists = [] }: EventInputProps) {
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="Create a new event... (e.g., Sprint Planning, Birthday Party)"
+            placeholder="New project... (e.g. Sprint planning, Kitchen renovation)"
             className="flex-1 bg-transparent text-black dark:text-white placeholder:text-gray-400 focus:outline-none text-base"
-            aria-label="New event title"
+            aria-label="New project title"
           />
-          <input
-            type="date"
-            value={dueDate}
-            onChange={(e) => setDueDate(e.target.value)}
-            className="text-xs bg-transparent border border-black/10 dark:border-white/10 rounded-lg px-2 py-1.5 text-black dark:text-white focus:outline-none cursor-pointer flex-shrink-0"
-            aria-label="Event date (optional)"
-            title="Optional start date"
-          />
+          <DatePicker value={dueDate} onChange={setDueDate} placeholder="Date" />
           {dueDate && (
             <>
-              <input
-                type="time"
+              <TimePicker
                 value={startTime}
-                onChange={(e) => { setStartTime(e.target.value); if (!e.target.value) setEndTime(""); }}
-                className="text-xs bg-transparent border border-black/10 dark:border-white/10 rounded-lg px-2 py-1.5 text-black dark:text-white focus:outline-none cursor-pointer flex-shrink-0"
-                aria-label="Start time (optional)"
-                title="Optional start time"
+                onChange={(v) => { setStartTime(v); if (!v) setEndTime(""); }}
+                placeholder="Time"
               />
               {startTime && (
-                <input
-                  type="time"
-                  value={endTime}
-                  onChange={(e) => setEndTime(e.target.value)}
-                  min={startTime}
-                  className="text-xs bg-transparent border border-black/10 dark:border-white/10 rounded-lg px-2 py-1.5 text-black dark:text-white focus:outline-none cursor-pointer flex-shrink-0"
-                  aria-label="End time (optional)"
-                  title="Optional end time"
-                />
+                <TimePicker value={endTime} onChange={setEndTime} placeholder="End" />
               )}
             </>
           )}
@@ -77,7 +60,7 @@ export default function EventInput({ onAdd, lists = [] }: EventInputProps) {
             type="submit"
             disabled={!title.trim()}
             className="w-9 h-9 rounded-xl bg-black dark:bg-white text-white dark:text-black flex items-center justify-center hover:opacity-90 active:scale-95 transition-default disabled:opacity-30 disabled:cursor-not-allowed flex-shrink-0"
-            aria-label="Create event"
+            aria-label="Create project"
           >
             <Plus size={18} />
           </button>

@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import DashboardClient from "./DashboardClient";
@@ -20,10 +21,12 @@ export default async function DashboardPage() {
     .maybeSingle();
 
   return (
-    <DashboardClient
-      userId={user.id}
-      email={user.email}
-      serverTheme={(profile?.theme_preference as "light" | "dark" | null) ?? null}
-    />
+    <Suspense fallback={null}>
+      <DashboardClient
+        userId={user.id}
+        email={user.email}
+        serverTheme={(profile?.theme_preference as "light" | "dark" | null) ?? null}
+      />
+    </Suspense>
   );
 }

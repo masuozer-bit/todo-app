@@ -73,7 +73,7 @@ const CATEGORIES: CommandCategory[] = [
     commands: [
       { syntax: "#tag", description: "Add a tag, unknown tags are created", example: "Buy groceries #errands" },
       { syntax: "@ListName", description: "Assign to a list", example: "Buy groceries @Personal" },
-      { syntax: "@EventName", description: "Assign to an event", example: "Prepare slides @Workshop" },
+      { syntax: "@ProjectName", description: "Assign to a project", example: "Prepare slides @Workshop" },
     ],
   },
 ];
@@ -81,9 +81,13 @@ const CATEGORIES: CommandCategory[] = [
 const SHORTCUTS: { keys: string; description: string }[] = [
   { keys: "N", description: "New task" },
   { keys: "/ or ⌘K", description: "Search" },
-  { keys: "C", description: "Toggle calendar & schedule panel" },
+  { keys: "C", description: "Toggle calendar panel" },
   { keys: "S", description: "Open week planner" },
-  { keys: "⌘D", description: "Toggle dark / light mode" },
+  { keys: "M", description: "Filter and sort" },
+  { keys: "T", description: "Templates" },
+  { keys: "R", description: "New rule" },
+  { keys: "B", description: "Show or hide the task input" },
+  { keys: "⌘⇧L", description: "Toggle dark / light mode" },
   { keys: "?", description: "Keyboard shortcuts overlay" },
   { keys: "Enter", description: "Save / confirm" },
   { keys: "Esc", description: "Cancel / close / blur" },
@@ -93,7 +97,7 @@ const EXAMPLES: { input: string; parsed: string }[] = [
   { input: "Buy groceries tomorrow at 3pm !high @Personal", parsed: "Due tomorrow 3:00 PM · High · Personal list" },
   { input: "Submit report next friday !med", parsed: "Due next Friday · Medium" },
   { input: "Workshop 2pm-4pm today", parsed: "Due today 2:00–4:00 PM" },
-  { input: "Prepare slides in 2 days @Workshop", parsed: "Due in 2 days · Workshop event" },
+  { input: "Prepare slides in 2 days @Workshop", parsed: "Due in 2 days · Workshop project" },
   { input: "Client presentation March 15 at 2pm !p1", parsed: "Due Mar 15 2:00 PM · High" },
   { input: "Clean up eow !low", parsed: "Due Sunday · Low" },
 ];

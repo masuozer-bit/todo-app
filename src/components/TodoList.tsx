@@ -264,6 +264,7 @@ interface TodoListProps {
   onToggleSubtask: (todoId: string, subtaskId: string, completed: boolean) => void;
   onDeleteSubtask: (todoId: string, subtaskId: string) => void;
   onCreateTag?: (name: string) => Promise<import("@/lib/types").Tag | undefined>;
+  onSaveAsTemplate?: (todo: Todo) => void;
   loading: boolean;
   /** Tasks could not be loaded — shown instead of the "no tasks" empty state */
   loadError?: boolean;
@@ -319,6 +320,7 @@ export default function TodoList({
   onToggleSubtask,
   onDeleteSubtask,
   onCreateTag,
+  onSaveAsTemplate,
   loading,
   loadError = false,
   onRetry,
@@ -385,7 +387,9 @@ export default function TodoList({
     function handleKey(e: KeyboardEvent) {
       const target = e.target as HTMLElement;
       const isTyping = target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable;
-      if (e.key === "m" && !isTyping && !e.metaKey && !e.ctrlKey) {
+      // Never while typing, never with a modifier, never behind an open dialog
+      const blocked = !!document.querySelector('[aria-modal="true"], [role="dialog"]');
+      if (e.key === "m" && !isTyping && !blocked && !e.metaKey && !e.ctrlKey && !e.altKey) {
         e.preventDefault();
         setShowFilters((prev) => !prev);
       }
@@ -777,7 +781,7 @@ export default function TodoList({
             <button
               onClick={() => toggleCollapse(event.id)}
               className="mt-0.5 text-gray-400 hover:text-black dark:hover:text-white transition-default flex-shrink-0"
-              aria-label={collapsed ? "Expand event" : "Collapse event"}
+              aria-label={collapsed ? "Expand project" : "Collapse project"}
             >
               {collapsed ? <ChevronRight size={15} /> : <ChevronDown size={15} />}
             </button>
@@ -834,8 +838,8 @@ export default function TodoList({
                 <button
                   onClick={() => onOpenEventDetail(event.id)}
                   className="text-gray-400 hover:text-black dark:hover:text-white transition-default p-1"
-                  aria-label="Open event detail"
-                  title="Open detail view"
+                  aria-label="Open project"
+                  title="Open project view"
                 >
                   <Maximize2 size={13} />
                 </button>
@@ -844,8 +848,8 @@ export default function TodoList({
                 <button
                   onClick={() => onDeleteEvent(event.id)}
                   className="text-gray-400 hover:text-red-500 transition-default p-1"
-                  aria-label="Delete event"
-                  title="Delete event"
+                  aria-label="Delete project"
+                  title="Delete project"
                 >
                   <Trash2 size={14} />
                 </button>
@@ -917,6 +921,7 @@ export default function TodoList({
         onToggleSubtask={onToggleSubtask}
         onDeleteSubtask={onDeleteSubtask}
         onCreateTag={onCreateTag}
+        onSaveAsTemplate={onSaveAsTemplate}
         lists={lists}
         activeListId={activeListId}
         events={events}

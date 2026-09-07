@@ -294,8 +294,9 @@ export default function TodoInput({
     if (suggestion.listId) setListId(suggestion.listId);
     if (suggestion.eventId) {
       setEventId(suggestion.eventId);
+      // Only fill in the event's list when none was chosen
       const ev = events.find((x) => x.id === suggestion.eventId);
-      if (ev?.list_id) setListId(ev.list_id);
+      if (ev?.list_id && !listId) setListId(ev.list_id);
     }
     setShowSuggestions(false);
     inputRef.current?.focus();
@@ -542,7 +543,7 @@ export default function TodoInput({
               >
                 <span className="font-medium">{s.display}</span>
                 {s.kind === "list" && <span className="text-[10px] uppercase tracking-wide text-gray-400">List</span>}
-                {s.kind === "event" && <span className="text-[10px] uppercase tracking-wide text-gray-400">Event</span>}
+                {s.kind === "event" && <span className="text-[10px] uppercase tracking-wide text-gray-400">Project</span>}
                 {s.kind === "tag" && <span className="text-[10px] uppercase tracking-wide text-gray-400">Tag</span>}
                 {s.kind === "new-tag" && <span className="text-[10px] uppercase tracking-wide text-gray-400">New</span>}
                 <span className="text-xs text-gray-400 ml-auto">↵</span>
@@ -665,12 +666,12 @@ export default function TodoInput({
                       value={eventId ?? ""}
                       onChange={(id) => {
                         setEventId(id || null);
-                        if (id) {
+                        if (id && !listId) {
                           const ev = events.find((x) => x.id === id);
                           if (ev?.list_id) setListId(ev.list_id);
                         }
                       }}
-                      options={[{ value: "", label: "No event" }, ...events.map((ev) => ({ value: ev.id, label: ev.title }))]}
+                      options={[{ value: "", label: "No project" }, ...events.map((ev) => ({ value: ev.id, label: ev.title }))]}
                       className="min-w-[110px]"
                     />
                   )}

@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import type { Event, Tag, List, Priority } from "@/lib/types";
 import TodoItem from "./TodoItem";
+import { CustomSelect, DatePicker, TimePicker } from "./Pickers";
 
 function formatEventDate(dateStr: string): string {
   const [y, m, d] = dateStr.split("-").map(Number);
@@ -97,6 +98,8 @@ export default function EventDetail({
 }: EventDetailProps) {
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleValue, setTitleValue] = useState(event.title);
+  // Buffered so the description is written once, on blur
+  const [descriptionValue, setDescriptionValue] = useState(event.description ?? "");
   const [showSettings, setShowSettings] = useState(false);
   const [showAddTask, setShowAddTask] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState("");
@@ -123,6 +126,16 @@ export default function EventDetail({
   useEffect(() => {
     if (showAddTask) taskRef.current?.focus();
   }, [showAddTask]);
+
+  useEffect(() => {
+    setDescriptionValue(event.description ?? "");
+  }, [event.description]);
+
+  function saveDescription() {
+    const next = descriptionValue.trim() || null;
+    if (next === (event.description ?? null)) return;
+    onUpdate(event.id, { description: next });
+  }
 
   function handleSaveTitle() {
     const t = titleValue.trim();
@@ -183,7 +196,7 @@ export default function EventDetail({
             <h2
               className="text-xl font-semibold text-black dark:text-white cursor-pointer hover:opacity-75 transition-default mb-1"
               onClick={() => setEditingTitle(true)}
-              title="Click to edit title"
+              title="Click to rename"
             >
               {event.title}
             </h2>
@@ -242,8 +255,8 @@ export default function EventDetail({
             <button
               onClick={() => onDelete(event.id)}
               className="text-gray-400 hover:text-red-500 transition-default p-1"
-              aria-label="Delete event"
-              title="Delete event"
+              aria-label="Delete project"
+              title="Delete project"
             >
               <Trash2 size={13} />
             </button>
@@ -263,7 +276,7 @@ export default function EventDetail({
                     onUpdate(event.id, { color: e.target.value })
                   }
                   className="w-6 h-6 rounded cursor-pointer border border-black/20 dark:border-white/20"
-                  aria-label="Event color"
+                  aria-label="Project colour"
                 />
               </div>
 
@@ -272,23 +285,16 @@ export default function EventDetail({
                 <span className="text-xs text-gray-400 font-medium uppercase tracking-wide w-10 flex-shrink-0">
                   Date
                 </span>
-                <input
-                  type="date"
+                <DatePicker
                   value={event.due_date ?? ""}
-                  onChange={(e) =>
-                    onUpdate(event.id, { due_date: e.target.value || null })
-                  }
-                  className="text-xs bg-white dark:bg-black border border-black/10 dark:border-white/10 rounded-lg px-2 py-1 text-black dark:text-white focus:outline-none cursor-pointer"
+                  onChange={(v) => onUpdate(event.id, { due_date: v || null })}
+                  placeholder="Start date"
                 />
                 <span className="text-xs text-gray-400">→</span>
-                <input
-                  type="date"
+                <DatePicker
                   value={event.end_date ?? ""}
-                  min={event.due_date ?? undefined}
-                  onChange={(e) =>
-                    onUpdate(event.id, { end_date: e.target.value || null })
-                  }
-                  className="text-xs bg-white dark:bg-black border border-black/10 dark:border-white/10 rounded-lg px-2 py-1 text-black dark:text-white focus:outline-none cursor-pointer"
+                  onChange={(v) => onUpdate(event.id, { end_date: v || null })}
+                  placeholder="End date"
                 />
                 {(event.due_date || event.end_date) && (
                   <button
@@ -307,25 +313,17 @@ export default function EventDetail({
                 <span className="text-xs text-gray-400 font-medium uppercase tracking-wide w-10 flex-shrink-0">
                   Time
                 </span>
-                <input
-                  type="time"
+                <TimePicker
                   value={event.start_time ?? ""}
-                  onChange={(e) =>
-                    onUpdate(event.id, { start_time: e.target.value || null })
-                  }
-                  className="text-xs bg-white dark:bg-black border border-black/10 dark:border-white/10 rounded-lg px-2 py-1 text-black dark:text-white focus:outline-none cursor-pointer"
+                  onChange={(v) => onUpdate(event.id, { start_time: v || null })}
                   placeholder="Start"
                 />
                 {event.start_time && (
                   <>
                     <span className="text-xs text-gray-400">→</span>
-                    <input
-                      type="time"
+                    <TimePicker
                       value={event.end_time ?? ""}
-                      onChange={(e) =>
-                        onUpdate(event.id, { end_time: e.target.value || null })
-                      }
-                      className="text-xs bg-white dark:bg-black border border-black/10 dark:border-white/10 rounded-lg px-2 py-1 text-black dark:text-white focus:outline-none cursor-pointer"
+                      onChange={(v) => onUpdate(event.id, { end_time: v || null })}
                       placeholder="End"
                     />
                   </>
@@ -342,26 +340,35 @@ export default function EventDetail({
                 )}
               </div>
 
+              {/* Description */}
+              <div className="flex items-start gap-3">
+                <span className="text-xs text-gray-400 font-medium uppercase tracking-wide w-10 flex-shrink-0 mt-1.5">
+                  About
+                </span>
+                <textarea
+                  value={descriptionValue}
+                  onChange={(e) => setDescriptionValue(e.target.value)}
+                  onBlur={saveDescription}
+                  placeholder="What is this project about?"
+                  rows={2}
+                  className="flex-1 text-xs bg-white dark:bg-black border border-black/10 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-black dark:text-white placeholder:text-gray-400 focus:outline-none focus:border-black/25 dark:focus:border-white/25 resize-none transition-default"
+                />
+              </div>
+
               {/* List */}
               {lists.length > 0 && (
                 <div className="flex items-center gap-3">
                   <span className="text-xs text-gray-400 font-medium uppercase tracking-wide w-10 flex-shrink-0">
                     List
                   </span>
-                  <select
+                  <CustomSelect
                     value={event.list_id ?? ""}
-                    onChange={(e) =>
-                      onUpdate(event.id, { list_id: e.target.value || null })
-                    }
-                    className="text-xs bg-white dark:bg-black border border-black/10 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-black dark:text-white focus:outline-none cursor-pointer"
-                  >
-                    <option value="">No list</option>
-                    {lists.map((l) => (
-                      <option key={l.id} value={l.id}>
-                        {l.name}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(v) => onUpdate(event.id, { list_id: v || null })}
+                    options={[
+                      { value: "", label: "No list" },
+                      ...lists.map((l) => ({ value: l.id, label: l.name, color: l.color ?? undefined })),
+                    ]}
+                  />
                 </div>
               )}
             </div>

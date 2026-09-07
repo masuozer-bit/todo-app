@@ -11,6 +11,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
+  const [info, setInfo] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const supabase = createClient();
@@ -35,17 +36,32 @@ export default function LoginPage() {
     router.refresh();
   }
 
+  async function handleForgotPassword() {
+    if (!email.trim()) {
+      setError("Enter your email address first, then click again.");
+      return;
+    }
+    setLoading(true);
+    setInfo("");
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: `${window.location.origin}/auth/callback?next=/settings`,
+    });
+    setLoading(false);
+    if (error) {
+      setError(error.message);
+      return;
+    }
+    setError("");
+    setInfo("Check your inbox. The link signs you in, then you can set a new password in settings.");
+  }
+
   async function handleGoogleLogin() {
     setLoading(true);
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
+        // Calendar access is asked for later, in settings, when it is used
         redirectTo: `${window.location.origin}/auth/callback`,
-        scopes: "https://www.googleapis.com/auth/calendar",
-        queryParams: {
-          access_type: "offline",
-          prompt: "consent",
-        },
       },
     });
 
@@ -72,6 +88,12 @@ export default function LoginPage() {
               role="alert"
             >
               {error}
+            </div>
+          )}
+
+          {info && (
+            <div className="glass-card-subtle p-3 mb-6 text-sm text-black dark:text-white" role="status">
+              {info}
             </div>
           )}
 
@@ -122,6 +144,13 @@ export default function LoginPage() {
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
+              <button
+                type="button"
+                onClick={handleForgotPassword}
+                className="mt-2 text-xs text-gray-500 hover:text-black dark:hover:text-white transition-default"
+              >
+                Forgot your password?
+              </button>
             </div>
 
             <button

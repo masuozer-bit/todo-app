@@ -50,6 +50,7 @@ interface FocusModeViewProps {
   onDeleteEvent?: (eventId: string) => void;
   onOpenEventDetail?: (eventId: string) => void;
   onExitFocusMode: () => void;
+  onCreateTag?: (name: string) => Promise<import("@/lib/types").Tag | undefined>;
 }
 
 const SLIDE_LABELS = ["Overdue", "Today", "This Week"] as const;
@@ -75,6 +76,7 @@ export default function FocusModeView({
   onDeleteEvent,
   onOpenEventDetail,
   onExitFocusMode,
+  onCreateTag,
 }: FocusModeViewProps) {
   const [slide, setSlide] = useState<0 | 1 | 2>(1);
   const [dragOffset, setDragOffset] = useState(0);
@@ -148,10 +150,11 @@ export default function FocusModeView({
           </div>
           <button
             onClick={onExitFocusMode}
-            className="mt-1 p-2 rounded-xl text-gray-400 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-default"
-            aria-label="Exit focus mode"
+            className="mt-1 flex items-center gap-1.5 px-2.5 py-2 rounded-xl text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-default"
+            aria-label="Leave focus mode"
           >
-            <LayoutGrid size={18} />
+            <LayoutGrid size={16} />
+            <span className="text-xs font-medium">All views</span>
           </button>
         </div>
 
@@ -159,8 +162,11 @@ export default function FocusModeView({
         <div className="mt-4">
           <TodoInput
             onAdd={onAdd}
+            onAddSubtask={onAddSubtask}
+            onCreateTag={onCreateTag}
             tags={allTags}
             lists={lists}
+            events={events}
             activeListId={null}
           />
         </div>
@@ -232,6 +238,7 @@ export default function FocusModeView({
               events={events}
               defaultSortBy="timeline"
               viewKey="focus:thisWeek"
+              focusMode={true}
               {...sharedHandlers}
             />
           </div>

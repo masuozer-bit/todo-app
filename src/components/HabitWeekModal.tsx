@@ -23,7 +23,8 @@ function toDateStr(d: Date): string {
 function getWeekStart(date: Date): Date {
   const d = new Date(date);
   d.setHours(0, 0, 0, 0);
-  const day = d.getDay(); // 0=Sun
+  // Weeks start on Monday
+  const day = (d.getDay() + 6) % 7;
   d.setDate(d.getDate() - day);
   return d;
 }

@@ -38,7 +38,7 @@ export default function RuleInput({ onAdd, lists, compact }: RuleInputProps) {
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="Add a rule..."
+            placeholder="Add a principle..."
             className={`flex-1 bg-transparent outline-none text-black dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 ${compact ? "text-[11px]" : "text-sm"}`}
           />
           <button
@@ -62,7 +62,7 @@ export default function RuleInput({ onAdd, lists, compact }: RuleInputProps) {
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Why this rule matters..."
+              placeholder="Why this principle matters..."
               rows={2}
               className="w-full bg-transparent outline-none text-xs text-black dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 resize-none"
             />

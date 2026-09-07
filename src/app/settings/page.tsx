@@ -19,6 +19,7 @@ import {
 } from "@/lib/calendar-sync-client";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { useI18n } from "@/components/I18nProvider";
+import { useVisualViewport } from "@/hooks/useVisualViewport";
 import { LOCALES } from "@/lib/i18n";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 
@@ -53,6 +54,8 @@ const DEFAULT_VIEWS: { value: string; label: string }[] = [
 ];
 
 export default function SettingsPage() {
+  // Same phone viewport handling as the app shell
+  useVisualViewport();
   const [user, setUser] = useState<SupabaseUser | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [displayName, setDisplayName] = useState("");

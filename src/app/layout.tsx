@@ -19,11 +19,14 @@ export const metadata: Metadata = {
   description: "A minimalist to-do app",
 };
 
-// Without viewportFit the safe-area insets stay zero on notched phones
+// Without viewportFit the safe-area insets stay zero on notched phones.
+// interactiveWidget lets the browser resize the layout viewport for the
+// keyboard instead of only sliding the visual one out from under the page.
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
+  interactiveWidget: "resizes-content",
 };
 
 // Runs before the first paint so nobody sees the wrong theme flash past.

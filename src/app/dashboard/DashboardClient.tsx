@@ -974,6 +974,14 @@ export default function DashboardClient({
       detailOpen={detailOpen}
       onCloseDetail={closeDetail}
       nav={sideNav}
+      bottomNav={
+        <BottomNav
+          view={view.kind}
+          onSelectView={(kind) => navigate({ kind })}
+          onAdd={() => { setShowBar(true); setTimeout(() => focusNewTask(), 0); }}
+          onMore={() => setMobileSidebarOpen(true)}
+        />
+      }
       detail={
         <ErrorBoundary variant="panel" label={t("Details")}>
           {showCalendar && isTaskView ? (
@@ -1280,13 +1288,6 @@ export default function DashboardClient({
         message={`Are you sure you want to delete "${deleteEventTitle}" and all its tasks? This cannot be undone.`}
         onConfirm={confirmDeleteEvent}
         onCancel={() => setDeleteEventId(null)}
-      />
-
-      <BottomNav
-        view={view.kind}
-        onSelectView={(kind) => navigate({ kind })}
-        onAdd={() => { setShowBar(true); setTimeout(() => focusNewTask(), 0); }}
-        onMore={() => setMobileSidebarOpen(true)}
       />
 
     </AppShell>

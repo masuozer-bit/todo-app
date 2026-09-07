@@ -54,6 +54,8 @@ export function useTaskFilters(viewKey: string, defaultSortBy: SortBy = "default
   );
 
   return {
+    /** What this view sorts by when nothing was chosen. Not a filter. */
+    defaultSortBy,
     search, setSearch,
     status, setStatus,
     tagId, setTagId,

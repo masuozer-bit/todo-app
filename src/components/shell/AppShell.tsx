@@ -3,6 +3,7 @@
 import { useEffect, type ReactNode } from "react";
 import { ArrowLeft } from "lucide-react";
 import { useI18n } from "@/components/I18nProvider";
+import { useVisualViewport } from "@/hooks/useVisualViewport";
 
 interface AppShellProps {
   /** Column 1. Hidden below 768 px, where the bottom navigation takes over. */
@@ -19,7 +20,12 @@ interface AppShellProps {
   detailOpen: boolean;
   /** Closes the drawer or sheet. Esc and the backdrop both call it. */
   onCloseDetail: () => void;
-  /** Rendered outside the grid: bottom navigation, toasts, dialogs. */
+  /**
+   * The phone navigation. It belongs inside the shell, not fixed to the
+   * window, so it follows the visual viewport when the keyboard opens.
+   */
+  bottomNav?: ReactNode;
+  /** Rendered outside the grid: sheets, dialogs, overlays. */
   children?: ReactNode;
 }
 
@@ -29,9 +35,12 @@ export default function AppShell({
   detail,
   detailOpen,
   onCloseDetail,
+  bottomNav,
   children,
 }: AppShellProps) {
   const { t } = useI18n();
+  // On a phone the shell follows the visual viewport instead of 100dvh
+  useVisualViewport();
   // Esc closes the overlay forms of the panel. Above 1024 px the panel is a
   // column, not an overlay, so the dashboard handles Esc there itself.
   useEffect(() => {
@@ -60,6 +69,7 @@ export default function AppShell({
           </button>
           {detail}
         </div>
+        {bottomNav}
       </div>
       {detailOpen && (
         <div

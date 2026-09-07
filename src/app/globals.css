@@ -116,7 +116,24 @@
     font-variant-numeric: tabular-nums;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    min-height: 100dvh;
+    min-height: 100%;
+  }
+
+  /* iOS Safari zooms into any field under 16 px and then leaves the visual
+     viewport shifted. Touch screens get 16 px, pointer devices keep 14. */
+  @media (max-width: 767px) {
+    .input,
+    input[type="text"],
+    input[type="search"],
+    input[type="email"],
+    input[type="password"],
+    input[type="number"],
+    input[type="date"],
+    input[type="time"],
+    textarea,
+    select {
+      font-size: 16px;
+    }
   }
 
   /* Keyboard users always get a ring, even where focus:outline-none is set */
@@ -335,6 +352,8 @@
   .app-shell {
     display: grid;
     grid-template-columns: var(--nav-w) minmax(0, 1fr) var(--detail-w);
+    position: relative;
+    height: 100vh;
     height: 100dvh;
     overflow: hidden;
   }
@@ -788,6 +807,8 @@
   .settings-shell {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
+    position: relative;
+    height: 100vh;
     height: 100dvh;
     overflow: hidden;
   }
@@ -839,7 +860,42 @@
   @media (max-width: 767px) {
     .toast-stack {
       left: 50%;
-      bottom: calc(56px + env(safe-area-inset-bottom, 0px) + 12px);
+      /* --vvb is the strip the keyboard covers, published by useVisualViewport */
+      bottom: calc(var(--vvb, 0px) + 56px + env(safe-area-inset-bottom, 0px) + 12px);
+    }
+  }
+
+  /* ── Phone viewport ─────────────────────────────────────────
+     iOS Safari shifts the visual viewport for the keyboard and does not
+     reliably put it back, which used to leave the app squeezed into the top
+     of the screen with the navigation floating in the middle. So on a phone
+     the document never scrolls, the shell is pinned to the visual viewport,
+     and everything that was fixed to the window sits inside the shell. */
+  @media (max-width: 767px) {
+    html.shell-locked,
+    html.shell-locked body {
+      height: 100%;
+      overflow: hidden;
+      overscroll-behavior: none;
+    }
+
+    .app-shell,
+    .settings-shell {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: auto;
+      top: var(--vvt, 0px);
+      height: var(--vvh, 100%);
+    }
+
+    .bottom-nav {
+      position: absolute;
+    }
+
+    .app-detail {
+      position: absolute;
+      inset: 0;
     }
   }
 }

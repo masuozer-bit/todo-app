@@ -65,7 +65,7 @@ function Menu({
       </button>
       {open && (
         <div className="absolute bottom-full left-0 mb-2 min-w-[150px]" role="menu">
-          <div className="bg-white dark:bg-neutral-900 rounded-xl border border-black/10 dark:border-white/10 shadow-xl py-1 text-black dark:text-white max-h-64 overflow-y-auto">
+          <div className="bg-white dark:bg-neutral-900 rounded-xl border border-border shadow-xl py-1 text-text max-h-64 overflow-y-auto">
             {children(() => setOpen(false))}
           </div>
         </div>
@@ -87,8 +87,8 @@ function MenuItem({
     <button
       role="menuitem"
       onClick={onClick}
-      className={`w-full text-left px-3 py-2 text-sm hover:bg-black/5 dark:hover:bg-white/10 transition-default ${
-        muted ? "text-gray-400" : ""
+      className={`w-full text-left px-3 py-2 text-sm hover:bg-surface-2 transition-default ${
+        muted ? "text-text-faint" : ""
       }`}
     >
       {children}
@@ -114,7 +114,7 @@ export default function BulkActionBar({
 
   return (
     <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-[80] animate-in fade-in slide-in-from-bottom-4 duration-200">
-      <div className="flex items-center gap-1 bg-black dark:bg-white text-white dark:text-black rounded-2xl px-4 py-2.5 shadow-2xl border border-white/10 dark:border-black/10">
+      <div className="flex items-center gap-1 btn-primary rounded-2xl px-4 py-2.5 shadow-2xl border border-white/10 dark:border-black/10">
         <span className="text-sm font-medium tabular-nums mr-1">
           {t("{n} selected", { n: selectedCount })}
         </span>

@@ -172,7 +172,7 @@ export default function ProjectDetail({
         </div>
       </div>
 
-      <div className="flex-none flex items-center gap-2 px-4 py-3 border-t border-border">
+      <div className="panel-foot">
         <span className="text-xs text-text-faint flex-1 min-w-0 truncate">
           {t("Created {date}", { date: formatShortDate(event.created_at.slice(0, 10)) })}
         </span>

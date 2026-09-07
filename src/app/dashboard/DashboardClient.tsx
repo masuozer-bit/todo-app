@@ -26,6 +26,7 @@ import AppShell from "@/components/shell/AppShell";
 import SideNav from "@/components/shell/SideNav";
 import ContentHeader from "@/components/shell/ContentHeader";
 import NavSheet from "@/components/shell/NavSheet";
+import BottomNav from "@/components/shell/BottomNav";
 import JournalView from "@/components/JournalView";
 import JournalSidebar from "@/components/JournalSidebar";
 import HabitListView from "@/components/HabitListView";
@@ -86,9 +87,8 @@ export default function DashboardClient({
   const [isMobile, setIsMobile] = useState<boolean | null>(null);
   const [focusMode, setFocusMode] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
-    const stored = localStorage.getItem("focusModePreference");
-    if (stored !== null) return stored === "true";
-    return window.innerWidth < 768;
+    // Never the default any more: the phone opens on the list like everything else
+    try { return localStorage.getItem("focusModePreference") === "true"; } catch { return false; }
   });
   const [showBar, setShowBar] = useState<boolean>(() => {
     if (typeof window === "undefined") return true;
@@ -928,7 +928,12 @@ export default function DashboardClient({
   };
   const sideNav = <SideNav {...navProps} />;
   const sideNavMobile = (
-    <SideNav {...navProps} collapsible={false} onNavigated={() => setMobileSidebarOpen(false)} />
+    <SideNav
+      {...navProps}
+      collapsible={false}
+      onNavigated={() => setMobileSidebarOpen(false)}
+      onEnterFocusMode={() => setFocusMode(true)}
+    />
   );
 
   return (
@@ -1260,17 +1265,13 @@ export default function DashboardClient({
         onCancel={() => setDeleteEventId(null)}
       />
 
-      {/* Floating Focus button (mobile only, when not in focus mode) */}
-      {isMobile && !focusMode && (
-        <button
-          onClick={() => setFocusMode(true)}
-          className="md:hidden fixed bottom-4 right-16 z-50 flex items-center justify-center w-11 h-11 rounded-full glass-card-subtle text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white transition-all"
-          aria-label={t("Enter focus mode")}
-          title={t("Focus Mode")}
-        >
-          <Target size={18} />
-        </button>
-      )}
+      <BottomNav
+        view={view.kind}
+        onSelectView={(kind) => navigate({ kind })}
+        onAdd={() => { setShowBar(true); setTimeout(() => focusNewTask(), 0); }}
+        onMore={() => setMobileSidebarOpen(true)}
+      />
+
     </AppShell>
     </>
   );

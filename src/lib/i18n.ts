@@ -240,6 +240,13 @@ export const de: Record<string, string> = {
   "Your account information": "Deine Kontodaten",
   "Customize the look and feel": "Aussehen anpassen",
 
+  // ── Settings and shell ──────────────────────────────────────────────
+  "Back": "Zurück",
+  "Loading...": "Wird geladen...",
+  "Delete {n} completed tasks? This cannot be undone.": "{n} erledigte Aufgaben löschen? Das lässt sich nicht rückgängig machen.",
+  "This removes every task, project, habit, list and setting. Your login stays and the account will be empty. This cannot be undone.": "Das entfernt jede Aufgabe, jedes Projekt, jede Gewohnheit, jede Liste und jede Einstellung. Der Zugang bleibt, das Konto ist danach leer. Das lässt sich nicht rückgängig machen.",
+  "Delete everything": "Alles löschen",
+
   // ── Habits, projects, journal, templates ────────────────────────────
   "Other days": "Andere Tage",
   "No habit selected": "Keine Gewohnheit ausgewählt",

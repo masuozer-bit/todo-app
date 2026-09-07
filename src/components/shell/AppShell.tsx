@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, type ReactNode } from "react";
+import { ArrowLeft } from "lucide-react";
+import { useI18n } from "@/components/I18nProvider";
 
 interface AppShellProps {
   /** Column 1. Hidden below 768 px, where the bottom navigation takes over. */
@@ -29,6 +31,7 @@ export default function AppShell({
   onCloseDetail,
   children,
 }: AppShellProps) {
+  const { t } = useI18n();
   // Esc closes the overlay forms of the panel. Above 1024 px the panel is a
   // column, not an overlay, so the dashboard handles Esc there itself.
   useEffect(() => {
@@ -50,6 +53,11 @@ export default function AppShell({
         {/* Below 1024 px the panel is an overlay, so it is only in the tree
             when something is selected. Above it, the column is always there. */}
         <div className="app-detail" data-open={detailOpen ? "true" : "false"}>
+          {/* As a full sheet the panel needs a way back that is not Esc */}
+          <button onClick={onCloseDetail} className="btn btn-ghost md:hidden flex-none justify-start h-10 px-3 border-b border-border rounded-none">
+            <ArrowLeft size={16} />
+            {t("Back")}
+          </button>
           {detail}
         </div>
       </div>

@@ -34,7 +34,7 @@ export default function EventInput({ onAdd, lists = [] }: EventInputProps) {
   }
 
   return (
-    <div className="glass-card p-4">
+    <div className="surface border border-border rounded-lg p-4">
       <form onSubmit={handleSubmit}>
         <div className="flex items-center gap-3">
           <input
@@ -42,7 +42,7 @@ export default function EventInput({ onAdd, lists = [] }: EventInputProps) {
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder={t("New project... (e.g. Sprint planning, Kitchen renovation)")}
-            className="flex-1 bg-transparent text-black dark:text-white placeholder:text-gray-400 focus:outline-none text-base"
+            className="flex-1 bg-transparent text-text placeholder:text-text-faint focus:outline-none text-base"
             aria-label={t("New project title")}
           />
           <DatePicker value={dueDate} onChange={setDueDate} placeholder={t("Date")} />
@@ -61,7 +61,7 @@ export default function EventInput({ onAdd, lists = [] }: EventInputProps) {
           <button
             type="submit"
             disabled={!title.trim()}
-            className="w-9 h-9 rounded-xl bg-black dark:bg-white text-white dark:text-black flex items-center justify-center hover:opacity-90 active:scale-95 transition-default disabled:opacity-30 disabled:cursor-not-allowed flex-shrink-0"
+            className="icon-btn flex-none w-9 h-9 btn-primary disabled:opacity-40"
             aria-label={t("Create project")}
           >
             <Plus size={18} />

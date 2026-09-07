@@ -103,14 +103,14 @@ function SortableRuleItem({
         <button
           {...attributes}
           {...listeners}
-          className="mt-0.5 text-gray-300 dark:text-gray-600 hover:text-gray-500 dark:hover:text-gray-400 cursor-grab active:cursor-grabbing transition-default opacity-0 group-hover:opacity-100"
+          className="mt-0.5 text-gray-300 dark:text-gray-600 hover:text-text-muted dark:hover:text-text-faint cursor-grab active:cursor-grabbing transition-default opacity-0 group-hover:opacity-100"
           tabIndex={-1}
         >
           <GripVertical size={14} />
         </button>
 
         {/* Rule number */}
-        <span className="mt-0.5 text-[11px] font-bold text-black/20 dark:text-gray-600 tabular-nums w-4 text-right flex-shrink-0">
+        <span className="mt-0.5 text-xs font-bold text-black/20 dark:text-gray-600 tabular-nums w-4 text-right flex-shrink-0">
           {rule.sort_order + 1}.
         </span>
 
@@ -124,32 +124,32 @@ function SortableRuleItem({
                 if (e.key === "Enter") save();
                 if (e.key === "Escape") cancel();
               }}
-              className="w-full bg-transparent outline-none text-sm text-black dark:text-white font-medium"
+              className="w-full bg-transparent outline-none text-sm text-text font-medium"
             />
             <textarea
               value={editDesc}
               onChange={(e) => setEditDesc(e.target.value)}
               placeholder={t("Why this principle matters...")}
               rows={2}
-              className="w-full bg-transparent outline-none text-xs text-black/60 dark:text-gray-400 placeholder:text-gray-400 dark:placeholder:text-gray-500 resize-none"
+              className="w-full bg-transparent outline-none text-xs text-text-muted placeholder:text-text-faint dark:placeholder:text-text-muted resize-none"
             />
             <div className="flex gap-1.5">
               <button onClick={save} className="text-emerald-500 hover:text-emerald-400 transition-default"><Check size={14} /></button>
-              <button onClick={cancel} className="text-gray-400 hover:text-gray-300 transition-default"><X size={14} /></button>
+              <button onClick={cancel} className="text-text-faint hover:text-gray-300 transition-default"><X size={14} /></button>
             </div>
           </div>
         ) : (
           <div className="flex-1 min-w-0">
             <div className="flex items-start gap-2">
-              <span className="text-sm font-medium text-black dark:text-white leading-snug">{rule.title}</span>
+              <span className="text-sm font-medium text-text leading-snug">{rule.title}</span>
               {catStyle && (
-                <span className={`flex-shrink-0 px-1.5 py-0.5 rounded-full text-[11px] font-semibold ${catStyle}`}>
+                <span className={`flex-shrink-0 px-1.5 py-0.5 rounded-full text-xs font-semibold ${catStyle}`}>
                   {rule.category}
                 </span>
               )}
             </div>
             {rule.description && (
-              <p className="text-[11px] text-black/40 dark:text-gray-500 mt-0.5 leading-relaxed">{rule.description}</p>
+              <p className="text-xs text-text-faint mt-0.5 leading-relaxed">{rule.description}</p>
             )}
           </div>
         )}
@@ -159,13 +159,13 @@ function SortableRuleItem({
           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-default flex-shrink-0">
             <button
               onClick={() => setEditing(true)}
-              className="text-gray-400 dark:text-gray-500 hover:text-black dark:hover:text-white transition-default"
+              className="text-text-faint dark:text-text-muted hover:text-text transition-default"
             >
               <Edit2 size={12} />
             </button>
             <button
               onClick={() => setConfirmDelete(true)}
-              className="text-gray-400 dark:text-gray-500 hover:text-red-400 transition-default"
+              className="text-text-faint dark:text-text-muted hover:text-red-400 transition-default"
             >
               <Trash2 size={12} />
             </button>
@@ -229,7 +229,7 @@ export default function RuleList({ rules, loading, onUpdate, onDelete, onReorder
   if (rules.length === 0) {
     return (
       <div className="text-center py-16">
-        <p className="text-sm text-black/30 dark:text-gray-600">{t("No principles yet")}</p>
+        <p className="text-sm text-text-faint">{t("No principles yet")}</p>
         <p className="text-xs text-black/20 dark:text-gray-700 mt-1">{t("Principles you want to work by, always in view")}</p>
       </div>
     );
@@ -242,10 +242,10 @@ export default function RuleList({ rules, loading, onUpdate, onDelete, onReorder
         <div className="flex items-center gap-1.5 flex-wrap">
           <button
             onClick={() => setFilterCat(null)}
-            className={`px-2.5 py-1 rounded-full text-[11px] font-semibold transition-default border ${
+            className={`px-2.5 py-1 rounded-full text-xs font-semibold transition-default border ${
               !filterCat
-                ? "bg-black/10 dark:bg-white/10 border-black/15 dark:border-white/15 text-black dark:text-white"
-                : "border-transparent text-black/40 dark:text-gray-500 hover:text-black dark:hover:text-white"
+                ? "surface-3 border-black/15 dark:border-white/15 text-text"
+                : "border-transparent text-text-faint hover:text-text"
             }`}
           >
             All ({rules.length})
@@ -256,10 +256,10 @@ export default function RuleList({ rules, loading, onUpdate, onDelete, onReorder
               <button
                 key={cat}
                 onClick={() => setFilterCat(filterCat === cat ? null : cat)}
-                className={`px-2.5 py-1 rounded-full text-[11px] font-semibold transition-default border ${
+                className={`px-2.5 py-1 rounded-full text-xs font-semibold transition-default border ${
                   filterCat === cat
                     ? `${catStyle} border-current/20`
-                    : "border-transparent text-black/40 dark:text-gray-500 hover:text-black dark:hover:text-white"
+                    : "border-transparent text-text-faint hover:text-text"
                 }`}
               >
                 {cat} ({rules.filter(r => r.category === cat).length})

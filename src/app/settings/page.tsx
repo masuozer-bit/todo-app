@@ -81,6 +81,19 @@ export default function SettingsPage() {
   const { themePreference, setThemePreference, accent, setAccent, density, setDensity } = useTheme();
   const { locale, setLocale, t } = useI18n();
 
+  // Esc leaves settings, the same way the panel closes elsewhere
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key !== "Escape") return;
+      const target = e.target as HTMLElement;
+      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") return;
+      if (document.querySelector('[aria-modal="true"]')) return;
+      router.push("/dashboard");
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [router]);
+
   useEffect(() => {
     try {
       const stored = localStorage.getItem("defaultView");
@@ -195,76 +208,65 @@ export default function SettingsPage() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="w-6 h-6 border-2 border-gray-400/30 border-t-black dark:border-t-white rounded-full animate-spin" />
+      <div className="settings-shell flex items-center justify-center">
+        <span className="text-sm text-text-faint">{t("Loading...")}</span>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen transition-colors">
-
-      <main className="max-w-4xl mx-auto px-4 pb-16">
-        <div className="mt-4 mb-6 flex items-center gap-3">
-          <Link
-            href="/dashboard"
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-sm text-gray-500 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-default"
-          >
-            <ArrowLeft size={15} />{t("Back to tasks")}</Link>
-          <h2 className="text-2xl font-bold text-black dark:text-white">{t("Settings")}</h2>
+    <div className="settings-shell">
+      <div className="app-content">
+        <div className="app-col-head">
+          <Link href="/dashboard" className="btn btn-ghost flex-none" aria-label={t("Back to tasks")}>
+            <ArrowLeft size={16} />
+            {t("Back")}
+          </Link>
+          <h1 className="text-xl font-semibold text-text truncate min-w-0">{t("Settings")}</h1>
         </div>
 
-        <div className="flex gap-6">
-          {/* Sidebar nav */}
-          <nav className="w-48 flex-shrink-0 hidden md:block">
-            <div className="space-y-0.5 sticky top-20">
+        <div className="app-col-body">
+          <div className="flex gap-6 px-4 py-4 max-w-[1000px]">
+            {/* Tabs, left of the content */}
+            <nav className="w-48 flex-none hidden md:block" aria-label={t("Settings")}>
+              <div className="sticky top-0">
+                {TABS.map((tab) => {
+                  const Icon = tab.icon;
+                  const isActive = activeTab === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id)}
+                      className={`nav-row w-full ${isActive ? "is-active" : ""}`}
+                      style={tab.id === "danger" && !isActive ? { color: "var(--danger)" } : undefined}
+                      aria-current={isActive ? "page" : undefined}
+                    >
+                      <span className="flex-none nav-row-icon"><Icon size={18} /></span>
+                      <span className="flex-1 text-left truncate">{t(tab.label)}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </nav>
+
+            {/* Tabs as a strip on a phone */}
+            <div className="md:hidden w-full mb-4 overflow-x-auto flex gap-1 pb-2">
               {TABS.map((tab) => {
                 const Icon = tab.icon;
                 const isActive = activeTab === tab.id;
-                const isDanger = tab.id === "danger";
                 return (
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
-                    className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm text-left transition-default ${
-                      isActive
-                        ? isDanger
-                          ? "bg-red-500/10 text-red-400 font-medium"
-                          : "glass-nav-active text-white font-medium"
-                        : isDanger
-                          ? "text-red-400/60 hover:text-red-400 hover:bg-red-500/5"
-                          : "text-gray-500 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5"
-                    }`}
+                    className={`chip flex-none h-8 ${isActive ? "chip-accent" : ""}`}
                   >
-                    <Icon size={14} />
+                    <Icon size={13} />
                     {t(tab.label)}
                   </button>
                 );
               })}
             </div>
-          </nav>
 
-          {/* Mobile tab bar */}
-          <div className="md:hidden w-full mb-4 overflow-x-auto flex gap-1 pb-2">
-            {TABS.map((tab) => {
-              const Icon = tab.icon;
-              const isActive = activeTab === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-default ${
-                    isActive
-                      ? "bg-black dark:bg-white text-white dark:text-black font-medium"
-                      : "text-gray-500 hover:text-black dark:hover:text-white"
-                  }`}
-                >
-                  <Icon size={12} />
-                  {t(tab.label)}
-                </button>
-              );
-            })}
-          </div>
 
           {/* Content */}
           <div className="flex-1 min-w-0">
@@ -272,7 +274,7 @@ export default function SettingsPage() {
               <Section title={t("Profile")} subtitle={t("Your account information")}>
                 <form onSubmit={handleSaveProfile} className="space-y-5">
                   <Field label="Email">
-                    <p className="text-sm text-black dark:text-white">{user?.email}</p>
+                    <p className="text-sm text-text">{user?.email}</p>
                   </Field>
                   <Field label="Display name">
                     <input
@@ -281,14 +283,14 @@ export default function SettingsPage() {
                       onChange={(e) => setDisplayName(e.target.value)}
                       placeholder={t("Your name")}
                       maxLength={50}
-                      className="w-full max-w-xs bg-transparent border border-black/10 dark:border-white/10 rounded-xl px-3 py-2 text-sm text-black dark:text-white placeholder:text-gray-400 focus:outline-none focus:border-black/30 dark:focus:border-white/30 transition-default"
+                      className="w-full max-w-xs bg-transparent border border-border rounded px-3 py-2 text-sm text-text placeholder:text-text-faint focus:outline-none focus:border-black/30 dark:focus:border-white/30 transition-default"
                     />
                   </Field>
                   <div className="flex items-center gap-3">
                     <button
                       type="submit"
                       disabled={saving}
-                      className="px-4 py-2 rounded-xl bg-black dark:bg-white text-white dark:text-black text-sm font-medium hover:opacity-80 transition-default disabled:opacity-50"
+                      className="px-4 py-2 rounded btn-primary text-sm font-medium hover:opacity-80 transition-default disabled:opacity-50"
                     >
                       {saving ? "Saving..." : "Save"}
                     </button>
@@ -306,14 +308,14 @@ export default function SettingsPage() {
                       onChange={(e) => setNewPassword(e.target.value)}
                       placeholder={t("At least 8 characters")}
                       autoComplete="new-password"
-                      className="w-full max-w-xs bg-transparent border border-black/10 dark:border-white/10 rounded-xl px-3 py-2 text-sm text-black dark:text-white placeholder:text-gray-400 focus:outline-none focus:border-black/30 dark:focus:border-white/30 transition-default"
+                      className="w-full max-w-xs bg-transparent border border-border rounded px-3 py-2 text-sm text-text placeholder:text-text-faint focus:outline-none focus:border-black/30 dark:focus:border-white/30 transition-default"
                     />
                   </Field>
                   <div className="flex items-center gap-3">
                     <button
                       type="submit"
                       disabled={newPassword.length < 8}
-                      className="px-4 py-2 rounded-xl bg-black dark:bg-white text-white dark:text-black text-sm font-medium hover:opacity-80 transition-default disabled:opacity-40"
+                      className="px-4 py-2 rounded btn-primary text-sm font-medium hover:opacity-80 transition-default disabled:opacity-40"
                     >{t("Change password")}</button>
                     {passwordMsg && <span className="text-xs text-green-500">{passwordMsg}</span>}
                   </div>
@@ -370,9 +372,9 @@ export default function SettingsPage() {
                     </div>
                   </Field>
 
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-text-muted">
                     {t("Use")}
-                    <kbd className="mx-1 px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 text-xs font-mono">
+                    <kbd className="mx-1 px-1.5 py-0.5 rounded surface-2 text-xs font-mono">
                       {"\u2318\u21E7L"}
                     </kbd>
                     {t("to switch between dark and light.")}
@@ -389,10 +391,10 @@ export default function SettingsPage() {
                       <button
                         key={l.value}
                         onClick={() => setLocale(l.value)}
-                        className={`px-3 py-1.5 rounded-xl text-sm border transition-default ${
+                        className={`px-3 py-1.5 rounded text-sm border transition-default ${
                           locale === l.value
-                            ? "border-black/30 dark:border-white/30 bg-black/5 dark:bg-white/10 text-black dark:text-white font-medium"
-                            : "border-black/10 dark:border-white/10 text-gray-500 hover:text-black dark:hover:text-white"
+                            ? "border-border-strong surface-2 text-text font-medium"
+                            : "border-border text-text-muted hover:text-text"
                         }`}
                       >
                         {l.label}
@@ -412,10 +414,10 @@ export default function SettingsPage() {
                           setDefaultView(v.value);
                           try { localStorage.setItem("defaultView", v.value); } catch { /* ignore */ }
                         }}
-                        className={`px-3 py-1.5 rounded-xl text-sm border transition-default ${
+                        className={`px-3 py-1.5 rounded text-sm border transition-default ${
                           defaultView === v.value
-                            ? "border-black/30 dark:border-white/30 bg-black/5 dark:bg-white/10 text-black dark:text-white font-medium"
-                            : "border-black/10 dark:border-white/10 text-gray-500 hover:text-black dark:hover:text-white"
+                            ? "border-border-strong surface-2 text-text font-medium"
+                            : "border-border text-text-muted hover:text-text"
                         }`}
                       >
                         {t(v.label)}
@@ -426,7 +428,7 @@ export default function SettingsPage() {
 
                 <Divider />
 
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-text-muted">
                   {t("Times are shown in 24-hour format and weeks start on Monday.")}
                 </p>
               </Section>
@@ -458,7 +460,7 @@ export default function SettingsPage() {
                   <>
                     <Divider />
                     <div className="py-3">
-                      <p className="text-xs text-gray-400 font-medium mb-2">{t("What syncs")}</p>
+                      <p className="text-xs text-text-faint font-medium mb-2">{t("What syncs")}</p>
                       <div className="grid grid-cols-2 gap-1.5">
                         {[
                           "Tasks with due dates",
@@ -470,7 +472,7 @@ export default function SettingsPage() {
                           "Google → app import",
                           "Reminders",
                         ].map((f) => (
-                          <p key={f} className="text-[11px] text-gray-500 flex items-center gap-1.5">
+                          <p key={f} className="text-xs text-text-muted flex items-center gap-1.5">
                             <span className="w-1 h-1 rounded-full bg-green-500 flex-shrink-0" />
                             {f}
                           </p>
@@ -529,20 +531,20 @@ export default function SettingsPage() {
                   <>
                     <Divider />
                     <div className="py-3">
-                      <p className="text-xs text-gray-400 font-medium mb-2">When you&apos;ll be notified</p>
+                      <p className="text-xs text-text-faint font-medium mb-2">When you&apos;ll be notified</p>
                       <div className="space-y-1.5">
                         {[
                           "Timed tasks starting now or in ~15 min",
                           "All-day tasks due today (8 AM)",
                           "Overdue tasks (9 AM daily digest)",
                         ].map((item) => (
-                          <p key={item} className="text-[11px] text-gray-500 flex items-center gap-1.5">
+                          <p key={item} className="text-xs text-text-muted flex items-center gap-1.5">
                             <span className="w-1 h-1 rounded-full bg-blue-400 flex-shrink-0" />
                             {item}
                           </p>
                         ))}
                       </div>
-                      <p className="text-[11px] text-gray-600 mt-3">{t("The daily reminder goes out in the morning in your own timezone and arrives even when the browser is closed.")}</p>
+                      <p className="text-xs text-gray-600 mt-3">{t("The daily reminder goes out in the morning in your own timezone and arrives even when the browser is closed.")}</p>
                     </div>
                   </>
                 )}
@@ -583,7 +585,7 @@ export default function SettingsPage() {
                 {/* Tags belong to the account, not to one task, so managing
                     them lives here rather than in the task panel. */}
                 <div className="pt-2">
-                  <p className="text-xs text-gray-400 font-medium mb-2">{t("Tags")}</p>
+                  <p className="text-xs text-text-faint font-medium mb-2">{t("Tags")}</p>
                   <TagManager tags={tags} onAdd={addTag} onDelete={deleteTag} />
                 </div>
               </Section>
@@ -607,13 +609,14 @@ export default function SettingsPage() {
               </Section>
             )}
           </div>
+          </div>
         </div>
-      </main>
+      </div>
 
       <ConfirmDialog
         open={showClearConfirm}
         title={t("Clear completed tasks")}
-        message={`Are you sure you want to delete ${completedCount} completed task${completedCount !== 1 ? "s" : ""}? This cannot be undone.`}
+        message={t("Delete {n} completed tasks? This cannot be undone.", { n: completedCount })}
         onConfirm={handleClearCompleted}
         onCancel={() => setShowClearConfirm(false)}
       />
@@ -621,8 +624,8 @@ export default function SettingsPage() {
       <ConfirmDialog
         open={showDeleteConfirm}
         title={t("Delete all data")}
-        message="This removes every task, project, habit, list and setting. Your login stays and the account will be empty. This cannot be undone."
-        confirmLabel="Delete everything"
+        message={t("This removes every task, project, habit, list and setting. Your login stays and the account will be empty. This cannot be undone.")}
+        confirmLabel={t("Delete everything")}
         onConfirm={handleDeleteAccount}
         onCancel={() => setShowDeleteConfirm(false)}
       />
@@ -634,11 +637,11 @@ export default function SettingsPage() {
 
 function Section({ title, subtitle, danger, children }: { title: string; subtitle?: string; danger?: boolean; children: React.ReactNode }) {
   return (
-    <div className={`glass-card p-6 ${danger ? "border border-red-500/20" : ""}`}>
-      <h3 className={`text-base font-semibold mb-0.5 ${danger ? "text-red-400" : "text-black dark:text-white"}`}>
+    <div className="surface border rounded-lg p-6" style={danger ? { borderColor: "var(--danger)" } : { borderColor: "var(--border)" }}>
+      <h3 className="text-base font-medium mb-0.5" style={danger ? { color: "var(--danger)" } : { color: "var(--text)" }}>
         {title}
       </h3>
-      {subtitle && <p className="text-xs text-gray-500 mb-5">{subtitle}</p>}
+      {subtitle && <p className="text-[13px] text-text-muted mb-5">{subtitle}</p>}
       {children}
     </div>
   );
@@ -653,8 +656,8 @@ function Choice({ active, onClick, children }: { active: boolean; onClick: () =>
       aria-pressed={active}
       className={`flex items-center gap-2 h-8 px-3 rounded text-sm border transition-default ${
         active
-          ? "border-black/30 dark:border-white/30 bg-black/5 dark:bg-white/10 text-black dark:text-white font-medium"
-          : "border-black/10 dark:border-white/10 text-gray-500 hover:text-black dark:hover:text-white hover:border-black/20 dark:hover:border-white/20"
+          ? "border-border-strong surface-2 text-text font-medium"
+          : "border-border text-text-muted hover:text-text hover:border-black/20 dark:hover:border-white/20"
       }`}
     >
       {children}
@@ -665,7 +668,7 @@ function Choice({ active, onClick, children }: { active: boolean; onClick: () =>
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="text-xs text-gray-400 font-medium block mb-1.5">{label}</label>
+      <label className="text-xs text-text-faint font-medium block mb-1.5">{label}</label>
       {children}
     </div>
   );
@@ -675,8 +678,8 @@ function Row({ label, description, action }: { label: string; description: strin
   return (
     <div className="flex items-center justify-between gap-4 py-2">
       <div className="min-w-0">
-        <p className="text-sm text-black dark:text-white">{label}</p>
-        <p className="text-xs text-gray-500 mt-0.5">{description}</p>
+        <p className="text-sm text-text">{label}</p>
+        <p className="text-xs text-text-muted mt-0.5">{description}</p>
       </div>
       {action && <div className="flex-shrink-0">{action}</div>}
     </div>
@@ -705,7 +708,7 @@ function ActionButton({
       className={`inline-flex items-center px-3 py-1.5 rounded-lg border text-sm transition-default disabled:opacity-40 disabled:cursor-not-allowed ${
         variant === "danger"
           ? "border-red-500/30 text-red-400 hover:bg-red-500/10"
-          : "border-black/10 dark:border-white/10 text-black dark:text-white hover:bg-black/5 dark:hover:bg-white/10"
+          : "border-border text-text hover:bg-surface-2"
       }`}
     >
       {children}

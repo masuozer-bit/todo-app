@@ -144,7 +144,7 @@ export default function HabitDetail({
         <Notes habit={habit} onSave={(id, notes) => onUpdate(id, { notes: notes.trim() === "" ? null : notes })} />
       </div>
 
-      <div className="flex-none flex items-center gap-2 px-4 py-3 border-t border-border">
+      <div className="panel-foot">
         <span className="text-xs text-text-faint flex-1 min-w-0 truncate">
           {habit.streak > 0 ? t("{n} day streak", { n: habit.streak }) : ""}
         </span>

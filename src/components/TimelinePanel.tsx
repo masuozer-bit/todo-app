@@ -140,15 +140,15 @@ export default function TimelinePanel({ todos, habits, lists, events, onTodoClic
   const currentTimeLabel = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
   return (
-    <div className="glass-card overflow-hidden flex flex-col" style={{ height: 420 }}>
+    <div className="surface border border-border rounded-lg overflow-hidden flex flex-col" style={{ height: 420 }}>
       {/* Header */}
       <div className="px-3 pt-2.5 pb-2 flex items-center gap-2 border-b border-black/[0.06] dark:border-white/[0.05]">
-        <span className="text-[11px] font-bold uppercase tracking-widest text-black/50 dark:text-gray-400">Schedule</span>
+        <span className="text-xs font-bold uppercase tracking-widest text-text-muted">Schedule</span>
         <div className="flex-1 h-px bg-black/[0.06] dark:bg-white/[0.05]" />
-        <span className="text-[11px] text-black/30 dark:text-gray-600 tabular-nums">{currentTimeLabel}</span>
+        <span className="text-xs text-text-faint tabular-nums">{currentTimeLabel}</span>
         <button
           onClick={toggleWeekModal}
-          className="text-black/25 dark:text-gray-700 hover:text-black dark:hover:text-white transition-default"
+          className="text-black/25 dark:text-gray-700 hover:text-text transition-default"
           aria-label="Open week view"
           title="Week view"
         >
@@ -171,19 +171,19 @@ export default function TimelinePanel({ todos, habits, lists, events, onTodoClic
                 style={{ top: topPx }}
               >
                 <div className="w-10 flex-shrink-0 flex items-start justify-end pr-2 -translate-y-2">
-                  <span className={`text-[11px] tabular-nums leading-none ${
+                  <span className={`text-xs tabular-nums leading-none ${
                     isPast
-                      ? "text-black/15 dark:text-white/10"
+                      ? "text-text-faint"
                       : isMidnight
                         ? "text-black/50 dark:text-gray-300 font-semibold"
-                        : "text-black/30 dark:text-gray-600"
+                        : "text-text-faint"
                   }`}>
                     {isMidnight ? date.toLocaleDateString([], { weekday: "short" }) : hourLabel(date)}
                   </span>
                 </div>
                 <div className={`flex-1 ${
                   isMidnight
-                    ? "h-px bg-black/10 dark:bg-white/10"
+                    ? "h-px surface-3"
                     : isPast
                       ? "h-px bg-black/[0.03] dark:bg-white/[0.03]"
                       : "h-px bg-black/[0.05] dark:bg-white/[0.05]"
@@ -222,9 +222,9 @@ export default function TimelinePanel({ todos, habits, lists, events, onTodoClic
                 }}
               >
                 <div className="px-2 py-1 h-full flex flex-col justify-center">
-                  <span className="text-[11px] font-medium text-white truncate leading-tight">{todo.title}</span>
+                  <span className="text-xs font-medium text-white truncate leading-tight">{todo.title}</span>
                   {heightPx > 36 && (
-                    <span className="text-[11px] text-white/50 mt-0.5">
+                    <span className="text-xs text-text-faint mt-0.5">
                       {formatTime(todo.start_time!)}{todo.end_time ? ` – ${formatTime(todo.end_time)}` : ""}
                     </span>
                   )}
@@ -248,12 +248,12 @@ export default function TimelinePanel({ todos, habits, lists, events, onTodoClic
               }}
             >
               <div className="px-2 py-1 h-full flex flex-col justify-center">
-                <span className={`text-[11px] font-medium text-white truncate leading-tight flex items-center gap-1.5 ${habit.completedToday ? "line-through" : ""}`}>
+                <span className={`text-xs font-medium text-white truncate leading-tight flex items-center gap-1.5 ${habit.completedToday ? "line-through" : ""}`}>
                   <Repeat size={9} className="flex-shrink-0 opacity-60" />
                   {habit.title}
                 </span>
                 {heightPx > 36 && (
-                  <span className="text-[11px] text-white/50 mt-0.5 pl-[18px]">
+                  <span className="text-xs text-text-faint mt-0.5 pl-[18px]">
                     {formatTime(habit.time!)}{habit.end_time ? ` – ${formatTime(habit.end_time)}` : ""}
                   </span>
                 )}

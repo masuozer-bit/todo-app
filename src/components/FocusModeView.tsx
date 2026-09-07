@@ -143,16 +143,16 @@ export default function FocusModeView({
       <div className="flex-shrink-0 px-5 pt-12 pb-4">
         <div className="flex items-start justify-between">
           <div>
-            <p className="text-xs text-gray-400 uppercase tracking-widest mb-1">
+            <p className="text-xs text-text-faint uppercase tracking-widest mb-1">
               {dateLabel}
             </p>
-            <h1 className="text-3xl font-bold text-black dark:text-white tracking-tight">
+            <h1 className="text-3xl font-bold text-text tracking-tight">
               {SLIDE_LABELS[slide]}
             </h1>
           </div>
           <button
             onClick={onExitFocusMode}
-            className="mt-1 flex items-center gap-1.5 px-2.5 py-2 rounded-xl text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-default"
+            className="mt-1 flex items-center gap-1.5 px-2.5 py-2 rounded-xl text-text-muted dark:text-text-faint hover:text-text hover:bg-surface-2 transition-default"
             aria-label={t("Leave focus mode")}
           >
             <LayoutGrid size={16} />
@@ -265,7 +265,7 @@ export default function FocusModeView({
             }}
             className={
               slide === i
-                ? "text-black dark:text-white"
+                ? "text-text"
                 : "bg-black/15 dark:bg-white/20"
             }
           />

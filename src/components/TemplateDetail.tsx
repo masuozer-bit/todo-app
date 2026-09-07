@@ -118,7 +118,7 @@ export default function TemplateDetail({
         )}
       </div>
 
-      <div className="flex-none flex items-center gap-2 px-4 py-3 border-t border-border">
+      <div className="panel-foot">
         <button onClick={() => onApply(template, startDate)} className="btn btn-primary flex-1">
           <Play size={14} />
           {t("Apply")}

@@ -26,6 +26,7 @@ import {
   Repeat,
   Search,
   Settings,
+  Target,
   Shield,
   Sun,
   Trash2,
@@ -94,6 +95,8 @@ interface SideNavProps {
   /** Mobile renders the same nav inside a sheet, where collapsing makes no sense. */
   collapsible?: boolean;
   onNavigated?: () => void;
+  /** Focus mode is a choice, not a default. Only the sheet offers it. */
+  onEnterFocusMode?: () => void;
 }
 
 const VIEW_ROWS: { kind: ViewKind; label: string; icon: React.ElementType; count: keyof NavCounts }[] = [
@@ -139,6 +142,7 @@ export default function SideNav({
   onReorderLists,
   collapsible = true,
   onNavigated,
+  onEnterFocusMode,
 }: SideNavProps) {
   const { t } = useI18n();
   const { theme, toggleTheme } = useTheme();
@@ -393,6 +397,14 @@ export default function SideNav({
             onClick={() => go(() => onSelectView(kind))}
           />
         ))}
+        {onEnterFocusMode && (
+          <NavRow
+            icon={<Target size={18} />}
+            label={t("Focus Mode")}
+            iconsOnly={iconsOnly}
+            onClick={() => go(onEnterFocusMode)}
+          />
+        )}
       </nav>
 
       <div

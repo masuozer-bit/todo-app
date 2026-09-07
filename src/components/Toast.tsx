@@ -62,52 +62,36 @@ function ToastItem({ toast, onDismiss }: ToastProps) {
   return (
     <div
       role="status"
-      className={`flex items-center gap-3 px-4 py-3 rounded-2xl shadow-lg transition-all duration-300 ${
-        isError
-          ? "bg-red-600 text-white"
-          : "bg-black dark:bg-white text-white dark:text-black"
-      } ${exiting ? "opacity-0 translate-y-2" : "opacity-100 translate-y-0"}`}
+      className="flex items-center gap-2 h-10 px-3 surface border border-border rounded"
+      style={{
+        boxShadow: "var(--shadow-popover)",
+        opacity: exiting ? 0 : 1,
+        transform: exiting ? "translateY(4px)" : "none",
+        transition: "opacity var(--duration) var(--ease), transform var(--duration) var(--ease)",
+      }}
     >
-      <span className="text-sm font-medium flex-1">{t(toast.message)}</span>
+      {isError && (
+        <span className="w-1.5 h-1.5 rounded-full flex-none" style={{ background: "var(--danger)" }} aria-hidden="true" />
+      )}
+      <span className="flex-1 min-w-0 truncate text-[13px] text-text">{t(toast.message)}</span>
       {toast.action && (
-        <button
-          onClick={handleAction}
-          className={`text-xs font-semibold px-2.5 py-1 rounded-lg transition-default ${
-            isError
-              ? "bg-white/20 hover:bg-white/30"
-              : "bg-white/20 dark:bg-black/15 hover:bg-white/30 dark:hover:bg-black/25"
-          }`}
-        >
+        <button onClick={handleAction} className="btn btn-ghost h-7 px-2 text-[13px]" style={{ color: "var(--accent)" }}>
           {t(toast.action.label)}
         </button>
       )}
       {toast.onUndo && (
-        <button
-          onClick={handleUndo}
-          className={`flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-lg transition-default ${
-            isError
-              ? "bg-white/20 hover:bg-white/30"
-              : "bg-white/20 dark:bg-black/15 hover:bg-white/30 dark:hover:bg-black/25"
-          }`}
-        >
-          <Undo2 size={12} />
+        <button onClick={handleUndo} className="btn btn-ghost h-7 px-2 text-[13px]" style={{ color: "var(--accent)" }}>
+          <Undo2 size={13} />
           {t("Undo")}
         </button>
       )}
-      <button
-        onClick={close}
-        className={
-          isError
-            ? "text-white/60 hover:text-white transition-default"
-            : "text-white/50 dark:text-black/50 hover:text-white dark:hover:text-black transition-default"
-        }
-        aria-label={t("Dismiss")}
-      >
+      <button onClick={close} className="icon-btn w-7 h-7 flex-none" aria-label={t("Dismiss")}>
         <X size={14} />
       </button>
     </div>
   );
 }
+
 
 interface ToastContainerProps {
   toasts: ToastData[];
@@ -118,7 +102,7 @@ export function ToastContainer({ toasts, onDismiss }: ToastContainerProps) {
   if (toasts.length === 0) return null;
 
   return (
-    <div className="fixed bottom-16 left-1/2 -translate-x-1/2 z-[60] flex flex-col gap-2 w-full max-w-sm px-4">
+    <div className="toast-stack">
       {toasts.map((toast) => (
         <ToastItem key={toast.id} toast={toast} onDismiss={onDismiss} />
       ))}

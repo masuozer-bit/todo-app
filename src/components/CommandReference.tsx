@@ -158,20 +158,20 @@ export default function CommandReference() {
       <div className="relative">
         <Search
           size={14}
-          className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+          className="absolute left-3 top-1/2 -translate-y-1/2 text-text-faint pointer-events-none"
         />
         <input
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder={`Search ${totalCommands} commands & ${SHORTCUTS.length} shortcuts...`}
-          className="w-full pl-9 pr-3 py-2 text-sm rounded-xl bg-black/[0.03] dark:bg-white/[0.06] border border-black/[0.06] dark:border-white/[0.1] text-black dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-black/10 dark:focus:ring-white/20 transition-all duration-200"
+          className="w-full pl-9 pr-3 py-2 text-sm rounded-xl bg-black/[0.03] dark:bg-white/[0.06] border border-black/[0.06] dark:border-white/[0.1] text-text placeholder:text-text-faint dark:placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-black/10 dark:focus:ring-white/20 transition-all duration-200"
           aria-label={t("Search commands")}
         />
         {search && (
           <button
             onClick={() => setSearch("")}
-            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-xs"
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-faint hover:text-gray-600 dark:hover:text-gray-300 text-xs"
           >{t("Clear")}</button>
         )}
       </div>
@@ -186,24 +186,24 @@ export default function CommandReference() {
                 className="w-full flex items-center justify-between px-4 py-2.5 text-left hover:bg-black/[0.02] dark:hover:bg-white/[0.03] transition-default"
               >
                 <div className="flex items-center gap-2">
-                  <Keyboard size={13} className="text-gray-400" />
-                  <span className="text-xs font-semibold text-black dark:text-white uppercase tracking-wide">{t("Keyboard Shortcuts")}</span>
-                  <span className="text-[11px] text-gray-400 bg-black/5 dark:bg-white/10 px-1.5 py-0.5 rounded-full">
+                  <Keyboard size={13} className="text-text-faint" />
+                  <span className="text-xs font-semibold text-text uppercase tracking-wide">{t("Keyboard Shortcuts")}</span>
+                  <span className="text-xs text-text-faint surface-2 px-1.5 py-0.5 rounded-full">
                     {filteredShortcuts.length}
                   </span>
                 </div>
                 {(search.trim() !== "" || expandedCategories.has("__shortcuts")) ? (
-                  <ChevronDown size={14} className="text-gray-400" />
+                  <ChevronDown size={14} className="text-text-faint" />
                 ) : (
-                  <ChevronRight size={14} className="text-gray-400" />
+                  <ChevronRight size={14} className="text-text-faint" />
                 )}
               </button>
               {(search.trim() !== "" || expandedCategories.has("__shortcuts")) && (
                 <div className="px-4 pb-3 grid grid-cols-2 gap-x-6 gap-y-1">
                   {filteredShortcuts.map((s) => (
                     <div key={s.keys} className="flex items-center justify-between py-1.5 border-t border-black/[0.03] dark:border-white/[0.05]">
-                      <span className="text-xs text-gray-600 dark:text-gray-400">{s.description}</span>
-                      <kbd className="text-[11px] font-mono px-2 py-0.5 rounded-md bg-black/[0.04] dark:bg-white/[0.08] text-black dark:text-white border border-black/[0.06] dark:border-white/[0.08]">
+                      <span className="text-xs text-gray-600 dark:text-text-faint">{s.description}</span>
+                      <kbd className="text-xs font-mono px-2 py-0.5 rounded-md bg-black/[0.04] dark:bg-white/[0.08] text-text border border-black/[0.06] dark:border-white/[0.08]">
                         {s.keys}
                       </kbd>
                     </div>
@@ -227,17 +227,17 @@ export default function CommandReference() {
                 >
                   <div className="flex items-center gap-2">
                     <span className="text-sm">{category.icon}</span>
-                    <span className="text-xs font-semibold text-black dark:text-white uppercase tracking-wide">
+                    <span className="text-xs font-semibold text-text uppercase tracking-wide">
                       {category.name}
                     </span>
-                    <span className="text-[11px] text-gray-400 bg-black/5 dark:bg-white/10 px-1.5 py-0.5 rounded-full">
+                    <span className="text-xs text-text-faint surface-2 px-1.5 py-0.5 rounded-full">
                       {category.commands.length}
                     </span>
                   </div>
                   {isExpanded ? (
-                    <ChevronDown size={14} className="text-gray-400" />
+                    <ChevronDown size={14} className="text-text-faint" />
                   ) : (
-                    <ChevronRight size={14} className="text-gray-400" />
+                    <ChevronRight size={14} className="text-text-faint" />
                   )}
                 </button>
 
@@ -248,15 +248,15 @@ export default function CommandReference() {
                         key={cmd.syntax}
                         className="flex items-start gap-3 py-2 border-t border-black/[0.03] dark:border-white/[0.05] first:border-0"
                       >
-                        <code className="shrink-0 text-[11px] font-mono px-2 py-0.5 rounded-md bg-black/[0.04] dark:bg-white/[0.08] text-black dark:text-white border border-black/[0.06] dark:border-white/[0.08]">
+                        <code className="shrink-0 text-xs font-mono px-2 py-0.5 rounded-md bg-black/[0.04] dark:bg-white/[0.08] text-text border border-black/[0.06] dark:border-white/[0.08]">
                           {cmd.syntax}
                         </code>
                         <div className="min-w-0 flex-1">
-                          <p className="text-xs text-gray-600 dark:text-gray-400 leading-snug">
+                          <p className="text-xs text-gray-600 dark:text-text-faint leading-snug">
                             {cmd.description}
                           </p>
                           {cmd.example && (
-                            <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5 truncate">
+                            <p className="text-xs text-text-faint dark:text-text-muted mt-0.5 truncate">
                               e.g. &ldquo;{cmd.example}&rdquo;
                             </p>
                           )}
@@ -274,15 +274,15 @@ export default function CommandReference() {
             <div className="border border-black/[0.06] dark:border-white/[0.1] rounded-xl overflow-hidden">
               <div className="px-4 py-2.5 flex items-center gap-2">
                 <span className="text-sm">💡</span>
-                <span className="text-xs font-semibold text-black dark:text-white uppercase tracking-wide">{t("Examples")}</span>
+                <span className="text-xs font-semibold text-text uppercase tracking-wide">{t("Examples")}</span>
               </div>
               <div className="px-4 pb-3 space-y-3">
                 {filteredExamples.map((ex) => (
                   <div key={ex.input} className="space-y-1">
-                    <code className="block text-xs font-mono px-3 py-2 rounded-lg bg-black/[0.03] dark:bg-white/[0.06] text-black dark:text-white border border-black/[0.06] dark:border-white/[0.08] break-words">
+                    <code className="block text-xs font-mono px-3 py-2 rounded-lg bg-black/[0.03] dark:bg-white/[0.06] text-text border border-black/[0.06] dark:border-white/[0.08] break-words">
                       {ex.input}
                     </code>
-                    <p className="text-[11px] text-gray-400 dark:text-gray-500 pl-3">
+                    <p className="text-xs text-text-faint dark:text-text-muted pl-3">
                       → {ex.parsed}
                     </p>
                   </div>
@@ -293,7 +293,7 @@ export default function CommandReference() {
         </div>
       ) : (
         <div className="border border-black/[0.06] dark:border-white/[0.1] rounded-xl p-8 text-center">
-          <p className="text-sm text-gray-400">
+          <p className="text-sm text-text-faint">
             No results for &ldquo;{search}&rdquo;
           </p>
         </div>

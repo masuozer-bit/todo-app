@@ -718,6 +718,28 @@
 }
 
 /* ============================================================
+   Quick input. One line, 40 px, on the surface. What the text
+   says shows up as chips on the right of the same line.
+   ============================================================ */
+@layer components {
+  .quick-input {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 40px;
+    padding: 0 8px 0 12px;
+    background-color: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    transition: border-color var(--duration) var(--ease);
+  }
+  .quick-input:focus-within {
+    border-color: var(--border-strong);
+    box-shadow: 0 0 0 2px var(--accent-soft);
+  }
+}
+
+/* ============================================================
    Transitional layer, phases 2 to 8 remove it.
 
    The glass, blur and tint rules these class names used to carry

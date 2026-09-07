@@ -377,7 +377,7 @@ export default function DashboardClient({
 
       if (isVisibleHere(dueDate, listId)) {
         setHighlightedTodoId(newId);
-        setTimeout(() => setHighlightedTodoId(null), 2000);
+        setTimeout(() => setHighlightedTodoId((current) => (current === newId ? null : current)), 1500);
       } else {
         showToast({
           message: dueDate ? "Task added outside this view" : 'Task added to "Someday"',
@@ -981,7 +981,6 @@ export default function DashboardClient({
               onDelete={handleDeleteTodo}
               onDuplicate={handleDuplicateTodo}
               onSaveAsTemplate={handleSaveAsTemplate}
-              onAddSubtask={addSubtask}
               onToggleSubtask={toggleSubtask}
               onDeleteSubtask={deleteSubtask}
               onTagToggle={toggleTodoTag}
@@ -1042,101 +1041,29 @@ export default function DashboardClient({
             }
           />
 
-        <div className="app-col-body px-4 pt-4 pb-6">
-
-          {/* Input */}
-          {(eventsView || habitsView || rulesView || showBar) && (
-            <div className="mb-4">
-              {eventsView ? (
-                <EventInput onAdd={addEvent} lists={lists} />
-              ) : habitsView ? (
-                <HabitInput onAdd={addHabit} lists={lists} />
-              ) : rulesView ? (
-                <div className="glass-card p-4">
-                  <RuleInput onAdd={(title, desc, cat) => addRule(title, desc, cat)} lists={lists} />
-                </div>
-              ) : (
-                <TodoInput
-                  onAdd={handleAddTodo}
-                  onAddSubtask={addSubtask}
-                  onCreateTag={addTag}
-                  tags={tags}
-                  lists={lists}
-                  events={eventsWithTodos}
-                  activeListId={activeListId}
-                />
-              )}
-            </div>
-          )}
-
-          {/* Mobile: list selector (below input, above tasks) */}
-          <div className="md:hidden mb-4 flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
-            <button
-              onClick={switchToAllTasks}
-              className={`flex-shrink-0 text-sm px-4 py-2 rounded-full font-medium transition-default ${
-                !activeListId && !habitsView && !eventsView && !quickFilter
-                  ? "bg-black dark:bg-white text-white"
-                  : "text-black dark:text-white border border-black/15 dark:border-white/15"
-              }`}
-            >{t("All")}</button>
-            <button
-              onClick={switchToOverdue}
-              className={`flex-shrink-0 text-sm px-4 py-2 rounded-full font-medium transition-default ${
-                quickFilter === "overdue"
-                  ? "bg-black dark:bg-white text-white"
-                  : "text-black dark:text-white border border-black/15 dark:border-white/15"
-              }`}
-            >{t("Overdue")}</button>
-            <button
-              onClick={switchToToday}
-              className={`flex-shrink-0 text-sm px-4 py-2 rounded-full font-medium transition-default ${
-                quickFilter === "today"
-                  ? "bg-black dark:bg-white text-white"
-                  : "text-black dark:text-white border border-black/15 dark:border-white/15"
-              }`}
-            >{t("Today")}</button>
-            <button
-              onClick={switchToThisWeek}
-              className={`flex-shrink-0 text-sm px-4 py-2 rounded-full font-medium transition-default ${
-                quickFilter === "thisWeek"
-                  ? "bg-black dark:bg-white text-white"
-                  : "text-black dark:text-white border border-black/15 dark:border-white/15"
-              }`}
-            >{t("This Week")}</button>
-            <button
-              onClick={switchToEvents}
-              className={`flex-shrink-0 text-sm px-4 py-2 rounded-full font-medium transition-default ${
-                eventsView
-                  ? "bg-black dark:bg-white text-white"
-                  : "text-black dark:text-white border border-black/15 dark:border-white/15"
-              }`}
-            >{t("Projects")}</button>
-            <button
-              onClick={switchToHabits}
-              className={`flex-shrink-0 text-sm px-4 py-2 rounded-full font-medium transition-default ${
-                habitsView
-                  ? "bg-black dark:bg-white text-white"
-                  : "text-black dark:text-white border border-black/15 dark:border-white/15"
-              }`}
-            >{t("Habits")}</button>
-            <button
-              onClick={() => setFocusMode(true)}
-              className="flex-shrink-0 text-sm px-4 py-2 rounded-full font-medium transition-default text-black dark:text-white border border-black/15 dark:border-white/15"
-            >{t("Focus")}</button>
-            {lists.map((list) => (
-              <button
-                key={list.id}
-                onClick={() => switchToList(list.id)}
-                className={`flex-shrink-0 text-sm px-4 py-2 rounded-full font-medium transition-default ${
-                  activeListId === list.id
-                    ? "bg-black dark:bg-white text-white"
-                    : "text-black dark:text-white border border-black/15 dark:border-white/15"
-                }`}
-              >
-                {list.name}
-              </button>
-            ))}
+        {isTaskView || eventsView || habitsView || rulesView ? (
+          <div className="flex-none px-4 pt-4">
+            {eventsView ? (
+              <EventInput onAdd={addEvent} lists={lists} />
+            ) : habitsView ? (
+              <HabitInput onAdd={addHabit} lists={lists} />
+            ) : rulesView ? (
+              <RuleInput onAdd={(title, desc, cat) => addRule(title, desc, cat)} lists={lists} />
+            ) : showBar ? (
+              <TodoInput
+                onAdd={handleAddTodo}
+                onCreateTag={addTag}
+                tags={tags}
+                lists={lists}
+                events={eventsWithTodos}
+                activeListId={activeListId}
+                placeholder={t("Add a task")}
+              />
+            ) : null}
           </div>
+        ) : null}
+
+        <div className="app-col-body px-4 pt-4 pb-6">
 
           {/* Content — a failure in one panel must not take the page */}
           <ErrorBoundary variant="panel" label={t("Tasks")}>

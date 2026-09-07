@@ -1,31 +1,14 @@
 "use client";
 
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { CalendarDays, Flag, List as ListIcon, Plus } from "lucide-react";
 import { useI18n } from "./I18nProvider";
-import {
-  Plus,
-  ChevronDown,
-  ChevronUp,
-  Calendar,
-  Clock,
-  Hash,
-  X,
-  List as ListIcon,
-  CalendarRange,
-} from "lucide-react";
-import type { Tag, Priority, List, Event } from "@/lib/types";
-import { CustomSelect, DatePicker, TimePicker } from "./Pickers";
-import {
-  getToday,
-  getTomorrow,
-  getNextMonday,
-  getNextWeek,
-  parseNaturalLanguage,
-  type ParsedTask,
-} from "@/lib/date-helpers";
-import TagPill from "./TagPill";
-import { formatTime, formatLocale } from "@/lib/format";
+import DateTimePopover from "./ui/DateTimePopover";
+import { ListDot, ListPopover, PriorityMark, PriorityPopover } from "./ui/ChoicePopovers";
+import { formatRowDate, formatTime } from "@/lib/format";
 import { PRIORITY_META } from "@/lib/priority";
+import { getToday, parseNaturalLanguage, type ParsedTask } from "@/lib/date-helpers";
+import type { Event, List, Priority, Tag } from "@/lib/types";
 
 interface TodoInputProps {
   onAdd: (
@@ -42,24 +25,14 @@ interface TodoInputProps {
       event_id?: string | null;
     }
   ) => Promise<string | void> | void;
-  onAddSubtask?: (todoId: string, title: string, options?: { due_date?: string | null; start_time?: string | null }) => void;
-  /** Create a tag that does not exist yet (used for unknown #tags) */
+  /** Create a tag that does not exist yet, for an unknown #tag */
   onCreateTag?: (name: string) => Promise<Tag | undefined>;
   tags: Tag[];
   lists?: List[];
   events?: Event[];
   activeListId?: string | null;
+  placeholder?: string;
 }
-
-type SubtaskEntry = { id: string; title: string; due_date: string; start_time: string };
-
-const PRIORITY_CONFIG: { value: Priority; label: string; dot: string }[] = [
-  { value: "none",   label: PRIORITY_META.none.label,   dot: PRIORITY_META.none.dot },
-  { value: "low",    label: PRIORITY_META.low.label,    dot: PRIORITY_META.low.dot },
-  { value: "medium", label: PRIORITY_META.medium.label, dot: PRIORITY_META.medium.dot },
-  { value: "high",   label: PRIORITY_META.high.label,   dot: PRIORITY_META.high.dot },
-];
-
 
 interface Suggestion {
   trigger: string;
@@ -205,78 +178,64 @@ function resolveMentions(
   return { text: out.replace(/\s+/g, " ").trim(), listId, eventId };
 }
 
-function formatDateLabel(dateStr: string): string {
-  const today = getToday();
-  const tomorrow = getTomorrow();
-  if (dateStr === today) return "Today";
-  if (dateStr === tomorrow) return "Tomorrow";
-  const d = new Date(dateStr + "T00:00:00");
-  return d.toLocaleDateString(formatLocale(), { day: "numeric", month: "short" });
-}
 
-
-
-const QUICK_DATES = [
-  { label: "Today", fn: getToday },
-  { label: "Tomorrow", fn: getTomorrow },
-  { label: "Mon", fn: getNextMonday },
-  { label: "Next Week", fn: getNextWeek },
-];
-
+/**
+ * One line. What the text says becomes chips on the right, and each chip
+ * opens the picker that set it. Nothing folds out; the three icon buttons
+ * appear once the field has focus or text.
+ */
 export default function TodoInput({
   onAdd,
-  onAddSubtask,
   onCreateTag,
   tags,
   lists = [],
   events = [],
   activeListId,
+  placeholder,
 }: TodoInputProps) {
   const { t } = useI18n();
   const [title, setTitle] = useState("");
-  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
-  const [showOptions, setShowOptions] = useState(false);
-  const [dueDate, setDueDate] = useState("");
-  const [startDate, setStartDate] = useState("");
-  const [startTime, setStartTime] = useState("");
-  const [endTime, setEndTime] = useState("");
+  const [dueDate, setDueDate] = useState<string | null>(null);
+  const [startTime, setStartTime] = useState<string | null>(null);
   const [priority, setPriority] = useState<Priority>("none");
-  const [notes, setNotes] = useState("");
   const [listId, setListId] = useState<string | null>(activeListId ?? null);
   const [eventId, setEventId] = useState<string | null>(null);
-  const [subtaskEntries, setSubtaskEntries] = useState<SubtaskEntry[]>([]);
+  const [focused, setFocused] = useState(false);
 
   const [selectedSuggestion, setSelectedSuggestion] = useState(0);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const submittingRef = useRef(false);
 
   useEffect(() => { setListId(activeListId ?? null); }, [activeListId]);
 
-
-  // The parser runs whether or not the options panel is open — form fields
-  // simply take precedence over what the text says
+  // The parser reads the text; a picker set by hand wins over it
   const parsed: ParsedTask | null = useMemo(() => {
     if (!title.trim()) return null;
     const p = parseNaturalLanguage(title);
-    if (
-      p.due_date ||
-      p.start_time ||
-      p.end_time ||
+    const meaningful =
+      p.due_date || p.start_time || p.end_time ||
       (p.priority && p.priority !== "none") ||
-      (p.tagNames && p.tagNames.length > 0)
-    ) return p;
-    return null;
+      (p.tagNames && p.tagNames.length > 0);
+    return meaningful ? p : null;
   }, [title]);
 
-  const suggestions = useMemo(() => {
-    if (!title.trim()) return [];
-    return buildSuggestions(title, tags, lists, events);
-  }, [title, tags, lists, events]);
+  const suggestions = useMemo(
+    () => (title.trim() ? buildSuggestions(title, tags, lists, events) : []),
+    [title, tags, lists, events]
+  );
 
   useEffect(() => {
     setSelectedSuggestion(0);
     setShowSuggestions(suggestions.length > 0);
   }, [suggestions]);
+
+  const shownDate = dueDate ?? parsed?.due_date ?? null;
+  const shownTime = startTime ?? parsed?.start_time ?? null;
+  const shownPriority: Priority = priority !== "none" ? priority : (parsed?.priority ?? "none");
+  const shownList = listId ? lists.find((l) => l.id === listId) ?? null : null;
+  const shownTags = parsed?.tagNames ?? [];
+  const hasContent = title.trim().length > 0;
 
   function applySuggestion(suggestion: Suggestion) {
     const words = title.split(/\s+/);
@@ -288,46 +247,47 @@ export default function TodoInput({
     if (suggestion.listId) setListId(suggestion.listId);
     if (suggestion.eventId) {
       setEventId(suggestion.eventId);
-      // Only fill in the event's list when none was chosen
-      const ev = events.find((x) => x.id === suggestion.eventId);
-      if (ev?.list_id && !listId) setListId(ev.list_id);
+      const event = events.find((x) => x.id === suggestion.eventId);
+      if (event?.list_id && !listId) setListId(event.list_id);
     }
     setShowSuggestions(false);
     inputRef.current?.focus();
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
-    if (showSuggestions && suggestions.length > 0) {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        applySuggestion(suggestions[selectedSuggestion]);
-        return;
-      }
-      if (e.key === "Escape") {
-        e.preventDefault();
-        e.stopPropagation();
-        setShowSuggestions(false);
-        return;
-      }
-      if (e.key === "Tab" || (e.key === "ArrowRight" && suggestions.length > 0)) {
-        e.preventDefault();
-        applySuggestion(suggestions[selectedSuggestion]);
-        return;
-      }
-      if (e.key === "ArrowDown") {
-        e.preventDefault();
-        setSelectedSuggestion((prev) => prev < suggestions.length - 1 ? prev + 1 : 0);
-        return;
-      }
-      if (e.key === "ArrowUp") {
-        e.preventDefault();
-        setSelectedSuggestion((prev) => prev > 0 ? prev - 1 : suggestions.length - 1);
-        return;
-      }
+    if (!showSuggestions || suggestions.length === 0) return;
+    if (e.key === "Enter" || e.key === "Tab" || e.key === "ArrowRight") {
+      e.preventDefault();
+      applySuggestion(suggestions[selectedSuggestion]);
+      return;
+    }
+    if (e.key === "Escape") {
+      // Only the popover closes; the text stays
+      e.preventDefault();
+      e.stopPropagation();
+      setShowSuggestions(false);
+      return;
+    }
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setSelectedSuggestion((prev) => (prev < suggestions.length - 1 ? prev + 1 : 0));
+      return;
+    }
+    if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setSelectedSuggestion((prev) => (prev > 0 ? prev - 1 : suggestions.length - 1));
     }
   }
 
-  const submittingRef = useRef(false);
+  function reset() {
+    setTitle("");
+    setDueDate(null);
+    setStartTime(null);
+    setPriority("none");
+    setListId(activeListId ?? null);
+    setEventId(null);
+    setShowSuggestions(false);
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -337,55 +297,34 @@ export default function TodoInput({
     if (submittingRef.current) return;
     submittingRef.current = true;
 
-    // @List / @Event first, then the natural language parser
+    // @List and @Project first, then the natural language parser
     const mentions = resolveMentions(trimmed, lists, events);
     const p = parseNaturalLanguage(mentions.text);
 
-    let finalTitle = p.title || mentions.text || trimmed;
-    // Anything set in the form wins over the same thing written in the text
-    const finalDueDate = dueDate || p.due_date || null;
-    const finalStartDate = startDate || null;
-    const finalStartTime = startTime || p.start_time || null;
-    const finalEndTime = endTime || p.end_time || null;
-    const finalPriority =
+    const finalTitle = p.title || mentions.text || trimmed;
+    const finalDueDate = dueDate ?? p.due_date ?? null;
+    const finalStartTime = startTime ?? p.start_time ?? null;
+    const finalEndTime = p.end_time ?? null;
+    const finalPriority: Priority =
       priority !== "none" ? priority : (p.priority && p.priority !== "none" ? p.priority : "none");
-    const finalTagIds = [...selectedTagIds];
-    const newTagNames: string[] = [];
 
+    const finalTagIds: string[] = [];
+    const newTagNames: string[] = [];
     for (const name of p.tagNames ?? []) {
-      const tag = tags.find((t) => t.name.toLowerCase() === name.toLowerCase());
-      if (tag) {
-        if (!finalTagIds.includes(tag.id)) finalTagIds.push(tag.id);
-      } else {
-        newTagNames.push(name);
-      }
+      const tag = tags.find((x) => x.name.toLowerCase() === name.toLowerCase());
+      if (tag) { if (!finalTagIds.includes(tag.id)) finalTagIds.push(tag.id); }
+      else newTagNames.push(name);
     }
 
-    if (!finalTitle) finalTitle = trimmed;
-
-    const pendingSubtasks = subtaskEntries.filter((s) => s.title.trim());
-    const pendingNotes = notes.trim() || null;
     const pendingListId = listId ?? mentions.listId ?? null;
     const pendingEventId = eventId ?? mentions.eventId ?? null;
 
-    // Clear the field before the request returns so typing can continue
-    setTitle("");
-    setSelectedTagIds([]);
-    setDueDate("");
-    setStartDate("");
-    setStartTime("");
-    setEndTime("");
-    setPriority("none");
-    setNotes("");
-    setListId(activeListId ?? null);
-    setEventId(null);
-    setSubtaskEntries([]);
-    setShowOptions(false);
-    setShowSuggestions(false);
+    // Clear before the request returns, so typing can carry on
+    reset();
     inputRef.current?.focus();
 
     try {
-      // Unknown #tags are created instead of being thrown away
+      // An unknown #tag is created instead of being thrown away
       if (newTagNames.length > 0 && onCreateTag) {
         for (const name of newTagNames) {
           const created = await onCreateTag(name);
@@ -393,329 +332,201 @@ export default function TodoInput({
         }
       }
 
-      const newTodoId = await onAdd(finalTitle, finalTagIds, {
+      await onAdd(finalTitle, finalTagIds, {
         // A time without a date means today
         due_date: finalDueDate || (finalStartTime ? getToday() : null),
-        start_date: finalStartDate,
+        start_date: null,
         start_time: finalStartTime,
         end_time: finalEndTime,
         priority: finalPriority,
-        notes: pendingNotes,
+        notes: null,
         list_id: pendingListId,
         event_id: pendingEventId,
       });
 
-      if (newTodoId && onAddSubtask) {
-        for (const s of pendingSubtasks) {
-          onAddSubtask(newTodoId, s.title.trim(), {
-            due_date: s.due_date || null,
-            start_time: s.start_time || null,
-          });
-        }
-      }
     } finally {
       submittingRef.current = false;
     }
   }
 
-  function toggleTag(tagId: string) {
-    setSelectedTagIds((prev) =>
-      prev.includes(tagId) ? prev.filter((id) => id !== tagId) : [...prev, tagId]
-    );
-  }
-
-  function cyclePriority() {
-    const order: Priority[] = ["none", "low", "medium", "high"];
-    setPriority((prev) => order[(order.indexOf(prev) + 1) % order.length]);
-  }
-
-  function setQuickDate(val: string) {
-    setDueDate(val);
-    if (!val) { setStartTime(""); setEndTime(""); }
-  }
+  const showButtons = focused || hasContent;
 
   return (
-    <div className="glass-card p-4">
-      <form onSubmit={handleSubmit}>
-        {/* Title row */}
-        <div className="flex items-center gap-3">
-          <input
-            ref={inputRef}
-            type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            onKeyDown={handleKeyDown}
-            onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
-            onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
-            placeholder={t("Add a task... (try: Buy milk tomorrow at 3pm !high #errands @Groceries)")}
-            className="flex-1 bg-transparent text-black dark:text-white placeholder:text-gray-400 focus:outline-none text-base"
-            aria-label={t("New task title")}
-            data-new-task-input=""
-          />
-          <button
-            type="button"
-            onClick={() => setShowOptions(!showOptions)}
-            className="text-gray-400 hover:text-black dark:hover:text-white transition-default"
-            aria-label={showOptions ? "Hide options" : "Show options"}
-          >
-            {showOptions ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-          </button>
-          <button
-            type="submit"
-            disabled={!title.trim()}
-            className="w-9 h-9 rounded-xl bg-black dark:bg-white text-white dark:text-black flex items-center justify-center hover:opacity-90 active:scale-95 transition-default disabled:opacity-30 disabled:cursor-not-allowed flex-shrink-0"
-            aria-label={t("Add task")}
-          >
-            <Plus size={18} />
-          </button>
-        </div>
+    <div className="relative">
+      <form onSubmit={handleSubmit} className="quick-input">
+        <Plus size={16} className="flex-none text-text-faint" aria-hidden="true" />
+        <input
+          ref={inputRef}
+          type="text"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          onKeyDown={handleKeyDown}
+          onFocus={() => { setFocused(true); if (suggestions.length > 0) setShowSuggestions(true); }}
+          onBlur={() => { setFocused(false); setTimeout(() => setShowSuggestions(false), 150); }}
+          placeholder={placeholder ?? t("Add a task")}
+          aria-label={t("New task title")}
+          data-new-task-input=""
+          className="flex-1 min-w-0 bg-transparent text-sm text-text placeholder:text-text-faint focus:outline-none"
+        />
 
-
-        {/* Quick row — date, time and priority without opening the panel */}
-        <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-          {QUICK_DATES.slice(0, 3).map((q) => (
-            <button
-              key={q.label}
-              type="button"
-              onClick={() => setQuickDate(dueDate === q.fn() ? "" : q.fn())}
-              className={`text-xs px-2.5 py-1.5 rounded-lg border transition-default ${
-                dueDate === q.fn()
-                  ? "border-black/20 dark:border-white/20 bg-black/5 dark:bg-white/10 text-black dark:text-white font-medium"
-                  : "border-black/10 dark:border-white/10 text-gray-400 hover:text-black dark:hover:text-white hover:border-black/20 dark:hover:border-white/20"
-              }`}
-            >
-              {q.label}
-            </button>
-          ))}
-          <DatePicker value={dueDate} onChange={setDueDate} placeholder={t("Date")} />
-          <TimePicker value={startTime} onChange={setStartTime} placeholder={t("Time")} />
-          {startTime && (
-            <>
-              <span className="text-xs text-gray-400">→</span>
-              <TimePicker value={endTime} onChange={setEndTime} placeholder={t("End")} />
-            </>
-          )}
-          <button
-            type="button"
-            onClick={cyclePriority}
-            className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border transition-default ${
-              priority !== "none"
-                ? "border-black/20 dark:border-white/20 bg-black/5 dark:bg-white/10 text-black dark:text-white font-medium"
-                : "border-black/10 dark:border-white/10 text-gray-400 hover:text-black dark:hover:text-white hover:border-black/20 dark:hover:border-white/20"
-            }`}
-            aria-label={t("Change priority")}
-            title={t("Change priority")}
-          >
-            <span className={`w-1.5 h-1.5 rounded-full ${PRIORITY_CONFIG.find((p) => p.value === priority)?.dot}`} />
-            {PRIORITY_CONFIG.find((p) => p.value === priority)?.label ?? "None"}
-          </button>
-          {(dueDate || startTime || priority !== "none") && (
-            <button
-              type="button"
-              onClick={() => { setDueDate(""); setStartTime(""); setEndTime(""); setPriority("none"); }}
-              className="text-gray-400 hover:text-black dark:hover:text-white transition-default"
-              aria-label={t("Clear date, time and priority")}
-            >
-              <X size={13} />
-            </button>
-          )}
-        </div>
-
-        {/* Autocomplete suggestions */}
-        {showSuggestions && suggestions.length > 0 && (
-          <div className="mt-1.5 glass-card-raised rounded-xl overflow-hidden">
-            {suggestions.map((s, i) => (
-              <button
-                key={s.display + i}
-                type="button"
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => applySuggestion(s)}
-                className={`w-full text-left px-3 py-2 text-sm flex items-center gap-2 transition-default ${
-                  i === selectedSuggestion
-                    ? "bg-black/5 dark:bg-white/10 text-black dark:text-white"
-                    : "text-gray-500 dark:text-gray-400 hover:bg-black/[0.03] dark:hover:bg-white/5"
-                }`}
-              >
-                <span className="font-medium">{s.display}</span>
-                {s.kind === "list" && <span className="text-[11px] uppercase tracking-wide text-gray-400">{t("List")}</span>}
-                {s.kind === "event" && <span className="text-[11px] uppercase tracking-wide text-gray-400">{t("Project")}</span>}
-                {s.kind === "tag" && <span className="text-[11px] uppercase tracking-wide text-gray-400">{t("Tag")}</span>}
-                {s.kind === "new-tag" && <span className="text-[11px] uppercase tracking-wide text-gray-400">{t("New")}</span>}
-                <span className="text-xs text-gray-400 ml-auto">↵</span>
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* NL live preview */}
-        {(parsed || listId || eventId) && (
-          <div className="mt-2.5 flex items-center gap-1.5 flex-wrap">
-            <span className="text-[11px] uppercase tracking-wider text-gray-400 mr-0.5 font-medium">{t("Parsed:")}</span>
-            {parsed?.title && parsed.title !== title.trim() && (
-              <span className="text-xs text-black dark:text-white font-medium bg-black/[0.04] dark:bg-white/[0.08] px-2 py-0.5 rounded-md border border-black/5 dark:border-white/10 truncate max-w-[200px]">
-                &ldquo;{parsed.title}&rdquo;
-              </span>
-            )}
-            {parsed?.due_date && (
-              <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-md border border-black/10 dark:border-white/10 bg-black/[0.03] dark:bg-white/[0.06] text-black/60 dark:text-gray-300">
-                <Calendar size={10} />
-                {formatDateLabel(parsed.due_date)}
-              </span>
-            )}
-            {parsed?.start_time && (
-              <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-md border border-black/10 dark:border-white/10 bg-black/[0.03] dark:bg-white/[0.06] text-black/60 dark:text-gray-300">
-                <Clock size={10} />
-                {formatTime(parsed.start_time)}
-              </span>
-            )}
-            {parsed?.priority && parsed.priority !== "none" && (() => {
-              const pc = PRIORITY_CONFIG.find(p => p.value === parsed.priority);
-              return (
-                <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-md border border-black/10 dark:border-white/10 bg-black/[0.03] dark:bg-white/[0.06] text-black/60 dark:text-gray-300">
-                  {pc && <span className={`w-1.5 h-1.5 rounded-full ${pc.dot}`} />}
-                  {parsed.priority.charAt(0).toUpperCase() + parsed.priority.slice(1)}
-                </span>
-              );
-            })()}
-            {parsed?.tagNames?.map((name) => (
-              <span key={name} className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-md border border-black/10 dark:border-white/10 bg-black/[0.03] dark:bg-white/[0.06] text-black/60 dark:text-gray-300">
-                <Hash size={10} />
-                {name}
-              </span>
-            ))}
-            {listId && lists.find((l) => l.id === listId) && (
-              <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-md border border-black/10 dark:border-white/10 bg-black/[0.03] dark:bg-white/[0.06] text-black/60 dark:text-gray-300">
-                <ListIcon size={10} />
-                {lists.find((l) => l.id === listId)!.name}
-                <button type="button" onClick={() => setListId(activeListId ?? null)} className="ml-0.5 opacity-60 hover:opacity-100">
-                  <X size={9} />
+        <span className="flex items-center gap-1 flex-none">
+          {shownDate && (
+            <DateTimePopover
+              date={shownDate}
+              time={shownTime}
+              align="end"
+              onChange={(date, time) => { setDueDate(date); setStartTime(time); }}
+              trigger={(p) => (
+                <button type="button" ref={p.ref as (el: HTMLButtonElement | null) => void} onClick={p.onClick} aria-expanded={p["aria-expanded"]} className="chip">
+                  {t(formatRowDate(shownDate))}
                 </button>
-              </span>
-            )}
-            {eventId && events.find((e) => e.id === eventId) && (
-              <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-md border border-black/10 dark:border-white/10 bg-black/[0.03] dark:bg-white/[0.06] text-black/60 dark:text-gray-300">
-                <CalendarRange size={10} />
-                {events.find((e) => e.id === eventId)!.title}
-                <button type="button" onClick={() => setEventId(null)} className="ml-0.5 opacity-60 hover:opacity-100">
-                  <X size={9} />
-                </button>
-              </span>
-            )}
-          </div>
-        )}
-
-        {/* ── Expanded options ── */}
-        {showOptions && (
-          <div className="mt-3 pt-3 border-t border-black/5 dark:border-white/5 space-y-4">
-
-            {/* ① Start date */}
-            <div className="flex items-center gap-2">
-              <CalendarRange size={11} className="text-gray-400 flex-shrink-0" />
-              {startDate ? (
-                <span className="inline-flex items-center gap-1 text-xs text-black/60 dark:text-gray-400">
-                  Start {formatDateLabel(startDate)}
-                  <button type="button" onClick={() => setStartDate("")} className="text-gray-400 hover:text-black dark:hover:text-white ml-0.5">
-                    <X size={10} />
-                  </button>
-                </span>
-              ) : (
-                <DatePicker value={startDate} onChange={setStartDate} placeholder={t("Start date")} />
               )}
-            </div>
-
-            {/* ② Tags */}
-            {tags.length > 0 && (
-              <div className="space-y-2">
-                <p className="text-[11px] uppercase tracking-wide text-gray-400 font-medium">{t("Tags")}</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {tags.map((tag) => (
-                    <TagPill
-                      key={tag.id}
-                      name={tag.name}
-                      size="sm"
-                      selected={selectedTagIds.includes(tag.id)}
-                      onClick={() => toggleTag(tag.id)}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* ③ List + Event */}
-            {(lists.length > 0 || events.length > 0) && (
-              <div className="space-y-2">
-                <p className="text-[11px] uppercase tracking-wide text-gray-400 font-medium">{t("Assign to")}</p>
-                <div className="flex flex-wrap gap-2">
-                  {lists.length > 0 && (
-                    <CustomSelect
-                      value={listId ?? ""}
-                      onChange={(v) => setListId(v || null)}
-                      options={[{ value: "", label: "No list" }, ...lists.map((l) => ({ value: l.id, label: l.name, color: l.color ?? undefined }))]}
-                      className="min-w-[110px]"
-                    />
-                  )}
-                  {events.length > 0 && (
-                    <CustomSelect
-                      value={eventId ?? ""}
-                      onChange={(id) => {
-                        setEventId(id || null);
-                        if (id && !listId) {
-                          const ev = events.find((x) => x.id === id);
-                          if (ev?.list_id) setListId(ev.list_id);
-                        }
-                      }}
-                      options={[{ value: "", label: "No project" }, ...events.map((ev) => ({ value: ev.id, label: ev.title }))]}
-                      className="min-w-[110px]"
-                    />
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* ④ Notes */}
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder={t("Add a note...")}
-              rows={2}
-              className="w-full text-sm bg-transparent border border-black/8 dark:border-white/8 rounded-xl px-3 py-2 text-black dark:text-white placeholder:text-gray-400 focus:outline-none focus:border-black/20 dark:focus:border-white/20 resize-none transition-default"
             />
+          )}
+          {shownTime && (
+            <DateTimePopover
+              date={shownDate}
+              time={shownTime}
+              align="end"
+              onChange={(date, time) => { setDueDate(date); setStartTime(time); }}
+              trigger={(p) => (
+                <button type="button" ref={p.ref as (el: HTMLButtonElement | null) => void} onClick={p.onClick} aria-expanded={p["aria-expanded"]} className="chip tabular-nums">
+                  {formatTime(shownTime)}
+                </button>
+              )}
+            />
+          )}
+          {shownPriority !== "none" && (
+            <PriorityPopover
+              value={shownPriority}
+              align="end"
+              onChange={setPriority}
+              trigger={(p) => (
+                <button type="button" ref={p.ref as (el: HTMLButtonElement | null) => void} onClick={p.onClick} aria-expanded={p["aria-expanded"]} className="chip">
+                  <span className="w-[3px] h-3 rounded-full" style={{ background: PRIORITY_META[shownPriority].bar as string }} />
+                  {t(PRIORITY_META[shownPriority].label)}
+                </button>
+              )}
+            />
+          )}
+          {shownList && (
+            <ListPopover
+              lists={lists}
+              align="end"
+              onChange={setListId}
+              trigger={(p) => (
+                <button type="button" ref={p.ref as (el: HTMLButtonElement | null) => void} onClick={p.onClick} aria-expanded={p["aria-expanded"]} className="chip">
+                  <span className="w-2 h-2 rounded-full" style={{ background: shownList.color ?? "var(--text-faint)" }} />
+                  {shownList.name}
+                </button>
+              )}
+            />
+          )}
+          {shownTags.map((name) => (
+            <span key={name} className="chip">{name}</span>
+          ))}
+        </span>
 
-            {/* ⑤ Subtasks */}
-            <div className="space-y-2">
-              <p className="text-[11px] uppercase tracking-wide text-gray-400 font-medium">{t("Subtasks")}</p>
-              <div className="space-y-1.5">
-                {subtaskEntries.map((s, i) => (
-                  <div key={s.id} className="flex items-center gap-2 group/sub">
-                    <span className="w-1.5 h-1.5 rounded-full bg-black/15 dark:bg-white/20 flex-shrink-0" />
-                    <input
-                      type="text"
-                      value={s.title}
-                      onChange={(e) => setSubtaskEntries((prev) => prev.map((x, j) => j === i ? { ...x, title: e.target.value } : x))}
-                      placeholder={`Subtask ${i + 1}...`}
-                      className="flex-1 text-sm bg-transparent text-black dark:text-white placeholder:text-gray-400 focus:outline-none min-w-0"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setSubtaskEntries((prev) => prev.filter((_, j) => j !== i))}
-                      className="opacity-0 group-hover/sub:opacity-100 text-gray-300 dark:text-gray-600 hover:text-gray-500 dark:hover:text-gray-400 transition-default flex-shrink-0"
-                    >
-                      <X size={12} />
-                    </button>
-                  </div>
-                ))}
+        {showButtons && (
+          <span className="flex items-center gap-0.5 flex-none">
+            <DateTimePopover
+              date={shownDate}
+              time={shownTime}
+              align="end"
+              onChange={(date, time) => { setDueDate(date); setStartTime(time); }}
+              trigger={(p) => (
                 <button
                   type="button"
-                  onClick={() => setSubtaskEntries((prev) => [...prev, { id: crypto.randomUUID(), title: "", due_date: "", start_time: "" }])}
-                  className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-black dark:hover:text-white transition-default"
+                  ref={p.ref as (el: HTMLButtonElement | null) => void}
+                  onClick={p.onClick}
+                  aria-expanded={p["aria-expanded"]}
+                  onMouseDown={(e) => e.preventDefault()}
+                  className="icon-btn w-7 h-7"
+                  aria-label={t("Date")}
+                  title={t("Date")}
                 >
-                  <Plus size={11} />{t("Add subtask")}</button>
-              </div>
-            </div>
-
-          </div>
+                  <CalendarDays size={16} />
+                </button>
+              )}
+            />
+            <PriorityPopover
+              value={shownPriority}
+              align="end"
+              onChange={setPriority}
+              trigger={(p) => (
+                <button
+                  type="button"
+                  ref={p.ref as (el: HTMLButtonElement | null) => void}
+                  onClick={p.onClick}
+                  aria-expanded={p["aria-expanded"]}
+                  onMouseDown={(e) => e.preventDefault()}
+                  className="icon-btn w-7 h-7"
+                  aria-label={t("Priority")}
+                  title={t("Priority")}
+                >
+                  <Flag size={16} />
+                </button>
+              )}
+            />
+            <ListPopover
+              lists={lists}
+              align="end"
+              onChange={setListId}
+              trigger={(p) => (
+                <button
+                  type="button"
+                  ref={p.ref as (el: HTMLButtonElement | null) => void}
+                  onClick={p.onClick}
+                  aria-expanded={p["aria-expanded"]}
+                  onMouseDown={(e) => e.preventDefault()}
+                  className="icon-btn w-7 h-7"
+                  aria-label={t("List")}
+                  title={t("List")}
+                >
+                  <ListIcon size={16} />
+                </button>
+              )}
+            />
+          </span>
         )}
       </form>
+
+      {showSuggestions && suggestions.length > 0 && (
+        <div className="popover absolute left-0 right-0 top-full mt-1 z-40">
+          {suggestions.map((s, i) => (
+            <button
+              key={s.display + i}
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => applySuggestion(s)}
+              className={`w-full flex items-center gap-2 h-8 px-2 rounded text-[13px] transition-default ${
+                i === selectedSuggestion ? "bg-surface-2 text-text" : "text-text-muted hover:bg-surface-2"
+              }`}
+            >
+              {s.kind === "list" && <ListDot color={lists.find((l) => l.id === s.listId)?.color} />}
+              {s.kind === "priority" && <PriorityMark priority="none" />}
+              <span className="flex-1 text-left truncate">{s.display}</span>
+              <span className="text-xs text-text-faint">{kindLabel(s.kind, t)}</span>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
+}
+
+function kindLabel(
+  kind: Suggestion["kind"],
+  t: (key: string) => string
+): string {
+  switch (kind) {
+    case "list": return t("List");
+    case "event": return t("Project");
+    case "tag": return t("Tag");
+    case "new-tag": return t("New");
+    case "date": return t("Date");
+    case "time": return t("Time");
+    case "priority": return t("Priority");
+    default: return "";
+  }
 }

@@ -407,11 +407,10 @@ export default function EventDetail({
             placeholder={t("New task...")}
             className="flex-1 text-sm bg-transparent text-black dark:text-white placeholder:text-gray-400 focus:outline-none"
           />
-          <input
-            type="date"
+          <DatePicker
             value={newTaskDate}
-            onChange={(e) => setNewTaskDate(e.target.value)}
-            className="text-xs bg-transparent border border-black/10 dark:border-white/10 rounded-lg px-2 py-1 text-black dark:text-white focus:outline-none"
+            onChange={setNewTaskDate}
+            placeholder={t("Date")}
           />
           <button
             onClick={handleAddTask}

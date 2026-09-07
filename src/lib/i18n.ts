@@ -240,6 +240,11 @@ export const de: Record<string, string> = {
   "Your account information": "Deine Kontodaten",
   "Customize the look and feel": "Aussehen anpassen",
 
+  // ── Quick input and pickers ─────────────────────────────────────────
+  "Add a task": "Aufgabe hinzufügen",
+  "No time": "Keine Uhrzeit",
+  "Selected": "Ausgewählt",
+
   // ── Detail panel and timer ──────────────────────────────────────────
   "No start date": "Kein Startdatum",
   "Estimate": "Schätzung",

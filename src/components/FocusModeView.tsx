@@ -164,7 +164,6 @@ export default function FocusModeView({
         <div className="mt-4">
           <TodoInput
             onAdd={onAdd}
-            onAddSubtask={onAddSubtask}
             onCreateTag={onCreateTag}
             tags={allTags}
             lists={lists}

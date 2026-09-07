@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { useTodos } from "@/hooks/useTodos";
 import { useTags } from "@/hooks/useTags";
+import TagManager from "@/components/TagManager";
 import Link from "next/link";
 import { Download, Trash2, User, AlertTriangle, Calendar, FileText, Terminal, Bell, Palette, ChevronRight, ArrowLeft, Languages } from "lucide-react";
 import { useTheme, ACCENT_PRESETS, type ThemePreference, type Density } from "@/components/ThemeProvider";
@@ -74,7 +75,7 @@ export default function SettingsPage() {
   // Tasks are only needed for export and "clear completed" — load them when
   // that tab is opened instead of on every visit to settings
   const dataUserId = activeTab === "data" ? user?.id : undefined;
-  const { tags } = useTags(dataUserId);
+  const { tags, addTag, deleteTag } = useTags(dataUserId);
   const { todos, clearCompleted, exportTodos } = useTodos(dataUserId, tags);
   const { permission: notifPermission, isSubscribed: notifSubscribed, subscribe: subscribeNotifications, unsubscribe: unsubscribeNotifications } = usePushNotifications();
   const { themePreference, setThemePreference, accent, setAccent, density, setDensity } = useTheme();
@@ -578,6 +579,13 @@ export default function SettingsPage() {
                     <ActionButton onClick={() => setShowClearConfirm(true)} disabled={completedCount === 0}>{t("Clear")}</ActionButton>
                   }
                 />
+                <Divider />
+                {/* Tags belong to the account, not to one task, so managing
+                    them lives here rather than in the task panel. */}
+                <div className="pt-2">
+                  <p className="text-xs text-gray-400 font-medium mb-2">{t("Tags")}</p>
+                  <TagManager tags={tags} onAdd={addTag} onDelete={deleteTag} />
+                </div>
               </Section>
             )}
 

@@ -53,6 +53,21 @@ const THEME_BOOTSTRAP = `(function(){
     root.style.setProperty("--accent-hover", set[1]);
     root.style.setProperty("--accent-soft", set[2]);
     root.style.setProperty("--accent-contrast", dark ? "#0F1115" : "#FFFFFF");
+
+    // Does the app open on the focus view? Decided here, before the first
+    // paint, so the server-rendered shell never flashes past on the way in.
+    // The dashboard reads the mark on mount and clears it.
+    var params = new URLSearchParams(location.search);
+    var deepLink = ["view", "list", "folder", "task", "sel", "dates"]
+      .some(function (key) { return params.get(key); });
+    if (
+      !deepLink &&
+      location.pathname.indexOf("/dashboard") === 0 &&
+      localStorage.getItem("focusStart") !== "off" &&
+      localStorage.getItem("focusView") !== "off"
+    ) {
+      root.setAttribute("data-focus", "pending");
+    }
   } catch (e) {}
 })();`;
 

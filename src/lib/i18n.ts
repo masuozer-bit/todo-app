@@ -541,6 +541,30 @@ export const de: Record<string, string> = {
   "Day": "Tag",
   "Default color": "Standardfarbe",
   "Default time": "Standardzeit",
+
+  // ── Fokus-Ansicht ───────────────────────────────────────────────────
+  "Now": "Jetzt",
+  "Later today": "Heute noch",
+  "All done": "Alles erledigt",
+  "Nothing left for today.": "Für heute ist nichts mehr offen.",
+  "Nothing planned": "Nichts geplant",
+  "Enjoy the day.": "Genieß den Tag.",
+  "Up next: {title}": "Danach: {title}",
+  "Overdue since {date}": "Überfällig seit {date}",
+  "Move to tomorrow": "Auf morgen verschieben",
+  "Open in the app": "In der App öffnen",
+  "Open all tasks": "Alle Aufgaben öffnen",
+  "Add a task for today": "Aufgabe für heute",
+  "Week {n}": "Woche {n}",
+  "{done} of {total}": "{done} von {total}",
+  "{done} of {total} done": "{done} von {total} erledigt",
+  "+ {n} more": "+ {n} weitere",
+  "Streak": "Serie",
+  "Space": "Leertaste",
+  "Ctrl": "Strg",
+  "Start in the focus view": "Beim Öffnen in der Fokus-Ansicht starten",
+  "On": "An",
+  "Off": "Aus",
 };
 
 export function translate(

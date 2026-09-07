@@ -6,6 +6,8 @@ interface ShortcutHandlers {
   onNewTask?: () => void;
   onSearch?: () => void;
   onToggleTheme?: () => void;
+  /** Ctrl/Cmd+Shift+F, the way in and out of the focus view. */
+  onToggleFocus?: () => void;
   onShowShortcuts?: () => void;
   onToggleBar?: () => void;
   onToggleCalendar?: () => void;
@@ -26,6 +28,7 @@ export function useKeyboardShortcuts({
   onNewTask,
   onSearch,
   onToggleTheme,
+  onToggleFocus,
   onShowShortcuts,
   onToggleBar,
   onToggleCalendar,
@@ -50,6 +53,14 @@ export function useKeyboardShortcuts({
       if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === "l") {
         e.preventDefault();
         onToggleTheme?.();
+        return;
+      }
+
+      // Ctrl/Cmd+Shift+F → focus view. Before the typing check on purpose:
+      // the way out has to work with the cursor in a field too.
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === "f") {
+        e.preventDefault();
+        onToggleFocus?.();
         return;
       }
 
@@ -110,5 +121,5 @@ export function useKeyboardShortcuts({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onNewTask, onSearch, onToggleTheme, onShowShortcuts, onToggleBar, onToggleCalendar, onToggleSchedule, onNewRule, onToggleTemplates, onEscape, enabled]);
+  }, [onNewTask, onSearch, onToggleTheme, onToggleFocus, onShowShortcuts, onToggleBar, onToggleCalendar, onToggleSchedule, onNewRule, onToggleTemplates, onEscape, enabled]);
 }

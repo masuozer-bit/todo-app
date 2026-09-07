@@ -16,7 +16,7 @@ import { useToast } from "@/components/Toast";
 import KeyboardShortcutsOverlay from "@/components/KeyboardShortcutsOverlay";
 import EventInput from "@/components/EventInput";
 import ConfirmDialog from "@/components/ConfirmDialog";
-import FocusModeView from "@/components/FocusModeView";
+import FocusView from "@/components/FocusView";
 import RuleInput from "@/components/RuleInput";
 import RuleList from "@/components/RuleList";
 import TimerBar from "@/components/TimerBar";
@@ -85,11 +85,14 @@ export default function DashboardClient({
   const [showCalendar, setShowCalendar] = useState(false);
   const [showScheduleWeek, setShowScheduleWeek] = useState(false);
   const [isMobile, setIsMobile] = useState<boolean | null>(null);
-  const [focusMode, setFocusMode] = useState<boolean>(() => {
-    if (typeof window === "undefined") return false;
-    // Never the default any more: the phone opens on the list like everything else
-    try { return localStorage.getItem("focusModePreference") === "true"; } catch { return false; }
-  });
+  /**
+   * The focus view is where the app opens: one task, today, this week. Whether
+   * to start there is decided in the bootstrap script before the first paint,
+   * because a deep link into a task, a list or a date means the sender wanted
+   * the full app. Starting false keeps the server render and the first client
+   * render identical; the mark on <html> flips it on mount.
+   */
+  const [focus, setFocus] = useState(false);
   const [showBar, setShowBar] = useState<boolean>(() => {
     if (typeof window === "undefined") return true;
     try { return localStorage.getItem("showTaskBar") !== "false"; } catch { return true; }
@@ -140,10 +143,23 @@ export default function DashboardClient({
     return () => window.removeEventListener("resize", check);
   }, []);
 
-  // Persist focus mode preference
   useEffect(() => {
-    try { localStorage.setItem("focusModePreference", String(focusMode)); } catch {}
-  }, [focusMode]);
+    const root = document.documentElement;
+    if (root.dataset.focus === "pending") setFocus(true);
+    delete root.dataset.focus;
+  }, []);
+
+  // A reload lands where the user was, focus view or full app. The first run
+  // only records the state the bootstrap already decided, so a deep link does
+  // not switch the focus start off for good.
+  const focusWritten = useRef(false);
+  useEffect(() => {
+    if (!focusWritten.current) {
+      focusWritten.current = true;
+      return;
+    }
+    try { localStorage.setItem("focusView", focus ? "on" : "off"); } catch { /* ignore */ }
+  }, [focus]);
 
   // Theme preference comes from the server render — no client auth roundtrip
   useEffect(() => {
@@ -448,6 +464,7 @@ export default function DashboardClient({
     },
     onSearch: focusSearch,
     onToggleTheme: toggleTheme,
+    onToggleFocus: () => setFocus((prev) => !prev),
     onShowShortcuts: () => setShowShortcuts((prev) => !prev),
     onToggleCalendar: () => setShowCalendar((prev) => !prev),
     onToggleSchedule: () => setShowScheduleWeek((prev) => !prev),
@@ -465,7 +482,8 @@ export default function DashboardClient({
       setMobileSidebarOpen(false);
       setShowRuleInput(false);
     },
-    enabled: !showShortcuts && !showScheduleWeek && !mobileSidebarOpen,
+    // The focus view brings its own keys
+    enabled: !showShortcuts && !showScheduleWeek && !mobileSidebarOpen && !focus,
   });
 
   // Keep a ref to refetchTodos so the calendar sync effect always has the latest version
@@ -900,21 +918,6 @@ export default function DashboardClient({
     [addTodo]
   );
 
-  const focusModeHandlers = {
-    onAdd: handleAddTodo,
-    onToggle: handleToggleTodo,
-    onUpdate: updateTodo,
-    onDelete: handleDeleteTodo,
-    onTagToggle: toggleTodoTag,
-    onReorder: reorderTodos,
-    onAddSubtask: addSubtask,
-    onToggleSubtask: toggleSubtask,
-    onDeleteSubtask: deleteSubtask,
-    onAssignEvent: handleAssignTodoToEvent,
-    onDeleteEvent: handleDeleteEvent,
-    onOpenEventDetail: handleOpenEventDetail,
-  };
-
   /* The column and the phone sheet show the same navigation. Only two props
      differ: the sheet cannot collapse, and it closes after a jump. */
   const navProps = {
@@ -943,33 +946,43 @@ export default function DashboardClient({
     },
     onReorderLists: (reordered: ListType[]) => reorderLists(reordered),
   };
-  const sideNav = <SideNav {...navProps} />;
+  const sideNav = <SideNav {...navProps} onEnterFocus={() => setFocus(true)} />;
   const sideNavMobile = (
     <SideNav
       {...navProps}
       collapsible={false}
       onNavigated={() => setMobileSidebarOpen(false)}
-      onEnterFocusMode={() => setFocusMode(true)}
+      onEnterFocus={() => setFocus(true)}
     />
   );
 
+  /* The focus view replaces the shell rather than covering it: it asks one
+     question and nothing behind it should be listening for keys. */
+  if (focus) {
+    return (
+      <FocusView
+        todos={todos}
+        todaysHabits={todaysHabits}
+        habitCompletions={habitCompletions}
+        habitsForDates={habitsForDates}
+        lists={lists}
+        tags={tags}
+        events={eventsWithTodos}
+        todayStr={todayStr}
+        onToggleTodo={handleToggleTodo}
+        onUpdateTodo={updateTodo}
+        onToggleHabit={toggleCompletion}
+        onAddTodo={handleAddTodo}
+        onCreateTag={addTag}
+        onOpenTask={(id) => { setFocus(false); navigate({ kind: "today", taskId: id }); }}
+        onOpenDay={(date) => { setFocus(false); navigate({ kind: "all", dates: [date] }); }}
+        onExit={() => setFocus(false)}
+      />
+    );
+  }
+
   return (
     <>
-    {/* Focus Mode overlay (mobile only) */}
-    {isMobile && focusMode && (
-      <FocusModeView
-        overdueTodos={overdueTodos}
-        todayTodos={todayTodos}
-        thisWeekTodos={thisWeekTodos}
-        loading={todosLoading}
-        allTags={tags}
-        lists={lists}
-        events={eventsWithTodos}
-        onExitFocusMode={() => setFocusMode(false)}
-        onCreateTag={addTag}
-        {...focusModeHandlers}
-      />
-    )}
     <AppShell
       detailOpen={detailOpen}
       onCloseDetail={closeDetail}

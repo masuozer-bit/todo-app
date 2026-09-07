@@ -95,8 +95,8 @@ interface SideNavProps {
   /** Mobile renders the same nav inside a sheet, where collapsing makes no sense. */
   collapsible?: boolean;
   onNavigated?: () => void;
-  /** Focus mode is a choice, not a default. Only the sheet offers it. */
-  onEnterFocusMode?: () => void;
+  /** Into the focus view. The full app is what this navigation is for. */
+  onEnterFocus?: () => void;
 }
 
 const VIEW_ROWS: { kind: ViewKind; label: string; icon: React.ElementType; count: keyof NavCounts }[] = [
@@ -142,7 +142,7 @@ export default function SideNav({
   onReorderLists,
   collapsible = true,
   onNavigated,
-  onEnterFocusMode,
+  onEnterFocus,
 }: SideNavProps) {
   const { t } = useI18n();
   const { theme, toggleTheme } = useTheme();
@@ -237,7 +237,15 @@ export default function SideNav({
       </div>
 
       <nav className="app-col-body px-2 pb-2" aria-label={t("Views")}>
-        <SectionTitle hidden={iconsOnly} first>{t("Views")}</SectionTitle>
+        {onEnterFocus && (
+          <NavRow
+            icon={<Target size={18} />}
+            label={t("Focus")}
+            iconsOnly={iconsOnly}
+            onClick={() => go(onEnterFocus)}
+          />
+        )}
+        <SectionTitle hidden={iconsOnly} first={!onEnterFocus}>{t("Views")}</SectionTitle>
         {VIEW_ROWS.map(({ kind, label, icon: Icon, count }) => {
           const n = counts[count] as number;
           if (kind === "overdue" && n === 0 && view !== "overdue") return null;
@@ -397,14 +405,6 @@ export default function SideNav({
             onClick={() => go(() => onSelectView(kind))}
           />
         ))}
-        {onEnterFocusMode && (
-          <NavRow
-            icon={<Target size={18} />}
-            label={t("Focus Mode")}
-            iconsOnly={iconsOnly}
-            onClick={() => go(onEnterFocusMode)}
-          />
-        )}
       </nav>
 
       <div

@@ -25,6 +25,7 @@ import { getToday } from "@/lib/date-helpers";
 import { formatTime } from "@/lib/format";
 import { PRIORITY_META } from "@/lib/priority";
 import type { FilterStatus, SortBy, TaskFilters } from "@/hooks/useTaskFilters";
+import type { TodoUpdates } from "@/hooks/useTodos";
 import type { Event, HabitWithStatus, List, Priority, Tag, Todo } from "@/lib/types";
 
 const PRIORITY_ORDER: Record<Priority, number> = { high: 0, medium: 1, low: 2, none: 3 };
@@ -74,7 +75,7 @@ export interface TodoListProps {
   todos: Todo[];
   allTags: Tag[];
   onToggle: (id: string, completed: boolean) => void;
-  onUpdate: (id: string, updates: Partial<Todo>) => void;
+  onUpdate: (id: string, updates: TodoUpdates) => void;
   onDelete: (id: string) => void;
   onTagToggle?: (todoId: string, tagId: string, add: boolean) => void;
   onReorder: (reordered: Todo[]) => void;

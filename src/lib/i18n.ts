@@ -240,6 +240,18 @@ export const de: Record<string, string> = {
   "Your account information": "Deine Kontodaten",
   "Customize the look and feel": "Aussehen anpassen",
 
+  // ── Detail panel and timer ──────────────────────────────────────────
+  "No start date": "Kein Startdatum",
+  "Estimate": "Schätzung",
+  "min": "min",
+  "Created {date}": "Erstellt {date}",
+  "Stop and save": "Stoppen und speichern",
+  "Reset": "Zurücksetzen",
+  "Click again to reset": "Noch einmal klicken zum Zurücksetzen",
+  "Add tag": "Tag hinzufügen",
+  "New tag": "Neuer Tag",
+  "Remove": "Entfernen",
+
   // ── Task list and rows ──────────────────────────────────────────────
   "{n} open": "{n} offen",
   "A to Z": "A bis Z",

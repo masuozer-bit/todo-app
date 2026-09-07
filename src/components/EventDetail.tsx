@@ -14,7 +14,7 @@ import {
   Trash2,
 } from "lucide-react";
 import type { Event, Tag, List, Priority } from "@/lib/types";
-import TodoItem from "./TodoItem";
+import TaskRow from "./TaskRow";
 import { CustomSelect, DatePicker, TimePicker } from "./Pickers";
 
 function formatEventDate(dateStr: string): string {
@@ -438,22 +438,18 @@ export default function EventDetail({
           No tasks yet — add one above
         </p>
       ) : (
-        <div className="space-y-2">
+        <div>
           {todos.map((todo) => (
-            <TodoItem
+            <TaskRow
               key={todo.id}
               todo={todo}
-              allTags={allTags}
-              onToggle={onToggleTodo}
-              onUpdate={onUpdateTodo}
-              onDelete={onDeleteTodo}
-              onTagToggle={onTagToggle}
-              onAddSubtask={onAddSubtask}
-              onToggleSubtask={onToggleSubtask}
-              onDeleteSubtask={onDeleteSubtask}
               lists={lists}
-              events={events}
-              onAssignEvent={onAssignEvent}
+              onSelect={() => {}}
+              onToggle={onToggleTodo}
+              onRename={(id, title) => onUpdateTodo(id, { title })}
+              onDelete={onDeleteTodo}
+              onSetPriority={(id, priority) => onUpdateTodo(id, { priority })}
+              onSetList={(id, listId) => onUpdateTodo(id, { list_id: listId })}
             />
           ))}
         </div>

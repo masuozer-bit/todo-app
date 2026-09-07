@@ -662,6 +662,62 @@
 }
 
 /* ============================================================
+   Detail panel. Two columns: a 120 px label and a value that is
+   itself the click target for its popover.
+   ============================================================ */
+@layer components {
+  .detail-title {
+    flex: 1;
+    min-width: 0;
+    resize: none;
+    overflow: hidden;
+    padding: 4px 6px;
+    margin: 0 -6px;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--radius);
+    font-size: 16px;
+    font-weight: 500;
+    line-height: 1.3;
+    color: var(--text);
+  }
+  .detail-title:hover { border-color: var(--border); }
+  .detail-title:focus {
+    outline: none;
+    border-color: var(--border-strong);
+  }
+
+  .props {
+    display: grid;
+    grid-template-columns: 120px minmax(0, 1fr);
+    align-items: center;
+  }
+  .prop-label {
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+  .prop-value {
+    min-width: 0;
+    font-size: 14px;
+    color: var(--text);
+  }
+
+  /* The whole value is the trigger, so the click target is a full row high */
+  .prop-button {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    height: var(--control-h);
+    padding: 0 8px;
+    margin: 0 -8px;
+    border-radius: var(--radius);
+    text-align: left;
+    transition: background-color var(--duration) var(--ease);
+  }
+  .prop-button:hover { background-color: var(--surface-2); }
+}
+
+/* ============================================================
    Transitional layer, phases 2 to 8 remove it.
 
    The glass, blur and tint rules these class names used to carry

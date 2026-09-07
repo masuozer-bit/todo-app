@@ -21,7 +21,7 @@ import ConfirmDialog from "@/components/ConfirmDialog";
 import FocusModeView from "@/components/FocusModeView";
 import RuleInput from "@/components/RuleInput";
 import RuleList from "@/components/RuleList";
-import LiveTaskBar from "@/components/LiveTaskBar";
+import TimerBar from "@/components/TimerBar";
 import TimeStats from "@/components/TimeStats";
 import TemplatesModal from "@/components/TemplatesModal";
 import ErrorBoundary from "@/components/ErrorBoundary";
@@ -972,12 +972,22 @@ export default function DashboardClient({
             <TaskDetail
               todo={selectedTodo}
               lists={lists}
+              events={eventsWithTodos}
+              allTags={tags}
               onClose={closeDetail}
               onToggle={(todo) => handleToggleTodo(todo.id, !todo.completed)}
-              onSaveNotes={(id, notes) => updateTodo(id, { notes: notes.trim() === "" ? null : notes })}
+              onUpdate={updateTodo}
+              onAssignProject={handleAssignTodoToEvent}
+              onDelete={handleDeleteTodo}
+              onDuplicate={handleDuplicateTodo}
+              onSaveAsTemplate={handleSaveAsTemplate}
               onAddSubtask={addSubtask}
               onToggleSubtask={toggleSubtask}
               onDeleteSubtask={deleteSubtask}
+              onTagToggle={toggleTodoTag}
+              onCreateTag={addTag}
+              onStartTimer={handleStartLiveTask}
+              liveTaskId={liveTaskId}
             />
           </ErrorBoundary>
         )
@@ -1233,6 +1243,13 @@ export default function DashboardClient({
           )}
           </ErrorBoundary>
         </div>
+        {liveTask && (
+          <TimerBar
+            todo={liveTask}
+            onSaveTime={handleSaveLiveTime}
+            onClose={() => setLiveTaskId(null)}
+          />
+        )}
         </>
       }
     >
@@ -1281,17 +1298,6 @@ export default function DashboardClient({
         onConfirm={confirmDeleteEvent}
         onCancel={() => setDeleteEventId(null)}
       />
-
-      {/* Live task stopwatch bar */}
-      {liveTask && (
-        <LiveTaskBar
-          todo={liveTask}
-          lists={lists}
-          onSaveTime={handleSaveLiveTime}
-          onClose={() => setLiveTaskId(null)}
-        />
-      )}
-
 
       {/* Floating Focus button (mobile only, when not in focus mode) */}
       {isMobile && !focusMode && (

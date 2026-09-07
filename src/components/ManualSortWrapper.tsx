@@ -6,7 +6,8 @@ import { GripVertical } from "lucide-react";
 
 /**
  * Wraps any child with a drag handle for mixed (event + task) manual sort.
- * Shows a left-side grip on hover.
+ * The grip stays faintly visible so it can be found without hovering, and it
+ * is reachable by keyboard.
  */
 export default function ManualSortWrapper({
   id,
@@ -40,9 +41,9 @@ export default function ManualSortWrapper({
         ref={setActivatorNodeRef}
         {...attributes}
         {...listeners}
-        className="flex-shrink-0 w-4 flex items-center justify-center opacity-0 group-hover/drag:opacity-60 hover:!opacity-100 cursor-grab active:cursor-grabbing text-gray-400 transition-default"
+        className="flex-shrink-0 w-4 flex items-center justify-center opacity-25 group-hover/drag:opacity-60 focus-visible:opacity-100 hover:!opacity-100 [@media(hover:none)]:opacity-50 cursor-grab active:cursor-grabbing text-gray-400 transition-default"
         aria-label="Drag to reorder"
-        tabIndex={-1}
+        tabIndex={0}
       >
         <GripVertical size={13} />
       </button>

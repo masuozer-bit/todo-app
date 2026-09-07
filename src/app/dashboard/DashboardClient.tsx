@@ -21,6 +21,7 @@ import RuleList from "@/components/RuleList";
 import LiveTaskBar from "@/components/LiveTaskBar";
 import TimeStats from "@/components/TimeStats";
 import TemplatesModal from "@/components/TemplatesModal";
+import TagManager from "@/components/TagManager";
 import { useTodos } from "@/hooks/useTodos";
 import { useTags } from "@/hooks/useTags";
 import { useLists } from "@/hooks/useLists";
@@ -370,7 +371,7 @@ export default function DashboardClient({
     syncServerTheme(serverTheme ?? null, userId);
   }, [serverTheme, userId, syncServerTheme]);
 
-  const { tags } = useTags(userId);
+  const { tags, addTag, deleteTag } = useTags(userId);
   const { lists, addList, updateList, updateListColor, deleteList, reorderLists, moveListToFolder, unassignFolder } = useLists(userId);
   const { folders, addFolder, updateFolder, deleteFolder } = useFolders(userId);
   const {
@@ -534,6 +535,78 @@ export default function DashboardClient({
       });
     },
     [todos, deleteTodo, restoreTodo, showToast]
+  );
+
+  // Bring a task on screen no matter which view is active
+  const revealTodo = useCallback((todoId: string) => {
+    setHabitsView(false);
+    setEventsView(false);
+    setRulesView(false);
+    setActiveListId(null);
+    setActiveFolderId(null);
+    setCalendarDates([]);
+    setQuickFilter(null);
+    setHighlightedTodoId(todoId);
+    setTimeout(() => {
+      document
+        .querySelector(`[data-todo-id="${todoId}"]`)
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+      setTimeout(() => setHighlightedTodoId(null), 2500);
+    }, 150);
+  }, []);
+
+  /* Would a task with this date and list show up in the view we are looking at? */
+  const isVisibleHere = useCallback(
+    (dueDate: string | null, listId: string | null) => {
+      if (activeListId) return listId === activeListId;
+      if (activeFolderId) {
+        const folderListIds = new Set(
+          lists.filter((l) => l.folder_id === activeFolderId).map((l) => l.id)
+        );
+        return !!(listId && folderListIds.has(listId));
+      }
+      if (calendarDates.length > 0) return !!dueDate && calendarDates.includes(dueDate);
+      const today = getToday();
+      if (quickFilter === "today") return dueDate === today;
+      if (quickFilter === "overdue") return !!dueDate && dueDate < today;
+      if (quickFilter === "thisWeek") {
+        if (!dueDate) return false;
+        const end = new Date();
+        end.setHours(0, 0, 0, 0);
+        end.setDate(end.getDate() + 6);
+        return new Date(dueDate + "T00:00:00") <= end;
+      }
+      return !eventsView && !habitsView && !rulesView;
+    },
+    [activeListId, activeFolderId, lists, calendarDates, quickFilter, eventsView, habitsView, rulesView]
+  );
+
+  // A new task must never just vanish: highlight it, or say where it went
+  const handleAddTodo = useCallback(
+    async (
+      title: string,
+      tagIds: string[],
+      options?: Parameters<typeof addTodo>[2]
+    ) => {
+      const newId = await addTodo(title, tagIds, options);
+      if (!newId) return newId;
+
+      const dueDate = options?.due_date ?? null;
+      const listId =
+        options && "list_id" in options ? options.list_id ?? null : activeListId ?? null;
+
+      if (isVisibleHere(dueDate, listId)) {
+        setHighlightedTodoId(newId);
+        setTimeout(() => setHighlightedTodoId(null), 2000);
+      } else {
+        showToast({
+          message: dueDate ? "Task added outside this view" : 'Task added to "Someday"',
+          action: { label: "Show", onClick: () => revealTodo(newId) },
+        });
+      }
+      return newId;
+    },
+    [addTodo, activeListId, isVisibleHere, revealTodo, showToast]
   );
 
   // Completing a task is undoable too
@@ -1027,8 +1100,23 @@ export default function DashboardClient({
   const totalTodoCount = activeTodoCount + completedTodoCount;
   const progressPct = totalTodoCount > 0 ? (completedTodoCount / totalTodoCount) * 100 : 0;
 
+  // One key per view — resets per-view UI state (sort, search, manual order)
+  const viewKeyForList = activeListId
+    ? `list:${activeListId}`
+    : activeFolderId
+      ? `folder:${activeFolderId}`
+      : calendarDates.length > 0
+        ? "calendar"
+        : quickFilter === "today"
+          ? "today"
+          : quickFilter === "thisWeek"
+            ? "thisWeek"
+            : quickFilter === "overdue"
+              ? "overdue"
+              : "allTasks";
+
   const focusModeHandlers = {
-    onAdd: addTodo,
+    onAdd: handleAddTodo,
     onToggle: handleToggleTodo,
     onUpdate: updateTodo,
     onDelete: handleDeleteTodo,
@@ -1187,6 +1275,11 @@ export default function DashboardClient({
               </DndContext>
             </div>
 
+            {/* Tags pill */}
+            <div className="glass-card px-2 py-2">
+              <TagManager tags={tags} onAdd={addTag} onDelete={deleteTag} />
+            </div>
+
             {/* Events & Habits pill */}
             <div className="glass-card px-2 py-2 space-y-0.5">
               <button onClick={switchToEvents} className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-sm transition-default ${eventsView ? "glass-nav-active font-medium" : "text-black dark:text-white glass-nav-hover border border-transparent"}`}>
@@ -1283,17 +1376,21 @@ export default function DashboardClient({
                     ? "Events"
                     : habitsView
                       ? "Habits"
-                      : quickFilter === "today"
-                        ? "Today"
-                        : quickFilter === "thisWeek"
-                          ? "This Week"
-                          : quickFilter === "overdue"
-                            ? "Overdue"
-                            : activeList
-                              ? activeList.name
-                              : activeFolder
-                                ? activeFolder.name
-                                : "All Tasks"}
+                      : calendarDates.length > 0
+                        ? calendarDates.length === 1
+                          ? new Date(calendarDates[0] + "T00:00:00").toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })
+                          : `${calendarDates.length} days selected`
+                        : quickFilter === "today"
+                          ? "Today"
+                          : quickFilter === "thisWeek"
+                            ? "This Week"
+                            : quickFilter === "overdue"
+                              ? "Overdue"
+                              : activeList
+                                ? activeList.name
+                                : activeFolder
+                                  ? activeFolder.name
+                                  : "All Tasks"}
                 </h2>
                 {activeList && !editingListId && (
                   <div className="flex items-center gap-1">
@@ -1395,8 +1492,9 @@ export default function DashboardClient({
                 <HabitInput onAdd={addHabit} lists={lists} />
               ) : (
                 <TodoInput
-                  onAdd={addTodo}
+                  onAdd={handleAddTodo}
                   onAddSubtask={addSubtask}
+                  onCreateTag={addTag}
                   tags={tags}
                   lists={lists}
                   events={eventsWithTodos}
@@ -1527,6 +1625,7 @@ export default function DashboardClient({
             />
           ) : (
             <TodoList
+              key={viewKeyForList}
               todos={visibleTodos}
               allTags={tags}
               onToggle={handleToggleTodo}
@@ -1537,6 +1636,7 @@ export default function DashboardClient({
               onAddSubtask={addSubtask}
               onToggleSubtask={toggleSubtask}
               onDeleteSubtask={deleteSubtask}
+              onCreateTag={addTag}
               loading={todosLoading}
               loadError={todosLoadError}
               onRetry={refetchTodos}
@@ -1556,13 +1656,7 @@ export default function DashboardClient({
                 : quickFilter === "thisWeek" ? "timeline"
                 : "timeline"  /* allTasks default */
               }
-              viewKey={
-                activeListId ? `list:${activeListId}`
-                : quickFilter === "today" ? "today"
-                : quickFilter === "thisWeek" ? "thisWeek"
-                : quickFilter === "overdue" ? "overdue"
-                : "allTasks"
-              }
+              viewKey={viewKeyForList}
               showBar={showBar}
               onToggleBar={() => setShowBar((prev) => {
                 const next = !prev;

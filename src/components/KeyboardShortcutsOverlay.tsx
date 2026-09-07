@@ -39,8 +39,9 @@ const GROUPS: ShortcutGroup[] = [
       { keys: [["today"], ["tomorrow"]], description: "Set due date" },
       { keys: [["at 3pm"], ["9:30am"]], description: "Set time" },
       { keys: [["!high"], ["!med"], ["!low"]], description: "Priority" },
-      { keys: [["#List"]], description: "Assign list" },
-      { keys: [["@Event"]], description: "Assign event" },
+      { keys: [["#tag"]], description: "Add a tag (creates it if new)" },
+      { keys: [["@List"]], description: "Assign a list" },
+      { keys: [["@Event"]], description: "Assign an event" },
     ],
   },
 ];

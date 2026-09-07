@@ -15,6 +15,7 @@ interface SortableItemProps {
   onAddSubtask: (todoId: string, title: string) => void;
   onToggleSubtask: (todoId: string, subtaskId: string, completed: boolean) => void;
   onDeleteSubtask: (todoId: string, subtaskId: string) => void;
+  onCreateTag?: (name: string) => Promise<Tag | undefined>;
   lists?: List[];
   activeListId?: string | null;
   events?: Event[];
@@ -31,6 +32,7 @@ export default function SortableItem({
   onAddSubtask,
   onToggleSubtask,
   onDeleteSubtask,
+  onCreateTag,
   lists,
   activeListId,
   events,
@@ -62,6 +64,7 @@ export default function SortableItem({
         onAddSubtask={onAddSubtask}
         onToggleSubtask={onToggleSubtask}
         onDeleteSubtask={onDeleteSubtask}
+        onCreateTag={onCreateTag}
         dragHandleProps={{ ...attributes, ...listeners }}
         isDragging={isDragging}
         lists={lists}

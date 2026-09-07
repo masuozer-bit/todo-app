@@ -14,7 +14,7 @@ import {
   arrayMove,
   SortableContext,
   sortableKeyboardCoordinates,
-  verticalListSortingStrategy,
+  rectSortingStrategy,
 } from "@dnd-kit/sortable";
 import { Search, X, Filter, CheckSquare, Trash2, Maximize2, ChevronRight, ChevronDown, PanelTopClose, Repeat, Flame, Clock, Check } from "lucide-react";
 import type { Todo, Tag, Priority, List, Event, HabitWithStatus } from "@/lib/types";
@@ -263,6 +263,7 @@ interface TodoListProps {
   onAddSubtask: (todoId: string, title: string) => void;
   onToggleSubtask: (todoId: string, subtaskId: string, completed: boolean) => void;
   onDeleteSubtask: (todoId: string, subtaskId: string) => void;
+  onCreateTag?: (name: string) => Promise<import("@/lib/types").Tag | undefined>;
   loading: boolean;
   /** Tasks could not be loaded — shown instead of the "no tasks" empty state */
   loadError?: boolean;
@@ -317,6 +318,7 @@ export default function TodoList({
   onAddSubtask,
   onToggleSubtask,
   onDeleteSubtask,
+  onCreateTag,
   loading,
   loadError = false,
   onRetry,
@@ -350,8 +352,32 @@ export default function TodoList({
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
   const [filterTagId, setFilterTagId] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<SortBy>(defaultSortBy);
-  const [showSomeday, setShowSomeday] = useState(false);
-  const [showDone, setShowDone] = useState(false);
+  // Remember per view whether Someday and Done are open
+  const [showSomeday, setShowSomeday] = useState(() => {
+    if (typeof window === "undefined") return false;
+    try { return localStorage.getItem(`showSomeday:${viewKey}`) === "true"; } catch { return false; }
+  });
+  const [showDone, setShowDone] = useState(() => {
+    if (typeof window === "undefined") return false;
+    try { return localStorage.getItem(`showDone:${viewKey}`) === "true"; } catch { return false; }
+  });
+
+  useEffect(() => {
+    try { localStorage.setItem(`showSomeday:${viewKey}`, String(showSomeday)); } catch { /* ignore */ }
+  }, [showSomeday, viewKey]);
+
+  useEffect(() => {
+    try { localStorage.setItem(`showDone:${viewKey}`, String(showDone)); } catch { /* ignore */ }
+  }, [showDone, viewKey]);
+
+  // A highlighted task must be visible, even when its group is collapsed
+  useEffect(() => {
+    if (!highlightedTodoId) return;
+    const todo = todos.find((t) => t.id === highlightedTodoId);
+    if (!todo) return;
+    if (todo.completed) setShowDone(true);
+    else if (!todo.due_date && !todo.start_date) setShowSomeday(true);
+  }, [highlightedTodoId, todos]);
   const [showFilters, setShowFilters] = useState(false);
 
   // M key → toggle filter/sort panel; Escape → close it
@@ -466,7 +492,7 @@ export default function TodoList({
   const activeTodos = filtered.filter((t) => !t.completed);
   const completedTodos = filtered.filter((t) => t.completed);
   const hasFilters =
-    !!search || filterStatus !== "all" || !!filterTagId || sortBy !== "default";
+    !!search || filterStatus !== "all" || !!filterTagId || sortBy !== defaultSortBy;
 
   // Separate event-based todos from standalone todos
   const eventTodosByEventId = useMemo(() => {
@@ -802,8 +828,8 @@ export default function TodoList({
               )}
             </div>
 
-            {/* Actions (visible on hover) */}
-            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-default flex-shrink-0 mt-0.5">
+            {/* Actions — also reachable by keyboard and on touch */}
+            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100 transition-default flex-shrink-0 mt-0.5">
               {onOpenEventDetail && (
                 <button
                   onClick={() => onOpenEventDetail(event.id)}
@@ -843,6 +869,7 @@ export default function TodoList({
                 onAddSubtask={onAddSubtask}
                 onToggleSubtask={onToggleSubtask}
                 onDeleteSubtask={onDeleteSubtask}
+                onCreateTag={onCreateTag}
                 lists={lists}
                 activeListId={activeListId}
                 events={events}
@@ -871,6 +898,7 @@ export default function TodoList({
         onAddSubtask={onAddSubtask}
         onToggleSubtask={onToggleSubtask}
         onDeleteSubtask={onDeleteSubtask}
+        onCreateTag={onCreateTag}
         lists={lists}
         activeListId={activeListId}
         events={events}
@@ -888,6 +916,7 @@ export default function TodoList({
         onAddSubtask={onAddSubtask}
         onToggleSubtask={onToggleSubtask}
         onDeleteSubtask={onDeleteSubtask}
+        onCreateTag={onCreateTag}
         lists={lists}
         activeListId={activeListId}
         events={events}
@@ -1009,7 +1038,7 @@ export default function TodoList({
 
           {hasFilters && (
             <button
-              onClick={() => { setSearch(""); setFilterStatus("all"); setFilterTagId(null); setSortBy("default"); }}
+              onClick={() => { setSearch(""); setFilterStatus("all"); setFilterTagId(null); setSortBy(defaultSortBy); }}
               className="text-xs text-gray-400 hover:text-black dark:hover:text-white transition-default"
             >
               Clear all filters
@@ -1055,6 +1084,22 @@ export default function TodoList({
             )}
           </div>
 
+          {/* Filter / sort panel toggle */}
+          <button
+            onClick={() => setShowFilters((v) => !v)}
+            className={`glass-card-subtle p-2 transition-default relative ${
+              showFilters || hasFilters ? "text-black dark:text-white bg-black/5 dark:bg-white/10" : "text-gray-400 hover:text-black dark:hover:text-white"
+            }`}
+            aria-label="Filter and sort"
+            aria-expanded={showFilters}
+            title="Filter and sort (M)"
+          >
+            <Filter size={14} />
+            {hasFilters && (
+              <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-blue-500" />
+            )}
+          </button>
+
           {/* Bulk select toggle */}
           {totalCount > 0 && (
             <button
@@ -1066,6 +1111,48 @@ export default function TodoList({
               title={selectMode ? "Cancel selection" : "Select multiple"}
             >
               <CheckSquare size={14} />
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Active filters at a glance */}
+      {!focusMode && hasFilters && (
+        <div className="mb-3 flex flex-wrap items-center gap-1.5">
+          {search && (
+            <button
+              onClick={() => setSearch("")}
+              className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-lg glass-card-subtle text-black dark:text-white"
+            >
+              Search: {search}
+              <X size={10} />
+            </button>
+          )}
+          {filterStatus !== "all" && (
+            <button
+              onClick={() => setFilterStatus("all")}
+              className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-lg glass-card-subtle text-black dark:text-white capitalize"
+            >
+              {filterStatus}
+              <X size={10} />
+            </button>
+          )}
+          {filterTagId && (
+            <button
+              onClick={() => setFilterTagId(null)}
+              className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-lg glass-card-subtle text-black dark:text-white"
+            >
+              #{allTags.find((t) => t.id === filterTagId)?.name ?? "Tag"}
+              <X size={10} />
+            </button>
+          )}
+          {sortBy !== defaultSortBy && (
+            <button
+              onClick={() => setSortBy(defaultSortBy)}
+              className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-lg glass-card-subtle text-black dark:text-white capitalize"
+            >
+              Sort: {sortBy}
+              <X size={10} />
             </button>
           )}
         </div>
@@ -1202,7 +1289,7 @@ export default function TodoList({
                   items={sortedMergedItems.map((i) =>
                     i.kind === "event" ? i.event.id : i.todo.id
                   )}
-                  strategy={verticalListSortingStrategy}
+                  strategy={rectSortingStrategy}
                 >
                   <div className={gridCols}>
                     {sortedMergedItems.map((item) =>

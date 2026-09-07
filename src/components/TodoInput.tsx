@@ -40,6 +40,8 @@ interface TodoInputProps {
     }
   ) => Promise<string | void> | void;
   onAddSubtask?: (todoId: string, title: string, options?: { due_date?: string | null; start_time?: string | null }) => void;
+  /** Create a tag that does not exist yet (used for unknown #tags) */
+  onCreateTag?: (name: string) => Promise<Tag | undefined>;
   tags: Tag[];
   lists?: List[];
   events?: Event[];
@@ -64,10 +66,13 @@ interface Suggestion {
   trigger: string;
   display: string;
   insert: string;
+  kind?: "tag" | "list" | "event" | "new-tag" | "date" | "priority" | "time";
   listId?: string;
   eventId?: string;
+  tagName?: string;
 }
 
+/* One rule everywhere: # is a tag, @ is a list or an event */
 function buildSuggestions(
   input: string,
   tags: Tag[],
@@ -76,84 +81,129 @@ function buildSuggestions(
 ): Suggestion[] {
   if (!input.trim()) return [];
   const words = input.split(/\s+/);
-  const lastWord = words[words.length - 1].toLowerCase();
+  const raw = words[words.length - 1];
+  const lastWord = raw.toLowerCase();
   if (!lastWord) return [];
 
   const suggestions: Suggestion[] = [];
 
-  // List assignment: #ListName
+  // #Tag
   if (lastWord.startsWith("#")) {
-    const partial = lastWord.slice(1).toLowerCase();
+    const partial = raw.slice(1);
+    const partialLower = partial.toLowerCase();
+    for (const tag of tags) {
+      if (partial === "" || tag.name.toLowerCase().startsWith(partialLower)) {
+        suggestions.push({
+          trigger: raw,
+          display: `#${tag.name}`,
+          insert: `#${tag.name}`,
+          kind: "tag",
+          tagName: tag.name,
+        });
+      }
+    }
+    const exact = tags.some((t) => t.name.toLowerCase() === partialLower);
+    if (partial && !exact) {
+      suggestions.unshift({
+        trigger: raw,
+        display: `New tag "${partial}"`,
+        insert: `#${partial}`,
+        kind: "new-tag",
+        tagName: partial,
+      });
+    }
+    return suggestions.slice(0, 6);
+  }
+
+  // @List or @Event
+  if (lastWord.startsWith("@")) {
+    const partial = lastWord.slice(1);
     for (const list of lists) {
       if (partial === "" || list.name.toLowerCase().startsWith(partial)) {
         suggestions.push({
-          trigger: words[words.length - 1],
-          display: `#${list.name}`,
+          trigger: raw,
+          display: list.name,
           insert: "",
+          kind: "list",
           listId: list.id,
         });
       }
     }
-    return suggestions.slice(0, 5);
-  }
-
-  // Event assignment: @EventName
-  if (lastWord.startsWith("@")) {
-    const partial = lastWord.slice(1).toLowerCase();
     for (const ev of events) {
       if (partial === "" || ev.title.toLowerCase().startsWith(partial)) {
         suggestions.push({
-          trigger: words[words.length - 1],
-          display: `@${ev.title}`,
+          trigger: raw,
+          display: ev.title,
           insert: "",
+          kind: "event",
           eventId: ev.id,
         });
       }
     }
-    return suggestions.slice(0, 5);
+    return suggestions.slice(0, 6);
   }
 
   if ("today".startsWith(lastWord) && lastWord.length >= 2 && lastWord !== "today")
-    suggestions.push({ trigger: lastWord, display: "today", insert: "today" });
+    suggestions.push({ trigger: raw, display: "today", insert: "today", kind: "date" });
   if ("tomorrow".startsWith(lastWord) && lastWord.length >= 2 && lastWord !== "tomorrow")
-    suggestions.push({ trigger: lastWord, display: "tomorrow", insert: "tomorrow" });
+    suggestions.push({ trigger: raw, display: "tomorrow", insert: "tomorrow", kind: "date" });
   if (lastWord === "next") {
     suggestions.push(
-      { trigger: lastWord, display: "next monday", insert: "next monday" },
-      { trigger: lastWord, display: "next week", insert: "next week" }
+      { trigger: raw, display: "next monday", insert: "next monday", kind: "date" },
+      { trigger: raw, display: "next week", insert: "next week", kind: "date" }
     );
   }
   if (lastWord === "!" || lastWord === "!h" || lastWord === "!hi")
-    suggestions.push({ trigger: lastWord, display: "!high", insert: "!high" });
+    suggestions.push({ trigger: raw, display: "!high", insert: "!high", kind: "priority" });
   if (lastWord === "!" || lastWord === "!m" || lastWord === "!me")
-    suggestions.push({ trigger: lastWord, display: "!medium", insert: "!medium" });
+    suggestions.push({ trigger: raw, display: "!medium", insert: "!medium", kind: "priority" });
   if (lastWord === "!" || lastWord === "!l" || lastWord === "!lo")
-    suggestions.push({ trigger: lastWord, display: "!low", insert: "!low" });
-
-  if (lastWord.startsWith("#") && lastWord.length >= 1) {
-    const partial = lastWord.slice(1).toLowerCase();
-    for (const tag of tags) {
-      if (partial === "" || tag.name.toLowerCase().startsWith(partial)) {
-        if (`#${tag.name.toLowerCase()}` !== lastWord) {
-          suggestions.push({
-            trigger: lastWord,
-            display: `#${tag.name}`,
-            insert: `#${tag.name}`,
-          });
-        }
-      }
-    }
-  }
+    suggestions.push({ trigger: raw, display: "!low", insert: "!low", kind: "priority" });
 
   if (lastWord === "at") {
     suggestions.push(
-      { trigger: lastWord, display: "at 9am", insert: "at 9am" },
-      { trigger: lastWord, display: "at 3pm", insert: "at 3pm" },
-      { trigger: lastWord, display: "at 6pm", insert: "at 6pm" }
+      { trigger: raw, display: "at 9am", insert: "at 9am", kind: "time" },
+      { trigger: raw, display: "at 3pm", insert: "at 3pm", kind: "time" },
+      { trigger: raw, display: "at 6pm", insert: "at 6pm", kind: "time" }
     );
   }
 
-  return suggestions.slice(0, 5);
+  return suggestions.slice(0, 6);
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/* Resolve "@Name" in the typed text to a list or an event and take it out of
+   the title. Unknown names are left alone rather than silently dropped. */
+function resolveMentions(
+  text: string,
+  lists: List[],
+  events: Event[]
+): { text: string; listId: string | null; eventId: string | null } {
+  if (!text.includes("@")) return { text, listId: null, eventId: null };
+
+  const candidates: { name: string; listId?: string; eventId?: string }[] = [
+    ...lists.map((l) => ({ name: l.name, listId: l.id })),
+    ...events.map((e) => ({ name: e.title, eventId: e.id })),
+  ].sort((a, b) => b.name.length - a.name.length);
+
+  let out = text;
+  let listId: string | null = null;
+  let eventId: string | null = null;
+
+  for (const candidate of candidates) {
+    if (candidate.listId && listId) continue;
+    if (candidate.eventId && eventId) continue;
+    const re = new RegExp(`@${escapeRegExp(candidate.name)}(?!\\S)`, "i");
+    if (!re.test(out)) continue;
+    out = out.replace(re, "");
+    if (candidate.listId) listId = candidate.listId;
+    else eventId = candidate.eventId ?? null;
+  }
+
+  return { text: out.replace(/\s+/g, " ").trim(), listId, eventId };
 }
 
 function formatDateLabel(dateStr: string): string {
@@ -183,6 +233,7 @@ const QUICK_DATES = [
 export default function TodoInput({
   onAdd,
   onAddSubtask,
+  onCreateTag,
   tags,
   lists = [],
   events = [],
@@ -208,8 +259,10 @@ export default function TodoInput({
   useEffect(() => { setListId(activeListId ?? null); }, [activeListId]);
 
 
+  // The parser runs whether or not the options panel is open — form fields
+  // simply take precedence over what the text says
   const parsed: ParsedTask | null = useMemo(() => {
-    if (!title.trim() || showOptions) return null;
+    if (!title.trim()) return null;
     const p = parseNaturalLanguage(title);
     if (
       p.due_date ||
@@ -219,12 +272,12 @@ export default function TodoInput({
       (p.tagNames && p.tagNames.length > 0)
     ) return p;
     return null;
-  }, [title, showOptions]);
+  }, [title]);
 
   const suggestions = useMemo(() => {
-    if (showOptions || !title.trim()) return [];
+    if (!title.trim()) return [];
     return buildSuggestions(title, tags, lists, events);
-  }, [title, tags, lists, events, showOptions]);
+  }, [title, tags, lists, events]);
 
   useEffect(() => {
     setSelectedSuggestion(0);
@@ -250,6 +303,17 @@ export default function TodoInput({
 
   function handleKeyDown(e: React.KeyboardEvent) {
     if (showSuggestions && suggestions.length > 0) {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        applySuggestion(suggestions[selectedSuggestion]);
+        return;
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+        setShowSuggestions(false);
+        return;
+      }
       if (e.key === "Tab" || (e.key === "ArrowRight" && suggestions.length > 0)) {
         e.preventDefault();
         applySuggestion(suggestions[selectedSuggestion]);
@@ -278,33 +342,36 @@ export default function TodoInput({
     if (submittingRef.current) return;
     submittingRef.current = true;
 
-    let finalTitle = trimmed;
-    let finalDueDate = dueDate || null;
-    let finalStartDate = startDate || null;
-    let finalStartTime = startTime || null;
-    let finalEndTime = endTime || null;
-    let finalPriority = priority;
-    const finalTagIds = [...selectedTagIds];
+    // @List / @Event first, then the natural language parser
+    const mentions = resolveMentions(trimmed, lists, events);
+    const p = parseNaturalLanguage(mentions.text);
 
-    if (!showOptions) {
-      const p = parseNaturalLanguage(trimmed);
-      if (p.title) finalTitle = p.title;
-      if (p.due_date) finalDueDate = p.due_date;
-      if (p.start_time) finalStartTime = p.start_time;
-      if (p.end_time) finalEndTime = p.end_time;
-      if (p.priority && p.priority !== "none") finalPriority = p.priority;
-      if (p.tagNames && p.tagNames.length > 0) {
-        for (const name of p.tagNames) {
-          const tag = tags.find((t) => t.name.toLowerCase() === name.toLowerCase());
-          if (tag && !finalTagIds.includes(tag.id)) finalTagIds.push(tag.id);
-        }
+    let finalTitle = p.title || mentions.text || trimmed;
+    // Anything set in the form wins over the same thing written in the text
+    const finalDueDate = dueDate || p.due_date || null;
+    const finalStartDate = startDate || null;
+    const finalStartTime = startTime || p.start_time || null;
+    const finalEndTime = endTime || p.end_time || null;
+    const finalPriority =
+      priority !== "none" ? priority : (p.priority && p.priority !== "none" ? p.priority : "none");
+    const finalTagIds = [...selectedTagIds];
+    const newTagNames: string[] = [];
+
+    for (const name of p.tagNames ?? []) {
+      const tag = tags.find((t) => t.name.toLowerCase() === name.toLowerCase());
+      if (tag) {
+        if (!finalTagIds.includes(tag.id)) finalTagIds.push(tag.id);
+      } else {
+        newTagNames.push(name);
       }
     }
 
+    if (!finalTitle) finalTitle = trimmed;
+
     const pendingSubtasks = subtaskEntries.filter((s) => s.title.trim());
     const pendingNotes = notes.trim() || null;
-    const pendingListId = listId;
-    const pendingEventId = eventId;
+    const pendingListId = listId ?? mentions.listId ?? null;
+    const pendingEventId = eventId ?? mentions.eventId ?? null;
 
     // Clear the field before the request returns so typing can continue
     setTitle("");
@@ -323,8 +390,17 @@ export default function TodoInput({
     inputRef.current?.focus();
 
     try {
+      // Unknown #tags are created instead of being thrown away
+      if (newTagNames.length > 0 && onCreateTag) {
+        for (const name of newTagNames) {
+          const created = await onCreateTag(name);
+          if (created && !finalTagIds.includes(created.id)) finalTagIds.push(created.id);
+        }
+      }
+
       const newTodoId = await onAdd(finalTitle, finalTagIds, {
-        due_date: finalDueDate,
+        // A time without a date means today
+        due_date: finalDueDate || (finalStartTime ? getToday() : null),
         start_date: finalStartDate,
         start_time: finalStartTime,
         end_time: finalEndTime,
@@ -353,13 +429,15 @@ export default function TodoInput({
     );
   }
 
+  function cyclePriority() {
+    const order: Priority[] = ["none", "low", "medium", "high"];
+    setPriority((prev) => order[(order.indexOf(prev) + 1) % order.length]);
+  }
+
   function setQuickDate(val: string) {
     setDueDate(val);
     if (!val) { setStartTime(""); setEndTime(""); }
   }
-
-  const isQuickDate = QUICK_DATES.some((q) => q.fn() === dueDate);
-  const isCustomDate = dueDate && !isQuickDate;
 
   return (
     <div className="glass-card p-4">
@@ -374,7 +452,7 @@ export default function TodoInput({
             onKeyDown={handleKeyDown}
             onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
             onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
-            placeholder="Add a task... (try: Buy milk tomorrow at 3pm !high #Work @Meeting)"
+            placeholder="Add a task... (try: Buy milk tomorrow at 3pm !high #errands @Groceries)"
             className="flex-1 bg-transparent text-black dark:text-white placeholder:text-gray-400 focus:outline-none text-base"
             aria-label="New task title"
           />
@@ -396,8 +474,59 @@ export default function TodoInput({
           </button>
         </div>
 
+
+        {/* Quick row — date, time and priority without opening the panel */}
+        <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+          {QUICK_DATES.slice(0, 3).map((q) => (
+            <button
+              key={q.label}
+              type="button"
+              onClick={() => setQuickDate(dueDate === q.fn() ? "" : q.fn())}
+              className={`text-xs px-2.5 py-1.5 rounded-lg border transition-default ${
+                dueDate === q.fn()
+                  ? "border-black/20 dark:border-white/20 bg-black/5 dark:bg-white/10 text-black dark:text-white font-medium"
+                  : "border-black/10 dark:border-white/10 text-gray-400 hover:text-black dark:hover:text-white hover:border-black/20 dark:hover:border-white/20"
+              }`}
+            >
+              {q.label}
+            </button>
+          ))}
+          <DatePicker value={dueDate} onChange={setDueDate} placeholder="Date" />
+          <TimePicker value={startTime} onChange={setStartTime} placeholder="Time" />
+          {startTime && (
+            <>
+              <span className="text-xs text-gray-400">→</span>
+              <TimePicker value={endTime} onChange={setEndTime} placeholder="End" />
+            </>
+          )}
+          <button
+            type="button"
+            onClick={cyclePriority}
+            className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border transition-default ${
+              priority !== "none"
+                ? "border-black/20 dark:border-white/20 bg-black/5 dark:bg-white/10 text-black dark:text-white font-medium"
+                : "border-black/10 dark:border-white/10 text-gray-400 hover:text-black dark:hover:text-white hover:border-black/20 dark:hover:border-white/20"
+            }`}
+            aria-label="Change priority"
+            title="Change priority"
+          >
+            <span className={`w-1.5 h-1.5 rounded-full ${PRIORITY_CONFIG.find((p) => p.value === priority)?.dot}`} />
+            {PRIORITY_CONFIG.find((p) => p.value === priority)?.label ?? "None"}
+          </button>
+          {(dueDate || startTime || priority !== "none") && (
+            <button
+              type="button"
+              onClick={() => { setDueDate(""); setStartTime(""); setEndTime(""); setPriority("none"); }}
+              className="text-gray-400 hover:text-black dark:hover:text-white transition-default"
+              aria-label="Clear date, time and priority"
+            >
+              <X size={13} />
+            </button>
+          )}
+        </div>
+
         {/* Autocomplete suggestions */}
-        {!showOptions && showSuggestions && suggestions.length > 0 && (
+        {showSuggestions && suggestions.length > 0 && (
           <div className="mt-1.5 glass-card-raised rounded-xl overflow-hidden">
             {suggestions.map((s, i) => (
               <button
@@ -412,14 +541,18 @@ export default function TodoInput({
                 }`}
               >
                 <span className="font-medium">{s.display}</span>
-                <span className="text-xs text-gray-400 ml-auto">Tab ↹</span>
+                {s.kind === "list" && <span className="text-[10px] uppercase tracking-wide text-gray-400">List</span>}
+                {s.kind === "event" && <span className="text-[10px] uppercase tracking-wide text-gray-400">Event</span>}
+                {s.kind === "tag" && <span className="text-[10px] uppercase tracking-wide text-gray-400">Tag</span>}
+                {s.kind === "new-tag" && <span className="text-[10px] uppercase tracking-wide text-gray-400">New</span>}
+                <span className="text-xs text-gray-400 ml-auto">↵</span>
               </button>
             ))}
           </div>
         )}
 
         {/* NL live preview */}
-        {!showOptions && (parsed || listId || eventId) && (
+        {(parsed || listId || eventId) && (
           <div className="mt-2.5 flex items-center gap-1.5 flex-wrap">
             <span className="text-[10px] uppercase tracking-wider text-gray-400 mr-0.5 font-medium">
               Parsed:
@@ -481,85 +614,38 @@ export default function TodoInput({
         {showOptions && (
           <div className="mt-3 pt-3 border-t border-black/5 dark:border-white/5 space-y-4">
 
-            {/* ① Priority */}
-            <div className="flex gap-1.5">
-              {PRIORITY_CONFIG.map((p) => (
-                <button
-                  key={p.value}
-                  type="button"
-                  onClick={() => setPriority(p.value)}
-                  className={`flex items-center justify-center gap-1.5 px-0 py-1.5 rounded-lg border text-xs transition-default flex-1 ${
-                    priority === p.value
-                      ? "border-black/25 dark:border-white/25 bg-black/5 dark:bg-white/10 font-medium text-black dark:text-white"
-                      : "border-black/8 dark:border-white/8 text-gray-400 hover:text-black dark:hover:text-white hover:border-black/15 dark:hover:border-white/15"
-                  }`}
-                >
-                  <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${p.dot}`} />
-                  {p.label}
-                </button>
-              ))}
-            </div>
-
-            {/* ② Schedule */}
-            <div className="space-y-2">
-              <p className="text-[10px] uppercase tracking-wide text-gray-400 font-medium">Schedule</p>
-
-              {/* Due date chips + inline date picker */}
-              <div className="flex flex-wrap gap-1.5 items-center">
-                {QUICK_DATES.map((q) => (
-                  <button
-                    key={q.label}
-                    type="button"
-                    onClick={() => setQuickDate(dueDate === q.fn() ? "" : q.fn())}
-                    className={`text-xs px-2.5 py-1.5 rounded-lg border transition-default ${
-                      dueDate === q.fn()
-                        ? "border-black/20 dark:border-white/20 bg-black/5 dark:bg-white/10 text-black dark:text-white font-medium"
-                        : "border-black/8 dark:border-white/8 text-gray-400 hover:text-black dark:hover:text-white hover:border-black/15 dark:hover:border-white/15"
-                    }`}
-                  >
-                    {q.label}
+            {/* ① Start date */}
+            <div className="flex items-center gap-2">
+              <CalendarRange size={11} className="text-gray-400 flex-shrink-0" />
+              {startDate ? (
+                <span className="inline-flex items-center gap-1 text-xs text-black/60 dark:text-gray-400">
+                  Start {formatDateLabel(startDate)}
+                  <button type="button" onClick={() => setStartDate("")} className="text-gray-400 hover:text-black dark:hover:text-white ml-0.5">
+                    <X size={10} />
                   </button>
-                ))}
-                <DatePicker value={dueDate} onChange={setDueDate} placeholder="Custom date" />
-                {dueDate && (
-                  <button
-                    type="button"
-                    onClick={() => { setDueDate(""); setStartTime(""); setEndTime(""); }}
-                    className="text-gray-300 dark:text-gray-600 hover:text-gray-500 dark:hover:text-gray-400 transition-default"
-                  >
-                    <X size={13} />
-                  </button>
-                )}
-              </div>
-
-              {/* Time — only visible when date is set */}
-              {dueDate && (
-                <div className="flex items-center gap-2 pl-0.5">
-                  <TimePicker value={startTime} onChange={setStartTime} />
-                  {startTime && (
-                    <>
-                      <span className="text-xs text-gray-400">→</span>
-                      <TimePicker value={endTime} onChange={setEndTime} />
-                    </>
-                  )}
-                </div>
+                </span>
+              ) : (
+                <DatePicker value={startDate} onChange={setStartDate} placeholder="Start date" />
               )}
-
-              {/* Start date — subtle toggle */}
-              <div className="flex items-center gap-2 pl-0.5">
-                <CalendarRange size={11} className="text-gray-400 flex-shrink-0" />
-                {startDate ? (
-                  <span className="inline-flex items-center gap-1 text-xs text-black/60 dark:text-gray-400">
-                    Start {formatDateLabel(startDate)}
-                    <button type="button" onClick={() => setStartDate("")} className="text-gray-400 hover:text-black dark:hover:text-white ml-0.5">
-                      <X size={10} />
-                    </button>
-                  </span>
-                ) : (
-                  <DatePicker value={startDate} onChange={setStartDate} placeholder="Start date" />
-                )}
-              </div>
             </div>
+
+            {/* ② Tags */}
+            {tags.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-[10px] uppercase tracking-wide text-gray-400 font-medium">Tags</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {tags.map((tag) => (
+                    <TagPill
+                      key={tag.id}
+                      name={tag.name}
+                      size="sm"
+                      selected={selectedTagIds.includes(tag.id)}
+                      onClick={() => toggleTag(tag.id)}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* ③ List + Event */}
             {(lists.length > 0 || events.length > 0) && (

@@ -126,12 +126,19 @@ export function DatePicker({
   placeholder = "Pick date",
   className = "",
   dropUp = false,
+  trigger,
+  triggerClassName,
+  ariaLabel,
 }: {
   value: string;
   onChange: (v: string) => void;
   placeholder?: string;
   className?: string;
   dropUp?: boolean;
+  /** Replace the default button content, e.g. to keep a card's own chip look */
+  trigger?: React.ReactNode;
+  triggerClassName?: string;
+  ariaLabel?: string;
 }) {
   const today      = new Date();
   const todayStr   = toYMD(today);
@@ -196,23 +203,31 @@ export function DatePicker({
           }
           setOpen((o) => !o);
         }}
-        className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border transition-default ${
-          value
-            ? "border-black/20 dark:border-white/20 bg-black/5 dark:bg-white/5 text-black dark:text-white"
-            : "border-black/10 dark:border-white/10 text-gray-400 hover:text-black dark:hover:text-white hover:border-black/20 dark:hover:border-white/20"
-        }`}
+        aria-label={ariaLabel}
+        className={
+          triggerClassName ??
+          `inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border transition-default ${
+            value
+              ? "border-black/20 dark:border-white/20 bg-black/5 dark:bg-white/5 text-black dark:text-white"
+              : "border-black/10 dark:border-white/10 text-gray-400 hover:text-black dark:hover:text-white hover:border-black/20 dark:hover:border-white/20"
+          }`
+        }
       >
-        <Calendar size={11} className="flex-shrink-0" />
-        <span>{displayLabel}</span>
-        {value && (
-          <span
-            role="button"
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={(e) => { e.stopPropagation(); onChange(""); setOpen(false); }}
-            className="text-gray-400 hover:text-black dark:hover:text-white transition-default cursor-pointer ml-0.5"
-          >
-            <X size={10} />
-          </span>
+        {trigger ?? (
+          <>
+            <Calendar size={11} className="flex-shrink-0" />
+            <span>{displayLabel}</span>
+            {value && (
+              <span
+                role="button"
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => { e.stopPropagation(); onChange(""); setOpen(false); }}
+                className="text-gray-400 hover:text-black dark:hover:text-white transition-default cursor-pointer ml-0.5"
+              >
+                <X size={10} />
+              </span>
+            )}
+          </>
         )}
       </button>
 

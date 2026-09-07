@@ -71,8 +71,9 @@ const CATEGORIES: CommandCategory[] = [
     name: "Lists & Events",
     icon: "📂",
     commands: [
-      { syntax: "#ListName", description: "Assign to a list (from suggestions)", example: "Buy groceries #Personal" },
-      { syntax: "@EventName", description: "Assign to an event (from suggestions)", example: "Prepare slides @Workshop" },
+      { syntax: "#tag", description: "Add a tag, unknown tags are created", example: "Buy groceries #errands" },
+      { syntax: "@ListName", description: "Assign to a list", example: "Buy groceries @Personal" },
+      { syntax: "@EventName", description: "Assign to an event", example: "Prepare slides @Workshop" },
     ],
   },
 ];
@@ -89,7 +90,7 @@ const SHORTCUTS: { keys: string; description: string }[] = [
 ];
 
 const EXAMPLES: { input: string; parsed: string }[] = [
-  { input: "Buy groceries tomorrow at 3pm !high #Personal", parsed: "Due tomorrow 3:00 PM · High · Personal list" },
+  { input: "Buy groceries tomorrow at 3pm !high @Personal", parsed: "Due tomorrow 3:00 PM · High · Personal list" },
   { input: "Submit report next friday !med", parsed: "Due next Friday · Medium" },
   { input: "Workshop 2pm-4pm today", parsed: "Due today 2:00–4:00 PM" },
   { input: "Prepare slides in 2 days @Workshop", parsed: "Due in 2 days · Workshop event" },

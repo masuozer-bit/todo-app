@@ -78,7 +78,6 @@ interface SideNavProps {
   onSelectList: (id: string) => void;
   onSelectFolder: (id: string) => void;
   onOpenSearch: () => void;
-  onOpenTemplates: () => void;
   onSignOut: () => void;
 
   onCreateList: (name: string) => void;
@@ -109,6 +108,7 @@ const MORE_ROWS: { kind: ViewKind; label: string; icon: React.ElementType }[] = 
   { kind: "events", label: "Projects", icon: CalendarRange },
   { kind: "habits", label: "Habits", icon: Repeat },
   { kind: "journal", label: "Journal", icon: BookOpen },
+  { kind: "templates", label: "Templates", icon: LayoutTemplate },
   { kind: "rules", label: "Principles", icon: Shield },
   { kind: "time", label: "Time Tracking", icon: Clock },
 ];
@@ -127,7 +127,6 @@ export default function SideNav({
   onSelectList,
   onSelectFolder,
   onOpenSearch,
-  onOpenTemplates,
   onSignOut,
   onCreateList,
   onRenameList,
@@ -394,13 +393,6 @@ export default function SideNav({
             onClick={() => go(() => onSelectView(kind))}
           />
         ))}
-        <NavRow
-          icon={<LayoutTemplate size={18} />}
-          label={t("Templates")}
-          shortcut="T"
-          iconsOnly={iconsOnly}
-          onClick={() => go(onOpenTemplates)}
-        />
       </nav>
 
       <div

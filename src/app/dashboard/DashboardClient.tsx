@@ -12,24 +12,29 @@ import CalendarPanel from "@/components/CalendarPanel";
 import TimelinePanel from "@/components/TimelinePanel";
 import ScheduleWeekModal from "@/components/ScheduleWeekModal";
 import HabitInput from "@/components/HabitInput";
-import HabitList from "@/components/HabitList";
 import { useToast } from "@/components/Toast";
 import KeyboardShortcutsOverlay from "@/components/KeyboardShortcutsOverlay";
 import EventInput from "@/components/EventInput";
-import EventList from "@/components/EventList";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import FocusModeView from "@/components/FocusModeView";
 import RuleInput from "@/components/RuleInput";
 import RuleList from "@/components/RuleList";
 import TimerBar from "@/components/TimerBar";
 import TimeStats from "@/components/TimeStats";
-import TemplatesModal from "@/components/TemplatesModal";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import AppShell from "@/components/shell/AppShell";
 import SideNav from "@/components/shell/SideNav";
 import ContentHeader from "@/components/shell/ContentHeader";
 import NavSheet from "@/components/shell/NavSheet";
 import JournalView from "@/components/JournalView";
+import JournalSidebar from "@/components/JournalSidebar";
+import HabitListView from "@/components/HabitListView";
+import HabitDetail from "@/components/HabitDetail";
+import HabitWeekTable from "@/components/HabitWeekTable";
+import ProjectListView from "@/components/ProjectListView";
+import ProjectDetail from "@/components/ProjectDetail";
+import TemplateListView from "@/components/TemplateListView";
+import TemplateDetail from "@/components/TemplateDetail";
 import TaskDetail from "@/components/TaskDetail";
 import { useTodos } from "@/hooks/useTodos";
 import { useTags } from "@/hooks/useTags";
@@ -78,7 +83,6 @@ export default function DashboardClient({
   });
   const [showCalendar, setShowCalendar] = useState(false);
   const [showScheduleWeek, setShowScheduleWeek] = useState(false);
-  const [showTemplates, setShowTemplates] = useState(false);
   const [isMobile, setIsMobile] = useState<boolean | null>(null);
   const [focusMode, setFocusMode] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
@@ -103,7 +107,7 @@ export default function DashboardClient({
     (id: string | null) => navigate({ taskId: id }),
     [navigate]
   );
-  const closeDetail = useCallback(() => navigate({ taskId: null }), [navigate]);
+  const closeDetail = useCallback(() => navigate({ taskId: null, selId: null }), [navigate]);
   // Flips at midnight, so an open tab does not keep yesterday's "Today"
   const todayStr = useToday();
   const activeListId = view.listId;
@@ -115,12 +119,14 @@ export default function DashboardClient({
   const journalView = view.kind === "journal";
   const timeView = view.kind === "time";
   const runningView = view.kind === "running";
+  const templatesView = view.kind === "templates";
+  const isTaskView =
+    !eventsView && !habitsView && !rulesView && !journalView && !timeView && !templatesView;
   const quickFilter: "overdue" | "today" | "thisWeek" | null =
     view.kind === "today" ? "today"
     : view.kind === "week" ? "thisWeek"
     : view.kind === "overdue" ? "overdue"
     : null;
-  const openEventDetailId = view.eventId;
   const { showToast } = useToast();
   const { locale } = useI18n();
   // The reminder cron needs to know which timezone this user lives in
@@ -189,7 +195,6 @@ export default function DashboardClient({
     addEvent,
     updateEvent,
     deleteEvent,
-    reorderEvents,
   } = useEvents(userId);
 
   // Events carry their tasks from the single todos fetch — no second source of
@@ -267,12 +272,6 @@ export default function DashboardClient({
   );
 
   // Take a task out of its event without deleting it
-  const handleRemoveTaskFromEvent = useCallback(
-    (_eventId: string, todoId: string) => {
-      assignTodoToEvent(todoId, null);
-    },
-    [assignTodoToEvent]
-  );
 
   // Update event — when the list changes, the event's tasks follow along
   const handleUpdateEvent = useCallback(
@@ -287,7 +286,7 @@ export default function DashboardClient({
 
   // Open event detail from any view (list, today, this-week…)
   const handleOpenEventDetail = useCallback(
-    (eventId: string) => navigate({ kind: "events", eventId }),
+    (eventId: string) => navigate({ kind: "events", selId: eventId }),
     [navigate]
   );
 
@@ -408,10 +407,10 @@ export default function DashboardClient({
       });
       showToast({
         message: t('Saved "{title}" as a template', { title: todo.title }),
-        action: { label: "Open", onClick: () => setShowTemplates(true) },
+        action: { label: t("Open"), onClick: () => navigate({ kind: "templates" }) },
       });
     },
-    [addTemplate, showToast]
+    [addTemplate, showToast, navigate, t]
   );
 
   // Completing a task is undoable too
@@ -452,7 +451,7 @@ export default function DashboardClient({
     onToggleCalendar: () => setShowCalendar((prev) => !prev),
     onToggleSchedule: () => setShowScheduleWeek((prev) => !prev),
     onNewRule: () => setShowRuleInput((prev) => !prev),
-    onToggleTemplates: () => setShowTemplates((prev) => !prev),
+    onToggleTemplates: () => navigate({ kind: "templates" }),
     onToggleBar: () => setShowBar((prev) => {
       const next = !prev;
       try { localStorage.setItem("showTaskBar", String(next)); } catch {}
@@ -461,12 +460,11 @@ export default function DashboardClient({
     // Escape closes what is open — it must not make the input bar disappear
     onEscape: () => {
       setShowShortcuts(false);
-      setShowTemplates(false);
       setShowScheduleWeek(false);
       setMobileSidebarOpen(false);
       setShowRuleInput(false);
     },
-    enabled: !showTemplates && !showShortcuts && !showScheduleWeek && !mobileSidebarOpen,
+    enabled: !showShortcuts && !showScheduleWeek && !mobileSidebarOpen,
   });
 
   // Keep a ref to refetchTodos so the calendar sync effect always has the latest version
@@ -624,7 +622,11 @@ export default function DashboardClient({
     () => (selectedTodoId ? todos.find((todo) => todo.id === selectedTodoId) ?? null : null),
     [todos, selectedTodoId]
   );
-  const detailOpen = selectedTodo !== null || (showCalendar && !habitsView && !eventsView);
+  const detailOpen =
+    selectedTodo !== null ||
+    view.selId !== null ||
+    journalView ||
+    (showCalendar && isTaskView);
 
   // Task counts for sidebar badges — computed before early returns (Rules of Hooks)
   type ListBadges = { overdue: number; today: number; thisWeek: number };
@@ -821,9 +823,24 @@ export default function DashboardClient({
               ? "overdue"
               : "allTasks";
 
+  /* What the panel shows in the views that are not about tasks */
+  const selectedHabit = useMemo(
+    () => (view.selId ? habits.find((h) => h.id === view.selId) ?? null : null),
+    [habits, view.selId]
+  );
+  const selectedEvent = useMemo(
+    () => (view.selId ? eventsWithTodos.find((e) => e.id === view.selId) ?? null : null),
+    [eventsWithTodos, view.selId]
+  );
+  const selectedTemplate = useMemo(
+    () => (view.selId ? templates.find((x) => x.id === view.selId) ?? null : null),
+    [templates, view.selId]
+  );
+  const selectRow = useCallback((id: string) => navigate({ selId: id }), [navigate]);
+  const [journalDay, setJournalDay] = useState<string>(() => getToday());
+
   /* What the content head says. One place, so the title, the count and the
      ring cannot disagree with each other. */
-  const isTaskView = !eventsView && !habitsView && !rulesView && !journalView && !timeView;
   const viewTitle = eventsView ? t("Projects")
     : rulesView ? t("Principles")
     : habitsView ? t("Habits")
@@ -895,7 +912,6 @@ export default function DashboardClient({
     onSelectList: switchToList,
     onSelectFolder: switchToFolder,
     onOpenSearch: focusSearch,
-    onOpenTemplates: () => setShowTemplates(true),
     onSignOut: handleSignOut,
     onCreateList: (name: string) => addList(name),
     onRenameList: (id: string, name: string) => updateList(id, name),
@@ -937,38 +953,74 @@ export default function DashboardClient({
       onCloseDetail={closeDetail}
       nav={sideNav}
       detail={
-        showCalendar && !habitsView && !eventsView ? (
-          <>
-            <div className="app-col-head">
-              <h2 className="flex-1 text-base font-medium text-text">{t("Calendar")}</h2>
-              <button onClick={() => setShowCalendar(false)} className="icon-btn flex-none" aria-label={t("Close")}>
-                <X size={16} />
-              </button>
-            </div>
-            <div className="app-col-body p-4 space-y-2">
-              <ErrorBoundary variant="panel" label={t("Calendar")}>
-              <CalendarPanel
-                todos={todos}
-                selectedDates={calendarDates}
-                onSelectDates={handleCalendarDatesChange}
-                onGoogleEventsImported={refetchTodos}
-              />
-              <TimelinePanel
-                todos={todos}
-                habits={todaysHabits}
-                lists={lists}
-                events={eventsWithTodos}
-                onTodoClick={handleTimelineTodoClick}
-                onHabitClick={handleTimelineHabitClick}
-                onUpdateTodo={updateTodo}
-                weekModalOpen={showScheduleWeek}
-                onToggleWeekModal={() => setShowScheduleWeek(prev => !prev)}
-              />
-              </ErrorBoundary>
-            </div>
-          </>
-        ) : (
-          <ErrorBoundary variant="panel" label={t("Task")}>
+        <ErrorBoundary variant="panel" label={t("Details")}>
+          {showCalendar && isTaskView ? (
+            <>
+              <div className="app-col-head">
+                <h2 className="flex-1 text-base font-medium text-text">{t("Calendar")}</h2>
+                <button onClick={() => setShowCalendar(false)} className="icon-btn flex-none" aria-label={t("Close")}>
+                  <X size={16} />
+                </button>
+              </div>
+              <div className="app-col-body p-4 space-y-2">
+                <CalendarPanel
+                  todos={todos}
+                  selectedDates={calendarDates}
+                  onSelectDates={handleCalendarDatesChange}
+                  onGoogleEventsImported={refetchTodos}
+                />
+                <TimelinePanel
+                  todos={todos}
+                  habits={todaysHabits}
+                  lists={lists}
+                  events={eventsWithTodos}
+                  onTodoClick={handleTimelineTodoClick}
+                  onHabitClick={handleTimelineHabitClick}
+                  onUpdateTodo={updateTodo}
+                  weekModalOpen={showScheduleWeek}
+                  onToggleWeekModal={() => setShowScheduleWeek(prev => !prev)}
+                />
+              </div>
+            </>
+          ) : habitsView ? (
+            <HabitDetail
+              habit={selectedHabit}
+              lists={lists}
+              onClose={closeDetail}
+              onUpdate={updateHabit}
+              onDelete={(id) => { deleteHabit(id); closeDetail(); }}
+              onSkip={skipHabitForDate}
+            />
+          ) : eventsView ? (
+            <ProjectDetail
+              event={selectedEvent}
+              lists={lists}
+              onClose={closeDetail}
+              onUpdate={handleUpdateEvent}
+              onDelete={(id) => { handleDeleteEvent(id); closeDetail(); }}
+              onAddTask={handleAddTaskToEvent}
+              onToggleTodo={handleToggleTodo}
+              onUpdateTodo={updateTodo}
+              onDeleteTodo={handleDeleteTodo}
+              onSelectTodo={selectTodo}
+              selectedTodoId={selectedTodoId}
+            />
+          ) : journalView ? (
+            <JournalSidebar
+              entries={journalEntries}
+              day={journalDay}
+              onSelectDay={setJournalDay}
+            />
+          ) : templatesView ? (
+            <TemplateDetail
+              template={selectedTemplate}
+              lists={lists}
+              onClose={closeDetail}
+              onRename={(id, name) => updateTemplate(id, { name })}
+              onDelete={(id) => { deleteTemplate(id); closeDetail(); }}
+              onApply={(template, startDate) => { handleApply(template, startDate); closeDetail(); }}
+            />
+          ) : (
             <TaskDetail
               todo={selectedTodo}
               lists={lists}
@@ -981,6 +1033,7 @@ export default function DashboardClient({
               onDelete={handleDeleteTodo}
               onDuplicate={handleDuplicateTodo}
               onSaveAsTemplate={handleSaveAsTemplate}
+              onAddSubtask={addSubtask}
               onToggleSubtask={toggleSubtask}
               onDeleteSubtask={deleteSubtask}
               onTagToggle={toggleTodoTag}
@@ -988,9 +1041,10 @@ export default function DashboardClient({
               onStartTimer={handleStartLiveTask}
               liveTaskId={liveTaskId}
             />
-          </ErrorBoundary>
-        )
+          )}
+        </ErrorBoundary>
       }
+
       content={
         <>
           <ContentHeader
@@ -1064,36 +1118,28 @@ export default function DashboardClient({
         ) : null}
 
         <div className="app-col-body px-4 pt-4 pb-6">
-
           {/* Content — a failure in one panel must not take the page */}
           <ErrorBoundary variant="panel" label={t("Tasks")}>
           {eventsView ? (
-            <EventList
+            <ProjectListView
               events={eventsWithTodos}
-              lists={lists}
-              allTags={tags}
+              selectedId={view.selId}
+              onSelect={selectRow}
               loading={eventsLoading}
-              onUpdate={handleUpdateEvent}
-              onDelete={handleDeleteEvent}
-              onAddTask={handleAddTaskToEvent}
-              onRemoveTask={handleRemoveTaskFromEvent}
-              onToggleTodo={handleToggleTodo}
-              onUpdateTodo={updateTodo}
-              onDeleteTodo={handleDeleteTodo}
-              onTagToggle={toggleTodoTag}
-              onAddSubtask={addSubtask}
-              onToggleSubtask={toggleSubtask}
-              onDeleteSubtask={deleteSubtask}
-              onAssignEvent={handleAssignTodoToEvent}
-              onReorderEvents={reorderEvents}
-              defaultSelectedEventId={openEventDetailId}
-              onDefaultEventHandled={() => navigate({ kind: "events", eventId: null })}
             />
           ) : journalView ? (
             <JournalView
               entries={journalEntries}
               loading={journalLoading}
               onSave={saveEntry}
+              day={journalDay}
+              onSelectDay={setJournalDay}
+            />
+          ) : templatesView ? (
+            <TemplateListView
+              templates={templates}
+              selectedId={view.selId}
+              onSelect={selectRow}
             />
           ) : timeView ? (
             <TimeStats todos={todos} lists={lists} />
@@ -1106,20 +1152,20 @@ export default function DashboardClient({
               onReorder={reorderRules}
             />
           ) : habitsView ? (
-            <HabitList
-              habits={habits}
-              todayHabitIds={todaysHabits.map((h) => h.id)}
-              completions={habitCompletions}
-              lists={lists}
-              onToggle={toggleCompletion}
-              onUpdate={updateHabit}
-              onDelete={deleteHabit}
-              onSkip={skipHabitForDate}
-              onReorder={reorderHabits}
-              loading={habitsLoading}
-              highlightedHabitId={highlightedHabitId}
-            />
+            <>
+              <HabitListView
+                habits={habits}
+                todayHabitIds={todaysHabits.map((h) => h.id)}
+                lists={lists}
+                selectedId={view.selId}
+                onSelect={selectRow}
+                onToggle={toggleCompletion}
+                loading={habitsLoading}
+              />
+              <HabitWeekTable habits={habits} completions={habitCompletions} />
+            </>
           ) : (
+
             <TodoList
               selectedTodoId={selectedTodoId}
               onSelectTodo={selectTodo}
@@ -1193,18 +1239,6 @@ export default function DashboardClient({
           onClose={() => setShowScheduleWeek(false)}
         />
       )}
-
-      {/* Templates modal */}
-      <TemplatesModal
-        open={showTemplates}
-        onClose={() => setShowTemplates(false)}
-        templates={templates}
-        lists={lists}
-        onAdd={addTemplate}
-        onUpdate={updateTemplate}
-        onDelete={deleteTemplate}
-        onApply={handleApply}
-      />
 
       {/* Same navigation, as a sheet */}
       <NavSheet open={mobileSidebarOpen} onClose={() => setMobileSidebarOpen(false)}>

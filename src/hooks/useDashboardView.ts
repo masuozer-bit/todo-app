@@ -14,6 +14,7 @@ export type ViewKind =
   | "habits"
   | "journal"
   | "rules"
+  | "templates"
   /** Time tracking, moved out of the sidebar into a view of its own. */
   | "time";
 
@@ -27,6 +28,7 @@ const VIEW_KINDS: ViewKind[] = [
   "habits",
   "journal",
   "rules",
+  "templates",
   "time",
 ];
 
@@ -34,9 +36,11 @@ export interface DashboardView {
   kind: ViewKind;
   listId: string | null;
   folderId: string | null;
-  eventId: string | null;
   /** The task open in the detail panel. Shareable, and the back button works. */
   taskId: string | null;
+  /** What the panel shows in the views that are not about tasks: a habit,
+      a project, a template. One param, because only one view is active. */
+  selId: string | null;
   dates: string[];
 }
 
@@ -47,8 +51,8 @@ function buildQuery(view: DashboardView): string {
   if (view.kind !== DEFAULT_VIEW) params.set("view", view.kind);
   if (view.listId) params.set("list", view.listId);
   if (view.folderId) params.set("folder", view.folderId);
-  if (view.eventId) params.set("event", view.eventId);
   if (view.taskId) params.set("task", view.taskId);
+  if (view.selId) params.set("sel", view.selId);
   if (view.dates.length > 0) params.set("dates", view.dates.join(","));
   const query = params.toString();
   return query ? `?${query}` : "";
@@ -79,8 +83,8 @@ export function useDashboardView() {
     const raw = searchParams.get("view");
     const listId = searchParams.get("list");
     const folderId = searchParams.get("folder");
-    const eventId = searchParams.get("event");
     const taskId = searchParams.get("task");
+    const selId = searchParams.get("sel");
     const dates = (searchParams.get("dates") ?? "")
       .split(",")
       .map((d) => d.trim())
@@ -96,8 +100,8 @@ export function useDashboardView() {
       kind,
       listId: kind === "all" ? listId : null,
       folderId: kind === "all" ? folderId : null,
-      eventId: kind === "events" ? eventId : null,
       taskId,
+      selId,
       dates: kind === "all" ? dates : [],
     };
   }, [searchParams]);
@@ -108,13 +112,14 @@ export function useDashboardView() {
         kind: next.kind ?? view.kind,
         listId: next.listId !== undefined ? next.listId : view.listId,
         folderId: next.folderId !== undefined ? next.folderId : view.folderId,
-        eventId: next.eventId !== undefined ? next.eventId : view.eventId,
         taskId: next.taskId !== undefined ? next.taskId : view.taskId,
+        selId: next.selId !== undefined ? next.selId : view.selId,
         dates: next.dates !== undefined ? next.dates : view.dates,
       };
-      // Changing view closes the panel: the selected task is rarely in the new list
-      if (next.kind !== undefined && next.kind !== view.kind && next.taskId === undefined) {
-        target.taskId = null;
+      // Changing view closes the panel: what was open belongs to the old view
+      if (next.kind !== undefined && next.kind !== view.kind) {
+        if (next.taskId === undefined) target.taskId = null;
+        if (next.selId === undefined) target.selId = null;
       }
       // Switching away from the task views drops their filters
       if (target.kind !== "all") {
@@ -122,7 +127,6 @@ export function useDashboardView() {
         target.folderId = null;
         target.dates = [];
       }
-      if (target.kind !== "events") target.eventId = null;
 
       const url = `${window.location.pathname}${buildQuery(target)}`;
       if (url === `${window.location.pathname}${window.location.search}`) return;
@@ -137,8 +141,8 @@ export function useDashboardView() {
       kind: next.kind ?? view.kind,
       listId: next.listId !== undefined ? next.listId : view.listId,
       folderId: next.folderId !== undefined ? next.folderId : view.folderId,
-      eventId: next.eventId !== undefined ? next.eventId : view.eventId,
       taskId: next.taskId !== undefined ? next.taskId : view.taskId,
+      selId: next.selId !== undefined ? next.selId : view.selId,
       dates: next.dates !== undefined ? next.dates : view.dates,
     };
     const url = `${window.location.pathname}${buildQuery(target)}`;

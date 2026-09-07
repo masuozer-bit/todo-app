@@ -17,13 +17,18 @@ export default function JournalView({
   entries,
   loading,
   onSave,
+  day,
+  onSelectDay,
 }: {
   entries: JournalEntry[];
   loading: boolean;
   onSave: (entryDate: string, content: string) => void;
+  /** The day lives in the dashboard, so the sidebar can move it too. */
+  day: string;
+  onSelectDay: (day: string) => void;
 }) {
   const { t } = useI18n();
-  const [day, setDay] = useState<string>(() => getToday());
+  const setDay = onSelectDay;
   const [draft, setDraft] = useState("");
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dayRef = useRef(day);
@@ -72,11 +77,6 @@ export default function JournalView({
   }
 
   const today = getToday();
-  const written = useMemo(
-    () => new Set(entries.filter((e) => e.content.trim() !== "").map((e) => e.entry_date)),
-    [entries]
-  );
-
   return (
     <div className="max-w-[70ch]">
       <div className="flex items-center gap-1 mb-4">
@@ -98,9 +98,6 @@ export default function JournalView({
           </button>
         )}
         <span className="flex-1" />
-        <span className="text-xs text-text-faint">
-          {t("{n} entries", { n: written.size })}
-        </span>
       </div>
 
       <textarea

@@ -240,6 +240,57 @@ export const de: Record<string, string> = {
   "Your account information": "Deine Kontodaten",
   "Customize the look and feel": "Aussehen anpassen",
 
+  // ── Habits, projects, journal, templates ────────────────────────────
+  "Other days": "Andere Tage",
+  "No habit selected": "Keine Gewohnheit ausgewählt",
+  "Habit name": "Name der Gewohnheit",
+  "Habit": "Gewohnheit",
+  "Repeats": "Wiederholung",
+  "From": "Von",
+  "Until": "Bis",
+  "{n} day streak": "{n} Tage in Folge",
+  "Every {n} days": "Alle {n} Tage",
+  "Pick weekdays to switch to a weekly rhythm.": "Wochentage wählen, um auf einen Wochenrhythmus zu wechseln.",
+  "Previous week": "Vorherige Woche",
+  "Next week": "Nächste Woche",
+
+  "No projects yet": "Noch keine Projekte",
+  "No project selected": "Kein Projekt ausgewählt",
+  "Project name": "Projektname",
+  "Description": "Beschreibung",
+  "Add a description...": "Beschreibung hinzufügen...",
+  "{from} to {to}": "{from} bis {to}",
+
+  "Entries": "Einträge",
+  "Nothing written yet": "Noch nichts geschrieben",
+
+  "No templates yet": "Noch keine Vorlagen",
+  "No template selected": "Keine Vorlage ausgewählt",
+  "Save a task as a template from its detail panel.": "Eine Aufgabe lässt sich im Detailpanel als Vorlage speichern.",
+  "Template name": "Name der Vorlage",
+  "Type": "Art",
+  "Contains": "Enthält",
+  "Apply from": "Anwenden ab",
+  "Plan": "Plan",
+  "{n} tasks": "{n} Aufgaben",
+  "{n} projects": "{n} Projekte",
+
+  "Details": "Details",
+
+  // ── Login and signup ────────────────────────────────────────────────
+  "Hide password": "Passwort verbergen",
+  "Show password": "Passwort zeigen",
+  "Signing in...": "Anmeldung läuft...",
+  "Creating account...": "Konto wird angelegt...",
+  "Don't have an account?": "Noch kein Konto?",
+  "Already have an account?": "Schon ein Konto?",
+  "or": "oder",
+  "Confirm password": "Passwort bestätigen",
+  "Confirm your password": "Passwort wiederholen",
+  "At least 6 characters": "Mindestens 6 Zeichen",
+  "We sent a confirmation link to {email}": "Wir haben einen Bestätigungslink an {email} geschickt",
+  "Open the link to finish creating your account.": "Öffne den Link, um dein Konto fertig anzulegen.",
+
   // ── Quick input and pickers ─────────────────────────────────────────
   "Add a task": "Aufgabe hinzufügen",
   "No time": "Keine Uhrzeit",
@@ -353,9 +404,7 @@ export const de: Record<string, string> = {
   "{n} selected": "{n} ausgewählt",
   "{n} days selected": "{n} Tage ausgewählt",
   "{n} task": "{n} Aufgabe",
-  "{n} tasks": "{n} Aufgaben",
   "{n} project": "{n} Projekt",
-  "{n} projects": "{n} Projekte",
   "{done}/{total} completed today": "{done}/{total} heute erledigt",
   "{n} of {total} subtasks still open": "{n} von {total} Teilaufgaben offen",
   "Delete {n} selected tasks? This cannot be undone.":
@@ -410,9 +459,6 @@ export const de: Record<string, string> = {
   "Continue with Google": "Weiter mit Google",
   "Back to login": "Zurück zur Anmeldung",
   "Check your email": "Sieh in dein Postfach",
-  "Confirm password": "Passwort bestätigen",
-  "Confirm your password": "Passwort wiederholen",
-  "At least 6 characters": "Mindestens 6 Zeichen",
   "Get started with your to-dos": "Leg mit deinen Aufgaben los",
   "Open project view": "Projektansicht öffnen",
   "Save task": "Aufgabe speichern",
@@ -438,8 +484,6 @@ export const de: Record<string, string> = {
   "Completed": "Erledigt",
   "Scheduled": "Geplant",
   "Not scheduled": "Nicht geplant",
-  "Previous week": "Vorige Woche",
-  "Next week": "Nächste Woche",
   "Previous month": "Voriger Monat",
   "Next month": "Nächster Monat",
   "Pause": "Pause",
@@ -480,7 +524,6 @@ export const de: Record<string, string> = {
   "Opacity": "Deckkraft",
   "Reset to app color": "Auf App-Farbe zurücksetzen",
   "Use": "Nutzen",
-  "Description": "Beschreibung",
   "Description...": "Beschreibung...",
   "Apply": "Anwenden",
   "New template": "Neue Vorlage",
@@ -491,7 +534,6 @@ export const de: Record<string, string> = {
   "Day": "Tag",
   "Default color": "Standardfarbe",
   "Default time": "Standardzeit",
-  "No projects yet": "Noch keine Projekte",
 };
 
 export function translate(

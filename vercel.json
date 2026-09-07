@@ -4,5 +4,8 @@
       "path": "/api/notifications/send-due",
       "schedule": "0 8 * * *"
     }
+  ],
+  "regions": [
+    "fra1"
   ]
 }

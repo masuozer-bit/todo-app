@@ -168,7 +168,9 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Import external Google Calendar events as todos
+    // Import external Google Calendar events as todos — batched, so a month
+    // of events costs two requests instead of two per event
+    let importedCount = 0;
     if (externalEvents.length > 0) {
       // Get already-imported google event IDs from todos table
       const { data: existingImports } = await supabase
@@ -181,11 +183,13 @@ export async function GET(request: NextRequest) {
         (existingImports || []).map((t) => [t.google_event_id, t])
       );
 
+      const newRows: Record<string, unknown>[] = [];
+      const changed: typeof externalEvents = [];
+
       for (const ext of externalEvents) {
         const existing = existingMap.get(ext.google_event_id);
         if (!existing) {
-          // New — insert as todo
-          const { error: insertError } = await supabase.from("todos").insert({
+          newRows.push({
             user_id: user.id,
             title: ext.title,
             completed: false,
@@ -197,20 +201,42 @@ export async function GET(request: NextRequest) {
             priority: "none",
             google_event_id: ext.google_event_id,
           });
-          if (insertError && insertError.code !== "23505") {
-            console.error("[calendar-import] Insert todo error:", JSON.stringify(insertError));
-          }
-        } else {
-          // Update if changed
-          const needsUpdate =
-            existing.title !== ext.title ||
-            existing.due_date !== ext.date ||
-            existing.start_time !== (ext.startTime ?? null) ||
-            existing.end_time !== (ext.endTime ?? null) ||
-            existing.notes !== (ext.description ?? null);
+          continue;
+        }
 
-          if (needsUpdate) {
-            await supabase
+        const needsUpdate =
+          existing.title !== ext.title ||
+          existing.due_date !== ext.date ||
+          existing.start_time !== (ext.startTime ?? null) ||
+          existing.end_time !== (ext.endTime ?? null) ||
+          existing.notes !== (ext.description ?? null);
+
+        if (needsUpdate) changed.push(ext);
+      }
+
+      if (newRows.length > 0) {
+        const { error: insertError } = await supabase.from("todos").insert(newRows);
+        if (!insertError) {
+          importedCount += newRows.length;
+        } else {
+          // A parallel import may have written one of these rows already —
+          // retry row by row so one duplicate does not drop the whole batch
+          const results = await Promise.all(
+            newRows.map((row) => supabase.from("todos").insert(row))
+          );
+          for (const result of results) {
+            if (!result.error) importedCount++;
+            else if (result.error.code !== "23505") {
+              console.error("[calendar-import] Insert todo error:", JSON.stringify(result.error));
+            }
+          }
+        }
+      }
+
+      if (changed.length > 0) {
+        const results = await Promise.all(
+          changed.map((ext) =>
+            supabase
               .from("todos")
               .update({
                 title: ext.title,
@@ -220,9 +246,10 @@ export async function GET(request: NextRequest) {
                 notes: ext.description ?? null,
               })
               .eq("user_id", user.id)
-              .eq("google_event_id", ext.google_event_id);
-          }
-        }
+              .eq("google_event_id", ext.google_event_id)
+          )
+        );
+        importedCount += results.filter((r) => !r.error).length;
       }
     }
 
@@ -235,7 +262,7 @@ export async function GET(request: NextRequest) {
       return 0;
     });
 
-    return NextResponse.json({ events, imported: true });
+    return NextResponse.json({ events, imported: importedCount });
   } catch (err) {
     console.error("Fetch calendar events error:", err);
     return NextResponse.json({ events: [] });

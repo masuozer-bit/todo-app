@@ -49,8 +49,11 @@ export default function SettingsPage() {
   const router = useRouter();
   const supabase = createClient();
 
-  const { tags } = useTags(user?.id);
-  const { todos, clearCompleted, exportTodos } = useTodos(user?.id, tags);
+  // Tasks are only needed for export and "clear completed" — load them when
+  // that tab is opened instead of on every visit to settings
+  const dataUserId = activeTab === "data" ? user?.id : undefined;
+  const { tags } = useTags(dataUserId);
+  const { todos, clearCompleted, exportTodos } = useTodos(dataUserId, tags);
   const { permission: notifPermission, isSubscribed: notifSubscribed, subscribe: subscribeNotifications, unsubscribe: unsubscribeNotifications } = usePushNotifications();
   const { tint, setTint, lavaLamp, setLavaLamp, lavaColor, setLavaColor, lavaOpacity, setLavaOpacity, theme } = useTheme();
 

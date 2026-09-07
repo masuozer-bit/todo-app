@@ -44,7 +44,6 @@ interface TodoInputProps {
   lists?: List[];
   events?: Event[];
   activeListId?: string | null;
-  onRefetchEvents?: () => void;
 }
 
 type SubtaskEntry = { id: string; title: string; due_date: string; start_time: string };
@@ -188,7 +187,6 @@ export default function TodoInput({
   lists = [],
   events = [],
   activeListId,
-  onRefetchEvents,
 }: TodoInputProps) {
   const [title, setTitle] = useState("");
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
@@ -308,7 +306,6 @@ export default function TodoInput({
       list_id: listId,
       event_id: eventId,
     });
-    if (eventId) onRefetchEvents?.();
     if (newTodoId && onAddSubtask) {
       for (const s of subtaskEntries) {
         if (s.title.trim()) {

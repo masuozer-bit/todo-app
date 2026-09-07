@@ -75,7 +75,6 @@ interface EventDetailProps {
   ) => void;
   onDeleteSubtask: (todoId: string, subtaskId: string) => void;
   onAssignEvent: (todoId: string, eventId: string | null) => void;
-  onRefetchEvents?: () => void;
 }
 
 export default function EventDetail({
@@ -95,7 +94,6 @@ export default function EventDetail({
   onToggleSubtask,
   onDeleteSubtask,
   onAssignEvent,
-  onRefetchEvents,
 }: EventDetailProps) {
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleValue, setTitleValue] = useState(event.title);
@@ -448,10 +446,7 @@ export default function EventDetail({
               key={todo.id}
               todo={todo}
               allTags={allTags}
-              onToggle={(id, completed) => {
-                onToggleTodo(id, completed);
-                onRefetchEvents?.();
-              }}
+              onToggle={onToggleTodo}
               onUpdate={onUpdateTodo}
               onDelete={onDeleteTodo}
               onTagToggle={onTagToggle}

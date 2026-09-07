@@ -43,7 +43,6 @@ interface SharedEventCardProps {
   onToggleSubtask: (todoId: string, subtaskId: string, completed: boolean) => void;
   onDeleteSubtask: (todoId: string, subtaskId: string) => void;
   onAssignEvent: (todoId: string, eventId: string | null) => void;
-  onRefetchEvents?: () => void;
   onOpenDetail?: (id: string) => void;
 }
 
@@ -104,7 +103,6 @@ export default function EventList({
   onToggleSubtask,
   onDeleteSubtask,
   onAssignEvent,
-  onRefetchEvents,
   defaultSelectedEventId,
   onDefaultEventHandled,
   onReorderEvents,
@@ -237,7 +235,6 @@ export default function EventList({
         onToggleSubtask={onToggleSubtask}
         onDeleteSubtask={onDeleteSubtask}
         onAssignEvent={onAssignEvent}
-        onRefetchEvents={onRefetchEvents}
       />
     );
   }
@@ -256,7 +253,7 @@ export default function EventList({
   const sharedProps: SharedEventCardProps = {
     lists, allTags, events, onUpdate, onDelete, onAddTask, onRemoveTask,
     onToggleTodo, onUpdateTodo, onDeleteTodo, onTagToggle, onAddSubtask,
-    onToggleSubtask, onDeleteSubtask, onAssignEvent, onRefetchEvents,
+    onToggleSubtask, onDeleteSubtask, onAssignEvent,
     onOpenDetail: (id) => setSelectedEventId(id),
   };
 

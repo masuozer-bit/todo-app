@@ -67,8 +67,8 @@ export default function CalendarPanel({
     const result = await fetchCalendarEvents(toDateStr(firstDay), toDateStr(lastDay));
     setGoogleEvents(result.events);
     setEventsLoading(false);
-    // If events were imported from Google Calendar, notify parent to refetch
-    if (result.imported) {
+    // Only refetch when the import actually wrote something
+    if ((result.imported ?? 0) > 0) {
       onGoogleEventsImported?.();
     }
   }, [viewYear, viewMonth, onGoogleEventsImported]);

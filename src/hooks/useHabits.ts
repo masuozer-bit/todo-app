@@ -82,37 +82,34 @@ export function useHabits(userId: string | undefined) {
   const fetchHabits = useCallback(async () => {
     if (!userId) return;
 
-    const { data: habitsData } = await supabase
-      .from("habits")
-      .select("*")
-      .eq("user_id", userId)
-      .order("sort_order", { ascending: true });
-
-    if (habitsData) setHabits(habitsData);
-
-    // Fetch last 30 days of completions for streak calculation
+    // Last 30 days of completions are enough for the streak calculation
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-    const { data: completionsData } = await supabase
-      .from("habit_completions")
-      .select("*")
-      .eq("user_id", userId)
-      .gte("completed_date", toDateStr(thirtyDaysAgo));
-
-    if (completionsData) setCompletions(completionsData);
-
-    // Fetch skips for today only
     const todayStr = getTodayStr();
-    const { data: skipsData } = await supabase
-      .from("habit_skips")
-      .select("*")
-      .eq("user_id", userId)
-      .eq("skip_date", todayStr);
 
-    if (skipsData) setSkips(skipsData);
+    // All three in parallel — they do not depend on each other
+    const [habitsRes, completionsRes, skipsRes] = await Promise.all([
+      supabase
+        .from("habits")
+        .select("*")
+        .eq("user_id", userId)
+        .order("sort_order", { ascending: true }),
+      supabase
+        .from("habit_completions")
+        .select("id, habit_id, completed_date")
+        .eq("user_id", userId)
+        .gte("completed_date", toDateStr(thirtyDaysAgo)),
+      supabase
+        .from("habit_skips")
+        .select("*")
+        .eq("user_id", userId)
+        .eq("skip_date", todayStr),
+    ]);
+
+    if (habitsRes.data) setHabits(habitsRes.data);
+    if (completionsRes.data) setCompletions(completionsRes.data as HabitCompletion[]);
+    if (skipsRes.data) setSkips(skipsRes.data);
     setLoading(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
   useEffect(() => {

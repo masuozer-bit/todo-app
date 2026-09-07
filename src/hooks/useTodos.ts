@@ -1,10 +1,13 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { Todo, Tag, Subtask, Priority, List } from "@/lib/types";
 import { syncTodoToCalendar } from "@/lib/calendar-sync-client";
 
+/* Todos as they live in state: tags are stored as IDs and resolved on render,
+   so loading the tag list never forces a second todo fetch. */
+type RawTodo = Omit<Todo, "tags"> & { tag_ids: string[] };
 
 export function useTodos(
   userId: string | undefined,
@@ -12,13 +15,28 @@ export function useTodos(
   activeListId?: string | null,
   allLists?: List[]
 ) {
-  const [todos, setTodos] = useState<Todo[]>([]);
+  const [rawTodos, setRawTodos] = useState<RawTodo[]>([]);
   const [loading, setLoading] = useState(true);
   const supabase = createClient();
-  const todosRef = useRef(todos);
-  todosRef.current = todos;
+
+  const rawTodosRef = useRef(rawTodos);
+  rawTodosRef.current = rawTodos;
   const listsRef = useRef(allLists);
   listsRef.current = allLists;
+
+  // Resolve tag IDs to tag objects for consumers
+  const todos: Todo[] = useMemo(() => {
+    const tagsById = new Map(allTags.map((t) => [t.id, t]));
+    return rawTodos.map(({ tag_ids, ...todo }) => ({
+      ...todo,
+      tags: tag_ids
+        .map((id) => tagsById.get(id))
+        .filter(Boolean) as Tag[],
+    }));
+  }, [rawTodos, allTags]);
+
+  const todosRef = useRef(todos);
+  todosRef.current = todos;
 
   // Helper to resolve list_id → list_name (uses ref so it's always fresh)
   function getListName(listId?: string | null): string | null {
@@ -29,71 +47,37 @@ export function useTodos(
   const fetchTodos = useCallback(async () => {
     if (!userId) return;
 
-    // Fetch ALL todos — filtering by list is done client-side in the dashboard
-    // so the full set is available for per-list counts and quick filters
-    const { data: todosData, error: todosError } = await supabase
+    // Fetch ALL todos with their tags and subtasks in a single request —
+    // filtering by list is done client-side in the dashboard so the full set
+    // is available for per-list counts and quick filters
+    const { data, error } = await supabase
       .from("todos")
-      .select("*")
+      .select("*, todo_tags(tag_id), subtasks(*)")
       .eq("user_id", userId)
-      .order("sort_order", { ascending: true });
+      .order("sort_order", { ascending: true })
+      .order("sort_order", { referencedTable: "subtasks", ascending: true });
 
-    if (todosError || !todosData) {
+    if (error || !data) {
       setLoading(false);
       return;
     }
 
-    const todoIds = todosData.map((t) => t.id);
-    let todoTagsMap: Record<string, string[]> = {};
-    let subtasksMap: Record<string, Subtask[]> = {};
-
-    if (todoIds.length > 0) {
-      // Fetch tags
-      const { data: todoTagsData } = await supabase
-        .from("todo_tags")
-        .select("todo_id, tag_id")
-        .in("todo_id", todoIds);
-
-      if (todoTagsData) {
-        todoTagsMap = todoTagsData.reduce(
-          (acc, tt) => {
-            if (!acc[tt.todo_id]) acc[tt.todo_id] = [];
-            acc[tt.todo_id].push(tt.tag_id);
-            return acc;
-          },
-          {} as Record<string, string[]>
-        );
-      }
-
-      // Fetch subtasks
-      const { data: subtasksData } = await supabase
-        .from("subtasks")
-        .select("*")
-        .in("todo_id", todoIds)
-        .order("sort_order", { ascending: true });
-
-      if (subtasksData) {
-        subtasksMap = subtasksData.reduce(
-          (acc, st) => {
-            if (!acc[st.todo_id]) acc[st.todo_id] = [];
-            acc[st.todo_id].push(st);
-            return acc;
-          },
-          {} as Record<string, Subtask[]>
-        );
-      }
-    }
-
-    const todosWithData: Todo[] = todosData.map((todo) => ({
-      ...todo,
-      tags: (todoTagsMap[todo.id] ?? [])
-        .map((tagId) => allTags.find((t) => t.id === tagId))
-        .filter(Boolean) as Tag[],
-      subtasks: subtasksMap[todo.id] ?? [],
-    }));
-
-    setTodos(todosWithData);
+    setRawTodos(
+      data.map((row) => {
+        const { todo_tags, subtasks, ...todo } = row as Record<string, unknown> & {
+          todo_tags?: { tag_id: string }[];
+          subtasks?: Subtask[];
+        };
+        return {
+          ...(todo as unknown as Omit<Todo, "tags" | "subtasks">),
+          priority: ((todo as { priority?: Priority }).priority ?? "none") as Priority,
+          tag_ids: (todo_tags ?? []).map((tt) => tt.tag_id),
+          subtasks: subtasks ?? [],
+        };
+      })
+    );
     setLoading(false);
-  }, [userId, allTags]);
+  }, [userId]);
 
   useEffect(() => {
     fetchTodos();
@@ -116,12 +100,11 @@ export function useTodos(
     ) => {
       if (!userId) return;
 
+      const current = rawTodosRef.current;
       const maxOrder =
-        todos.length > 0 ? Math.max(...todos.map((t) => t.sort_order)) : 0;
+        current.length > 0 ? Math.max(...current.map((t) => t.sort_order)) : 0;
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let todoData: any = null;
-      const { data: d1, error: e1 } = await supabase
+      const { data: todoData, error } = await supabase
         .from("todos")
         .insert({
           user_id: userId,
@@ -139,30 +122,7 @@ export function useTodos(
         .select()
         .single();
 
-      if (e1) {
-        // Fallback: columns may not exist yet — omit newer columns
-        const { data: d2, error: e2 } = await supabase
-          .from("todos")
-          .insert({
-            user_id: userId,
-            title,
-            sort_order: maxOrder + 1,
-            due_date: options?.due_date ?? null,
-            start_time: options?.start_time ?? null,
-            end_time: options?.end_time ?? null,
-            priority: options?.priority ?? "none",
-            notes: options?.notes ?? null,
-            list_id: options !== undefined && "list_id" in options ? options.list_id : (activeListId ?? null),
-          })
-          .select()
-          .single();
-        if (e2 || !d2) return;
-        todoData = d2;
-      } else {
-        todoData = d1;
-      }
-
-      if (!todoData) return;
+      if (error || !todoData) return;
 
       if (tagIds.length > 0) {
         await supabase
@@ -170,16 +130,14 @@ export function useTodos(
           .insert(tagIds.map((tagId) => ({ todo_id: todoData.id, tag_id: tagId })));
       }
 
-      const newTodo: Todo = {
+      const newTodo: RawTodo = {
         ...todoData,
         priority: todoData.priority ?? "none",
-        tags: tagIds
-          .map((id) => allTags.find((t) => t.id === id))
-          .filter(Boolean) as Tag[],
+        tag_ids: tagIds,
         subtasks: [],
       };
 
-      setTodos((prev) => [...prev, newTodo]);
+      setRawTodos((prev) => [...prev, newTodo]);
 
       // Return new todo ID so callers can attach subtasks
       const createdId: string = todoData.id;
@@ -207,21 +165,21 @@ export function useTodos(
 
       return createdId;
     },
-    [userId, todos, allTags, activeListId]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [userId, allTags, activeListId]
   );
 
   const toggleTodo = useCallback(
     async (id: string, completed: boolean) => {
       const todo = todosRef.current.find((t) => t.id === id);
 
-      // ── Toggle ─────────────────────────────────────────────────
       const { error } = await supabase
         .from("todos")
         .update({ completed })
         .eq("id", id);
 
       if (!error) {
-        setTodos((prev) =>
+        setRawTodos((prev) =>
           prev.map((t) => (t.id === id ? { ...t, completed } : t))
         );
 
@@ -247,6 +205,7 @@ export function useTodos(
         }
       }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     []
   );
 
@@ -264,7 +223,7 @@ export function useTodos(
         list_id?: string | null;
         time_spent?: number | null;
         estimated_time?: number | null;
-        extra_dates?: { date: string; completed: boolean }[] | null;
+        extra_dates?: { date: string; time?: string | null; completed: boolean }[] | null;
       }
     ) => {
       const { error } = await supabase
@@ -272,23 +231,9 @@ export function useTodos(
         .update(updates)
         .eq("id", id);
 
-      if (error) {
-        // Fallback: only update title if new columns don't exist yet
-        if (updates.title) {
-          const { error: e2 } = await supabase
-            .from("todos")
-            .update({ title: updates.title })
-            .eq("id", id);
-          if (!e2) {
-            setTodos((prev) =>
-              prev.map((t) => (t.id === id ? { ...t, title: updates.title! } : t))
-            );
-          }
-        }
-        return;
-      }
+      if (error) return;
 
-      setTodos((prev) =>
+      setRawTodos((prev) =>
         prev.map((t) => (t.id === id ? { ...t, ...updates } : t))
       );
 
@@ -317,6 +262,7 @@ export function useTodos(
         }
       }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     []
   );
 
@@ -341,7 +287,7 @@ export function useTodos(
       const { error } = await supabase.from("todos").delete().eq("id", id);
 
       if (!error) {
-        setTodos((prev) => prev.filter((t) => t.id !== id));
+        setRawTodos((prev) => prev.filter((t) => t.id !== id));
 
         // Calendar sync (fire-and-forget) — pass event + calendar ID directly
         if (googleEventId) {
@@ -349,6 +295,7 @@ export function useTodos(
         }
       }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     []
   );
 
@@ -366,35 +313,39 @@ export function useTodos(
           .eq("tag_id", tagId);
       }
 
-      setTodos((prev) =>
+      setRawTodos((prev) =>
         prev.map((t) => {
           if (t.id !== todoId) return t;
-          const currentTags = t.tags ?? [];
           if (add) {
-            const tag = allTags.find((at) => at.id === tagId);
-            if (tag) return { ...t, tags: [...currentTags, tag] };
-          } else {
-            return { ...t, tags: currentTags.filter((ct) => ct.id !== tagId) };
+            if (t.tag_ids.includes(tagId)) return t;
+            return { ...t, tag_ids: [...t.tag_ids, tagId] };
           }
-          return t;
+          return { ...t, tag_ids: t.tag_ids.filter((id) => id !== tagId) };
         })
       );
     },
-    [allTags]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
   );
 
   const reorderTodos = useCallback(
     async (reordered: Todo[]) => {
-      setTodos(reordered);
+      const orderById = new Map(reordered.map((t, index) => [t.id, index]));
+      setRawTodos((prev) =>
+        [...prev]
+          .map((t) => (orderById.has(t.id) ? { ...t, sort_order: orderById.get(t.id)! } : t))
+          .sort((a, b) => a.sort_order - b.sort_order)
+      );
+      // Only touch id/user_id/sort_order — upserting title or completed here
+      // would overwrite edits made in another tab
       const updates = reordered.map((todo, index) => ({
         id: todo.id,
-        sort_order: index,
         user_id: todo.user_id,
-        title: todo.title,
-        completed: todo.completed,
+        sort_order: index,
       }));
       await supabase.from("todos").upsert(updates);
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     []
   );
 
@@ -402,7 +353,7 @@ export function useTodos(
   const addSubtask = useCallback(
     async (todoId: string, title: string, options?: { due_date?: string | null; start_time?: string | null }) => {
       if (!userId) return;
-      const todo = todos.find((t) => t.id === todoId);
+      const todo = rawTodosRef.current.find((t) => t.id === todoId);
       const maxOrder =
         (todo?.subtasks ?? []).length > 0
           ? Math.max(...(todo?.subtasks ?? []).map((s) => s.sort_order))
@@ -421,23 +372,9 @@ export function useTodos(
         .select()
         .single();
 
-      // Fallback without new columns if they don't exist yet
-      if (error) {
-        const { data: d2, error: e2 } = await supabase
-          .from("subtasks")
-          .insert({ todo_id: todoId, user_id: userId, title, sort_order: maxOrder + 1 })
-          .select()
-          .single();
-        if (e2 || !d2) return;
-        setTodos((prev) =>
-          prev.map((t) => t.id === todoId ? { ...t, subtasks: [...(t.subtasks ?? []), d2] } : t)
-        );
-        return;
-      }
+      if (error || !data) return;
 
-      if (!data) return;
-
-      setTodos((prev) =>
+      setRawTodos((prev) =>
         prev.map((t) =>
           t.id === todoId
             ? { ...t, subtasks: [...(t.subtasks ?? []), data] }
@@ -465,7 +402,8 @@ export function useTodos(
         });
       }
     },
-    [userId, todos]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [userId]
   );
 
   const toggleSubtask = useCallback(
@@ -476,7 +414,7 @@ export function useTodos(
         .eq("id", subtaskId);
 
       if (!error) {
-        setTodos((prev) =>
+        setRawTodos((prev) =>
           prev.map((t) =>
             t.id === todoId
               ? {
@@ -512,6 +450,7 @@ export function useTodos(
         }
       }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     []
   );
 
@@ -523,7 +462,7 @@ export function useTodos(
         .eq("id", subtaskId);
 
       if (!error) {
-        setTodos((prev) =>
+        setRawTodos((prev) =>
           prev.map((t) =>
             t.id === todoId
               ? {
@@ -559,11 +498,12 @@ export function useTodos(
         }
       }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     []
   );
 
   const clearCompleted = useCallback(async () => {
-    const completedTodos = todos.filter((t) => t.completed);
+    const completedTodos = todosRef.current.filter((t) => t.completed);
     const completedIds = completedTodos.map((t) => t.id);
     if (completedIds.length === 0) return;
 
@@ -588,7 +528,7 @@ export function useTodos(
       .in("id", completedIds);
 
     if (!error) {
-      setTodos((prev) => prev.filter((t) => !t.completed));
+      setRawTodos((prev) => prev.filter((t) => !t.completed));
 
       // Calendar sync — delete each completed todo with a due_date
       for (const todo of todosWithDueDates) {
@@ -598,7 +538,8 @@ export function useTodos(
         }
       }
     }
-  }, [todos]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const exportTodos = useCallback(
     (format: "json" | "csv") => {
@@ -661,7 +602,7 @@ export function useTodos(
         .eq("id", todoId);
 
       if (!error) {
-        setTodos((prev) =>
+        setRawTodos((prev) =>
           prev.map((t) =>
             t.id === todoId
               ? { ...t, event_id: eventId, ...(listId !== undefined ? { list_id: listId } : {}) }
@@ -670,6 +611,37 @@ export function useTodos(
         );
       }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
+  );
+
+  /* Apply an event's list to all of its tasks (called when the event changes list) */
+  const setListForEventTodos = useCallback(
+    async (eventId: string, listId: string | null) => {
+      const { error } = await supabase
+        .from("todos")
+        .update({ list_id: listId })
+        .eq("event_id", eventId);
+
+      if (!error) {
+        setRawTodos((prev) =>
+          prev.map((t) => (t.event_id === eventId ? { ...t, list_id: listId } : t))
+        );
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
+  );
+
+  /* Delete every task belonging to an event (called before the event itself) */
+  const deleteTodosByEvent = useCallback(
+    async (eventId: string) => {
+      const { error } = await supabase.from("todos").delete().eq("event_id", eventId);
+      if (!error) {
+        setRawTodos((prev) => prev.filter((t) => t.event_id !== eventId));
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     []
   );
 
@@ -688,6 +660,8 @@ export function useTodos(
     clearCompleted,
     exportTodos,
     assignTodoToEvent,
+    setListForEventTodos,
+    deleteTodosByEvent,
     refetchTodos: fetchTodos,
   };
 }

@@ -33,7 +33,6 @@ interface EventCardProps {
   onToggleSubtask: (todoId: string, subtaskId: string, completed: boolean) => void;
   onDeleteSubtask: (todoId: string, subtaskId: string) => void;
   onAssignEvent: (todoId: string, eventId: string | null) => void;
-  onRefetchEvents?: () => void;
   onOpenDetail?: (id: string) => void;
 }
 
@@ -86,7 +85,6 @@ export default function EventCard({
   onToggleSubtask,
   onDeleteSubtask,
   onAssignEvent,
-  onRefetchEvents,
   onOpenDetail,
 }: EventCardProps) {
   const [expanded,      setExpanded]      = useState(false);
@@ -443,7 +441,7 @@ export default function EventCard({
                       key={todo.id}
                       todo={todo}
                       allTags={allTags}
-                      onToggle={(id, completed) => { onToggleTodo(id, completed); onRefetchEvents?.(); }}
+                      onToggle={onToggleTodo}
                       onUpdate={onUpdateTodo}
                       onDelete={onDeleteTodo}
                       onTagToggle={onTagToggle}

@@ -4,6 +4,7 @@ import {
   createContext,
   useContext,
   useEffect,
+  useRef,
   useState,
   useCallback,
   type ReactNode,
@@ -69,6 +70,8 @@ function applyTintColor(hex: string, isDark: boolean) {
 interface ThemeContextType {
   theme: Theme;
   toggleTheme: () => void;
+  /* Apply the theme the server already knows about (no client auth roundtrip) */
+  syncServerTheme: (theme: Theme | null, userId?: string | null) => void;
   tint: string; // hex color
   setTint: (hex: string) => void;
   lavaLamp: boolean;
@@ -82,6 +85,7 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType>({
   theme: "light",
   toggleTheme: () => {},
+  syncServerTheme: () => {},
   tint: "#5540A0",
   setTint: () => {},
   lavaLamp: false,
@@ -104,6 +108,11 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const [lavaLamp, setLavaLampState] = useState(false);
   const [lavaColor, setLavaColorState]     = useState<string>("#5540A0");
   const [lavaOpacity, setLavaOpacityState] = useState<number>(0.58);
+  // Set once the page knows who is signed in — avoids an auth roundtrip on toggle
+  const userIdRef = useRef<string | null>(null);
+  // Always holds the current tint so theme changes can re-derive the CSS vars
+  const tintRef = useRef(tint);
+  tintRef.current = tint;
 
   useEffect(() => {
     // Theme
@@ -129,29 +138,17 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     // Lava opacity
     const storedOpacity = localStorage.getItem("lava-opacity");
     if (storedOpacity !== null) setLavaOpacityState(parseFloat(storedOpacity));
-
-    // Sync theme from DB
-    const supabase = createClient();
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) {
-        supabase
-          .from("profiles")
-          .select("theme_preference")
-          .eq("id", user.id)
-          .single()
-          .then(({ data }) => {
-            if (data?.theme_preference) {
-              const dbTheme = data.theme_preference as Theme;
-              setTheme(dbTheme);
-              localStorage.setItem("theme", dbTheme);
-              document.documentElement.classList.toggle("dark", dbTheme === "dark");
-              // Re-apply tint vars with correct dark mode
-              applyTintColor(hex, dbTheme === "dark");
-            }
-          });
-      }
-    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Called by pages that already resolved the user server-side
+  const syncServerTheme = useCallback((serverTheme: Theme | null, userId?: string | null) => {
+    if (userId) userIdRef.current = userId;
+    if (serverTheme !== "light" && serverTheme !== "dark") return;
+    setTheme(serverTheme);
+    try { localStorage.setItem("theme", serverTheme); } catch {}
+    document.documentElement.classList.toggle("dark", serverTheme === "dark");
+    applyTintColor(tintRef.current, serverTheme === "dark");
   }, []);
 
   const toggleTheme = useCallback(() => {
@@ -162,11 +159,17 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     applyTintColor(tint, next === "dark");
 
     const supabase = createClient();
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) {
-        supabase.from("profiles").update({ theme_preference: next }).eq("id", user.id).then(() => {});
-      }
-    });
+    const knownUserId = userIdRef.current;
+    if (knownUserId) {
+      supabase.from("profiles").update({ theme_preference: next }).eq("id", knownUserId).then(() => {});
+    } else {
+      supabase.auth.getUser().then(({ data: { user } }) => {
+        if (user) {
+          userIdRef.current = user.id;
+          supabase.from("profiles").update({ theme_preference: next }).eq("id", user.id).then(() => {});
+        }
+      });
+    }
   }, [theme, tint]);
 
   const setTint = useCallback(
@@ -194,7 +197,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme, tint, setTint, lavaLamp, setLavaLamp, lavaColor, setLavaColor, lavaOpacity, setLavaOpacity }}>
+    <ThemeContext.Provider value={{ theme, toggleTheme, syncServerTheme, tint, setTint, lavaLamp, setLavaLamp, lavaColor, setLavaColor, lavaOpacity, setLavaOpacity }}>
       {children}
     </ThemeContext.Provider>
   );

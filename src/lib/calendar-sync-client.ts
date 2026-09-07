@@ -163,7 +163,8 @@ export async function fetchCalendarEvents(
     htmlLink?: string;
     source: "google" | "synced";
   }[];
-  imported?: boolean;
+  /* number of todos actually created or updated by the import */
+  imported?: number;
 }> {
   try {
     const params = new URLSearchParams({ timeMin, timeMax });

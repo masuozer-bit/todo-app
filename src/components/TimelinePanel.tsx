@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useMemo, useState } from "react";
+import { toDateStr } from "@/lib/date-helpers";
 import { Repeat, Maximize2 } from "lucide-react";
 import { formatTime } from "@/lib/format";
 import type { Todo, HabitWithStatus, List, Event } from "@/lib/types";
@@ -23,12 +24,6 @@ const PAST_HOURS = 2;
 const FUTURE_HOURS = 18;
 const TOTAL_HOURS = PAST_HOURS + FUTURE_HOURS;
 
-function toDateStr(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
 
 function parseTime(t: string): number {
   const [h, m] = t.split(":").map(Number);

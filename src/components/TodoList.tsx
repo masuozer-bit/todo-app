@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, useDeferredValue } from "react";
+import { URGENCY_STYLE, type Urgency } from "@/lib/urgency";
+import { getToday } from "@/lib/date-helpers";
 import { useI18n } from "./I18nProvider";
 import {
   DndContext,
@@ -152,15 +154,8 @@ function getUrgencyScore(
   return pScore + Math.max(0, Math.min(49999, days + 1000));
 }
 
-type Urgency = "overdue" | "today" | "soon" | "normal";
-const URGENCY_STYLE: Record<Urgency, React.CSSProperties> = {
-  overdue: { backgroundColor: "rgba(239,68,68,0.18)", color: "#f87171", backdropFilter: "blur(8px)", animation: "urgency-pulse 2.5s ease-in-out infinite" },
-  today:   { backgroundColor: "rgba(245,158,11,0.18)", color: "#fbbf24", backdropFilter: "blur(8px)", animation: "urgency-pulse 2.5s ease-in-out infinite" },
-  soon:    { backgroundColor: "rgba(59,130,246,0.16)", color: "#60a5fa", backdropFilter: "blur(8px)" },
-  normal:  { backgroundColor: "rgba(255,255,255,0.08)", color: "rgba(200,200,200,0.75)" },
-};
 function getEventUrgency(todos: Todo[]): Urgency {
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayStr = getToday();
   const weekEnd = new Date();
   weekEnd.setHours(0, 0, 0, 0);
   weekEnd.setDate(weekEnd.getDate() + 6);
@@ -203,7 +198,7 @@ function EventPeekRow({ incompleteTodos, eventColor }: { incompleteTodos: Todo[]
   }, [incompleteTodos.length]);
 
   if (incompleteTodos.length === 0) return null;
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayStr = getToday();
   const todo = incompleteTodos[idx % incompleteTodos.length];
   let dotColor = eventColor;
   if (todo.due_date) {
@@ -276,7 +271,6 @@ interface TodoListProps {
   onBulkComplete?: (ids: string[]) => void;
   onBulkDelete?: (ids: string[]) => void;
   onBulkUpdate?: (ids: string[], updates: { list_id?: string | null; due_date?: string | null; priority?: Priority }) => void;
-  filterDate?: string | null;
   lists?: List[];
   activeListId?: string | null;
   events?: Event[];
@@ -330,7 +324,6 @@ export default function TodoList({
   onBulkComplete,
   onBulkDelete,
   onBulkUpdate,
-  filterDate,
   lists = [],
   activeListId,
   events = [],
@@ -355,6 +348,8 @@ export default function TodoList({
   const gridCols = wideMode ? "grid grid-cols-1 md:grid-cols-3 gap-2" : "grid grid-cols-1 md:grid-cols-2 gap-2";
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
   const [search, setSearch] = useState("");
+  // Typing stays smooth even with a long list behind it
+  const deferredSearch = useDeferredValue(search);
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
   const [filterTagId, setFilterTagId] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<SortBy>(defaultSortBy);
@@ -445,12 +440,8 @@ export default function TodoList({
   const filtered = useMemo(() => {
     let result = todos;
 
-    if (filterDate) {
-      result = result.filter((t) => t.due_date === filterDate);
-    }
-
-    if (search.trim()) {
-      const q = search.toLowerCase();
+    if (deferredSearch.trim()) {
+      const q = deferredSearch.toLowerCase();
       result = result.filter(
         (t) =>
           t.title.toLowerCase().includes(q) ||
@@ -495,7 +486,7 @@ export default function TodoList({
     }
 
     return result;
-  }, [todos, search, filterStatus, filterTagId, filterDate, sortBy]);
+  }, [todos, deferredSearch, filterStatus, filterTagId, sortBy]);
 
   const activeTodos = filtered.filter((t) => !t.completed);
   const completedTodos = filtered.filter((t) => t.completed);

@@ -167,7 +167,11 @@ export async function fetchCalendarEvents(
   imported?: number;
 }> {
   try {
-    const params = new URLSearchParams({ timeMin, timeMax });
+    const params = new URLSearchParams({
+      timeMin,
+      timeMax,
+      tz: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+    });
     const response = await fetch(`/api/calendar/events?${params}`);
     if (!response.ok) return { events: [] };
     return response.json();

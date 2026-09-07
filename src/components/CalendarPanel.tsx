@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect, useCallback } from "react";
+import { toDateStr } from "@/lib/date-helpers";
 import { formatLocale, monthNames, weekdayLabels } from "@/lib/format";
 import { useI18n } from "./I18nProvider";
 import { ChevronLeft, ChevronRight, X, ExternalLink, Clock } from "lucide-react";
@@ -28,12 +29,6 @@ interface CalendarPanelProps {
 
 
 
-function toDateStr(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
 
 function formatShort(dateStr: string): string {
   const [y, m, d] = dateStr.split("-").map(Number);

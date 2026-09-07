@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
+import { toDateStr } from "@/lib/date-helpers";
+import { isScheduledForDate } from "@/lib/habit-schedule";
 import { useI18n } from "./I18nProvider";
 import { createPortal } from "react-dom";
 import { X, ChevronLeft, ChevronRight, Repeat, ChevronDown, CalendarDays } from "lucide-react";
@@ -32,9 +34,6 @@ const MONTH_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct"
 
 /* ───────────────────────── Helpers ──────────────────────────── */
 
-function toDateStr(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
-}
 
 function parseTime(t: string): number {
   const [h, m] = t.split(":").map(Number);
@@ -75,17 +74,6 @@ function getWeekStart(d: Date): Date {
   return out;
 }
 
-function isScheduledForDate(habit: HabitWithStatus, date: Date): boolean {
-  if (habit.schedule_type === "weekly") return habit.schedule_days.includes(date.getDay());
-  const interval = habit.schedule_interval || 1;
-  if (interval === 1) return true;
-  const start = new Date(habit.created_at);
-  start.setHours(0,0,0,0);
-  const check = new Date(date);
-  check.setHours(0,0,0,0);
-  const diffDays = Math.round((check.getTime() - start.getTime()) / 86_400_000);
-  return diffDays >= 0 && diffDays % interval === 0;
-}
 
 function priorityBg(p?: string): string {
   if (p === "high")   return "bg-red-500 border-red-600/40";

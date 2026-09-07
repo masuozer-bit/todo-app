@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, memo } from "react";
 import { formatLocale } from "@/lib/format";
 import { useI18n } from "./I18nProvider";
 import { createPortal } from "react-dom";
@@ -115,7 +115,7 @@ function formatDueDate(dateStr: string): { text: string; overdue: boolean } {
   };
 }
 
-export default function TodoItem({
+function TodoItem({
   todo,
   allTags,
   onToggle,
@@ -1174,3 +1174,6 @@ export default function TodoItem({
     </>
   );
 }
+
+/* The lists render dozens of these; skip the ones whose props did not change */
+export default memo(TodoItem);

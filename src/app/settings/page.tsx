@@ -567,7 +567,7 @@ export default function SettingsPage() {
                           </p>
                         ))}
                       </div>
-                      <p className="text-[11px] text-gray-600 mt-3">Reminders are sent at 08:00 and 09:00 UTC, which is 09:00 and 10:00 in Berlin in winter, an hour later in summer. They arrive even when the browser is closed.</p>
+                      <p className="text-[11px] text-gray-600 mt-3">{t("The daily reminder goes out in the morning in your own timezone and arrives even when the browser is closed.")}</p>
                     </div>
                   </>
                 )}

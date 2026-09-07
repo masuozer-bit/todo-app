@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { toDateStr } from "@/lib/date-helpers";
+import { isScheduledForDate } from "@/lib/habit-schedule";
 import { useI18n } from "./I18nProvider";
 import { X, ChevronLeft, ChevronRight, Check } from "lucide-react";
 import { formatTime } from "@/lib/format";
@@ -15,12 +17,6 @@ interface HabitWeekModalProps {
 const DAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-function toDateStr(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
 
 function getWeekStart(date: Date): Date {
   const d = new Date(date);
@@ -31,20 +27,6 @@ function getWeekStart(date: Date): Date {
   return d;
 }
 
-function isScheduledForDate(habit: HabitWithStatus, date: Date): boolean {
-  if (habit.schedule_type === "weekly") {
-    return habit.schedule_days.includes(date.getDay());
-  }
-  const interval = habit.schedule_interval || 1;
-  if (interval === 1) return true;
-  const start = new Date(habit.created_at);
-  start.setHours(0, 0, 0, 0);
-  const check = new Date(date);
-  check.setHours(0, 0, 0, 0);
-  const diffMs = check.getTime() - start.getTime();
-  const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
-  return diffDays >= 0 && diffDays % interval === 0;
-}
 
 
 export default function HabitWeekModal({ habit, completions, onClose }: HabitWeekModalProps) {

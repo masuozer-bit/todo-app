@@ -5,6 +5,32 @@ import {
   listCalendarEvents,
 } from "@/lib/google-calendar";
 
+/* Date and clock time of an instant in a given timezone */
+function zonedParts(instant: Date, timeZone: string): { date: string; time: string } {
+  try {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }).formatToParts(instant);
+    const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "00";
+    const hour = String(Number(get("hour")) % 24).padStart(2, "0");
+    return {
+      date: `${get("year")}-${get("month")}-${get("day")}`,
+      time: `${hour}:${get("minute")}`,
+    };
+  } catch {
+    return {
+      date: instant.toISOString().slice(0, 10),
+      time: instant.toISOString().slice(11, 16),
+    };
+  }
+}
+
 export async function GET(request: NextRequest) {
   const supabase = await createClient();
   const {
@@ -18,6 +44,8 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const timeMin = searchParams.get("timeMin");
   const timeMax = searchParams.get("timeMax");
+  // The server runs in UTC; the browser tells us which clock to read by
+  const timeZone = searchParams.get("tz") || "UTC";
 
   if (!timeMin || !timeMax) {
     return NextResponse.json(
@@ -130,12 +158,11 @@ export async function GET(request: NextRequest) {
         if (isAllDay) {
           date = event.start.date!;
         } else {
-          const dt = new Date(event.start.dateTime!);
-          date = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
-          startTime = `${String(dt.getHours()).padStart(2, "0")}:${String(dt.getMinutes()).padStart(2, "0")}`;
+          const start = zonedParts(new Date(event.start.dateTime!), timeZone);
+          date = start.date;
+          startTime = start.time;
           if (event.end?.dateTime) {
-            const endDt = new Date(event.end.dateTime);
-            endTime = `${String(endDt.getHours()).padStart(2, "0")}:${String(endDt.getMinutes()).padStart(2, "0")}`;
+            endTime = zonedParts(new Date(event.end.dateTime), timeZone).time;
           }
         }
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import { URGENCY_STYLE, type Urgency } from "@/lib/urgency";
 import { formatLocale } from "@/lib/format";
 import { useI18n } from "@/components/I18nProvider";
 import Header from "@/components/Header";
@@ -24,6 +25,7 @@ import LiveTaskBar from "@/components/LiveTaskBar";
 import TimeStats from "@/components/TimeStats";
 import TemplatesModal from "@/components/TemplatesModal";
 import TagManager from "@/components/TagManager";
+import ErrorBoundary from "@/components/ErrorBoundary";
 import { useTodos } from "@/hooks/useTodos";
 import { useTags } from "@/hooks/useTags";
 import { useLists } from "@/hooks/useLists";
@@ -34,6 +36,8 @@ import { useRules } from "@/hooks/useRules";
 import { useTemplates } from "@/hooks/useTemplates";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useDashboardView } from "@/hooks/useDashboardView";
+import { useToday } from "@/hooks/useToday";
+import { useProfileSync } from "@/hooks/useProfileSync";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { useTheme } from "@/components/ThemeProvider";
 import LavaLampBackground from "@/components/LavaLampBackground";
@@ -60,13 +64,6 @@ import { getToday } from "@/lib/date-helpers";
 import { fetchCalendarEvents } from "@/lib/calendar-sync-client";
 import type { List as ListType, Folder as FolderType, Todo } from "@/lib/types";
 
-type Urgency = "overdue" | "today" | "soon" | "normal";
-const URGENCY_STYLE: Record<Urgency, React.CSSProperties> = {
-  overdue: { backgroundColor: "rgba(239,68,68,0.18)", color: "#f87171", backdropFilter: "blur(8px)", animation: "urgency-pulse 2.5s ease-in-out infinite" },
-  today:   { backgroundColor: "rgba(245,158,11,0.18)", color: "#fbbf24", backdropFilter: "blur(8px)", animation: "urgency-pulse 2.5s ease-in-out infinite" },
-  soon:    { backgroundColor: "rgba(59,130,246,0.16)", color: "#60a5fa", backdropFilter: "blur(8px)" },
-  normal:  { backgroundColor: "rgba(120,120,120,0.12)", color: "rgba(180,180,180,0.9)" },
-};
 
 
 function ColorPickerPopover({ color, onChange, onClose }: { color?: string | null; onChange: (c: string | null) => void; onClose: () => void }) {
@@ -325,10 +322,6 @@ export default function DashboardClient({
   const [newFolderName, setNewFolderName] = useState("");
   const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
   const [editFolderName, setEditFolderName] = useState("");
-  const [showHabitsInTasks, setShowHabitsInTasks] = useState<boolean>(() => {
-    if (typeof window === "undefined") return false;
-    try { return localStorage.getItem("showHabitsInTasks") === "true"; } catch { return false; }
-  });
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [highlightedTodoId, setHighlightedTodoId] = useState<string | null>(null);
@@ -359,6 +352,8 @@ export default function DashboardClient({
   // The active view comes from the URL: back button, reload and deep links
   // all work, and switching views costs no server roundtrip
   const { view, navigate } = useDashboardView();
+  // Flips at midnight, so an open tab does not keep yesterday's "Today"
+  const todayStr = useToday();
   const activeListId = view.listId;
   const activeFolderId = view.folderId;
   const calendarDates = view.dates;
@@ -372,6 +367,9 @@ export default function DashboardClient({
     : null;
   const openEventDetailId = view.eventId;
   const { showToast } = useToast();
+  const { locale } = useI18n();
+  // The reminder cron needs to know which timezone this user lives in
+  useProfileSync(userId, locale);
 
   // Mobile detection
   useEffect(() => {
@@ -591,7 +589,7 @@ export default function DashboardClient({
         return !!(listId && folderListIds.has(listId));
       }
       if (calendarDates.length > 0) return !!dueDate && calendarDates.includes(dueDate);
-      const today = getToday();
+      const today = todayStr;
       if (quickFilter === "today") return dueDate === today;
       if (quickFilter === "overdue") return !!dueDate && dueDate < today;
       if (quickFilter === "thisWeek") {
@@ -603,7 +601,7 @@ export default function DashboardClient({
       }
       return !eventsView && !habitsView && !rulesView;
     },
-    [activeListId, activeFolderId, lists, calendarDates, quickFilter, eventsView, habitsView, rulesView]
+    [activeListId, activeFolderId, lists, calendarDates, quickFilter, eventsView, habitsView, rulesView, todayStr]
   );
 
   // A new task must never just vanish: highlight it, or say where it went
@@ -942,10 +940,8 @@ export default function DashboardClient({
 
   // Task counts for sidebar badges — computed before early returns (Rules of Hooks)
   type ListBadges = { overdue: number; today: number; thisWeek: number };
-  const emptyBadges: ListBadges = { overdue: 0, today: 0, thisWeek: 0 };
 
   const taskCounts = useMemo(() => {
-    const todayStr = getToday();
     const now = new Date();
     now.setHours(0, 0, 0, 0);
     const weekEnd = new Date(now);
@@ -1001,72 +997,86 @@ export default function DashboardClient({
 
     const thisWeekTotal = overdue + today + thisWeek;
     return { total, today, thisWeek, thisWeekTotal, overdue, listBadges, folderBadges, globalUrgency, thisWeekUrgency };
-  }, [todos, lists]);
+  }, [todos, lists, todayStr]);
 
   const activeList = lists.find((l) => l.id === activeListId);
 
-  // Todos for Focus Mode panels
-  const todayStr = getToday();
-  const focusWeekStart = new Date(); focusWeekStart.setHours(0, 0, 0, 0);
-  const focusWeekEnd = new Date(focusWeekStart); focusWeekEnd.setDate(focusWeekStart.getDate() + 6); focusWeekEnd.setHours(23, 59, 59, 999);
-  const overdueTodos = todos.filter((t) => t.due_date && t.due_date < todayStr && !t.completed);
-  const todayTodos = todos.filter((t) => t.due_date === todayStr);
-  const thisWeekTodos = todos.filter((t) => {
-    if (!t.due_date) return false;
-    const d = new Date(t.due_date + "T00:00:00");
-    if (d < focusWeekStart && !t.completed) return true;
-    return d >= focusWeekStart && d <= focusWeekEnd;
-  });
+  // Todos for the three focus mode panels
+  const { overdueTodos, todayTodos, thisWeekTodos } = useMemo(() => {
+    const weekStart = new Date(`${todayStr}T00:00:00`);
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 6);
+    weekEnd.setHours(23, 59, 59, 999);
+    return {
+      overdueTodos: todos.filter((t) => t.due_date && t.due_date < todayStr && !t.completed),
+      todayTodos: todos.filter((t) => t.due_date === todayStr),
+      thisWeekTodos: todos.filter((t) => {
+        if (!t.due_date) return false;
+        const d = new Date(t.due_date + "T00:00:00");
+        if (d < weekStart && !t.completed) return true;
+        return d >= weekStart && d <= weekEnd;
+      }),
+    };
+  }, [todos, todayStr]);
 
   const activeFolder = folders.find((f) => f.id === activeFolderId);
 
-  // Build visible todos: start with list/folder filter, then apply quick/date filters
-  let visibleTodos = activeListId
-    ? todos.filter((t) => t.list_id === activeListId)
-    : activeFolderId
-      ? (() => {
-          const folderListIds = new Set(lists.filter((l) => l.folder_id === activeFolderId).map((l) => l.id));
-          return todos.filter((t) => t.list_id && folderListIds.has(t.list_id));
-        })()
-      : todos;
+  // Build visible todos: start with list/folder filter, then apply quick/date
+  // filters. Memoised so a keystroke somewhere else does not refilter
+  // everything and hand the list a new array.
+  const visibleTodos = useMemo(() => {
+    let result = activeListId
+      ? todos.filter((t) => t.list_id === activeListId)
+      : activeFolderId
+        ? (() => {
+            const folderListIds = new Set(
+              lists.filter((l) => l.folder_id === activeFolderId).map((l) => l.id)
+            );
+            return todos.filter((t) => t.list_id && folderListIds.has(t.list_id));
+          })()
+        : todos;
 
-  if (calendarDates.length > 0) {
-    // Calendar date selection — filter by selected days (respects active list)
-    visibleTodos = visibleTodos.filter((t) => t.due_date && calendarDates.includes(t.due_date));
-  } else if (quickFilter === "overdue") {
-    const today = getToday();
-    visibleTodos = visibleTodos.filter((t) => {
-      if (t.completed) return false;
-      const effectiveDate = t.due_date ?? t.start_date;
-      return !!(effectiveDate && effectiveDate < today);
-    });
-  } else if (quickFilter === "today") {
-    const today = getToday();
-    visibleTodos = visibleTodos.filter((t) => t.due_date === today);
-  } else if (quickFilter === "thisWeek") {
-    // Next 7 days from today + any overdue incomplete tasks
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const end = new Date(today);
-    end.setDate(today.getDate() + 6);
-    end.setHours(23, 59, 59, 999);
-    visibleTodos = visibleTodos.filter((t) => {
-      if (!t.due_date) return false;
-      const d = new Date(t.due_date + "T00:00:00");
-      if (d < today && !t.completed) return true; // overdue & not done
-      return d >= today && d <= end;
-    });
-  }
+    if (calendarDates.length > 0) {
+      // Calendar date selection — filter by selected days (respects active list)
+      return result.filter((t) => t.due_date && calendarDates.includes(t.due_date));
+    }
+
+    if (quickFilter === "overdue") {
+      return result.filter((t) => {
+        if (t.completed) return false;
+        const effectiveDate = t.due_date ?? t.start_date;
+        return !!(effectiveDate && effectiveDate < todayStr);
+      });
+    }
+
+    if (quickFilter === "today") {
+      return result.filter((t) => t.due_date === todayStr);
+    }
+
+    if (quickFilter === "thisWeek") {
+      // Next 7 days from today + any overdue incomplete tasks
+      const start = new Date(`${todayStr}T00:00:00`);
+      const end = new Date(start);
+      end.setDate(start.getDate() + 6);
+      end.setHours(23, 59, 59, 999);
+      result = result.filter((t) => {
+        if (!t.due_date) return false;
+        const d = new Date(t.due_date + "T00:00:00");
+        if (d < start && !t.completed) return true; // overdue & not done
+        return d >= start && d <= end;
+      });
+    }
+
+    return result;
+  }, [todos, lists, activeListId, activeFolderId, calendarDates, quickFilter, todayStr]);
 
   // Habits to show alongside tasks — filtered by list when in list view,
-  // hidden in overdue/habits/events views
-  const visibleHabits = (() => {
+  // hidden in overdue/habits/projects views
+  const visibleHabits = useMemo(() => {
     if (habitsView || eventsView || quickFilter === "overdue") return [];
-    if (activeListId) {
-      return todaysHabits.filter((h) => h.list_id === activeListId);
-    }
+    if (activeListId) return todaysHabits.filter((h) => h.list_id === activeListId);
     return todaysHabits;
-  })();
+  }, [habitsView, eventsView, quickFilter, activeListId, todaysHabits]);
 
   const activeTodoCount = visibleTodos.filter((t) => !t.completed).length;
   const completedTodoCount = visibleTodos.filter((t) => t.completed).length;
@@ -1610,7 +1620,8 @@ export default function DashboardClient({
             ))}
           </div>
 
-          {/* Content */}
+          {/* Content — a failure in one panel must not take the page */}
+          <ErrorBoundary variant="panel" label={t("Tasks")}>
           {eventsView ? (
             <EventList
               events={eventsWithTodos}
@@ -1676,7 +1687,6 @@ export default function DashboardClient({
               onBulkComplete={bulkComplete}
               onBulkDelete={bulkDelete}
               onBulkUpdate={bulkUpdate}
-              filterDate={null}
               lists={lists}
               activeListId={activeListId}
               events={eventsWithTodos}
@@ -1710,11 +1720,13 @@ export default function DashboardClient({
               liveTaskId={liveTaskId}
             />
           )}
+          </ErrorBoundary>
         </main>
 
         {/* Calendar + Timeline panel — desktop only, toggle with C key */}
         {showCalendar && !habitsView && !eventsView && (
           <aside className="hidden md:block md:w-96 md:flex-shrink-0 pt-6 space-y-2 overflow-y-auto overflow-x-hidden pb-6" style={{ maxHeight: "calc(100vh - 24px)" }}>
+            <ErrorBoundary variant="panel" label={t("Calendar")}>
             <CalendarPanel
               todos={todos}
               selectedDates={calendarDates}
@@ -1732,6 +1744,7 @@ export default function DashboardClient({
               weekModalOpen={showScheduleWeek}
               onToggleWeekModal={() => setShowScheduleWeek(prev => !prev)}
             />
+            </ErrorBoundary>
           </aside>
         )}
       </div>

@@ -278,6 +278,8 @@ export const de: Record<string, string> = {
   "\"{title}\" completed": "„{title}“ erledigt",
   "Tag \"{name}\" removed": "Tag „{name}“ entfernt",
   "Saved \"{title}\" as a template": "„{title}“ als Vorlage gespeichert",
+  "The daily reminder goes out in the morning in your own timezone and arrives even when the browser is closed.":
+    "Die tägliche Erinnerung kommt morgens in deiner Zeitzone, auch wenn der Browser geschlossen ist.",
   "Enter your email address first, then click again.":
     "Gib zuerst deine E-Mail-Adresse ein und klicke dann noch einmal.",
 

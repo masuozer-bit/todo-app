@@ -4,6 +4,10 @@ import React from "react";
 
 interface ErrorBoundaryProps {
   children: React.ReactNode;
+  /** "panel" keeps the failure inside one card instead of taking the page */
+  variant?: "page" | "panel";
+  /** Shown above the message, e.g. "Tasks" */
+  label?: string;
 }
 
 interface ErrorBoundaryState {
@@ -34,6 +38,25 @@ export default class ErrorBoundary extends React.Component<
 
   render() {
     if (this.state.hasError) {
+      if (this.props.variant === "panel") {
+        return (
+          <div className="glass-card p-6 text-center">
+            <p className="text-sm font-medium text-black dark:text-white mb-1">
+              {this.props.label ? `${this.props.label}: something went wrong` : "Something went wrong"}
+            </p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+              The rest of the app still works. Your data is safe.
+            </p>
+            <button
+              onClick={this.handleReset}
+              className="px-3 py-1.5 text-xs rounded-xl bg-black dark:bg-white text-white dark:text-black hover:opacity-80 transition-default font-medium"
+            >
+              Try again
+            </button>
+          </div>
+        );
+      }
+
       return (
         <div className="min-h-screen flex items-center justify-center bg-white dark:bg-black px-4">
           <div className="text-center max-w-md">

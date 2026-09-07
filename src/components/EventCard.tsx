@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, memo } from "react";
+import { getToday } from "@/lib/date-helpers";
 import { formatLocale } from "@/lib/format";
 import { useI18n } from "./I18nProvider";
 import { ChevronDown, ChevronRight, Plus, Trash2, Check, X, Maximize2 } from "lucide-react";
@@ -49,7 +50,7 @@ function formatEventDate(dateStr: string): string {
 }
 
 function getPeekUrgencyColor(todo: Todo, eventColor: string): string {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = getToday();
   if (!todo.due_date) return eventColor;
   if (todo.due_date < today) return "#ef4444";
   if (todo.due_date === today) return "#f59e0b";
@@ -69,7 +70,7 @@ function formatPeekLabel(todo: Todo): string | null {
   return due.toLocaleDateString(formatLocale(), { day: "numeric", month: "short" });
 }
 
-export default function EventCard({
+function EventCard({
   event,
   lists,
   allTags,
@@ -349,3 +350,5 @@ export default function EventCard({
     </>
   );
 }
+
+export default memo(EventCard);

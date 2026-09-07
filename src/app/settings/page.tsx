@@ -19,6 +19,7 @@ import {
 } from "@/lib/calendar-sync-client";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { useI18n } from "@/components/I18nProvider";
+import { useVisualViewport } from "@/hooks/useVisualViewport";
 import { LOCALES } from "@/lib/i18n";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 
@@ -53,6 +54,8 @@ const DEFAULT_VIEWS: { value: string; label: string }[] = [
 ];
 
 export default function SettingsPage() {
+  // Same phone viewport handling as the app shell
+  useVisualViewport();
   const [user, setUser] = useState<SupabaseUser | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [displayName, setDisplayName] = useState("");
@@ -79,6 +82,19 @@ export default function SettingsPage() {
   const { todos, clearCompleted, exportTodos } = useTodos(dataUserId, tags);
   const { permission: notifPermission, isSubscribed: notifSubscribed, subscribe: subscribeNotifications, unsubscribe: unsubscribeNotifications } = usePushNotifications();
   const { themePreference, setThemePreference, accent, setAccent, density, setDensity } = useTheme();
+  /* Whether the app opens on the focus view. The dashboard reads the same key. */
+  const [focusStart, setFocusStart] = useState(true);
+  useEffect(() => {
+    try { setFocusStart(localStorage.getItem("focusStart") !== "off"); } catch { /* ignore */ }
+  }, []);
+  const changeFocusStart = (on: boolean) => {
+    setFocusStart(on);
+    try {
+      localStorage.setItem("focusStart", on ? "on" : "off");
+      // Turning it off should also stop the next reload from going there
+      if (!on) localStorage.setItem("focusView", "off");
+    } catch { /* ignore */ }
+  };
   const { locale, setLocale, t } = useI18n();
 
   // Esc leaves settings, the same way the panel closes elsewhere
@@ -369,6 +385,17 @@ export default function SettingsPage() {
                           {t(choice.label)}
                         </Choice>
                       ))}
+                    </div>
+                  </Field>
+
+                  <Field label={t("Start in the focus view")}>
+                    <div className="flex flex-wrap gap-2">
+                      <Choice active={focusStart} onClick={() => changeFocusStart(true)}>
+                        {t("On")}
+                      </Choice>
+                      <Choice active={!focusStart} onClick={() => changeFocusStart(false)}>
+                        {t("Off")}
+                      </Choice>
                     </div>
                   </Field>
 

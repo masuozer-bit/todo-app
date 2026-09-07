@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, type ReactNode } from "react";
-import { ArrowUpDown, CalendarDays, CheckSquare, Filter, Search, X } from "lucide-react";
+import { ArrowUpDown, CalendarDays, CheckSquare, Filter, MoreHorizontal, Search, X } from "lucide-react";
 import { useI18n } from "@/components/I18nProvider";
 import Popover, { PopoverItem } from "@/components/ui/Popover";
 import type { FilterStatus, SortBy, TaskFilters } from "@/hooks/useTaskFilters";
@@ -83,14 +83,15 @@ export default function ContentHeader({
           </button>
         )}
         {titleBefore}
-        <h1 className="text-xl font-semibold text-text truncate min-w-0">{title}</h1>
-        {openCount !== undefined && (
-          <span className="text-[13px] text-text-muted flex-none tabular-nums">
-            {t("{n} open", { n: openCount })}
-          </span>
-        )}
+        <div className="flex-1 min-w-0 flex items-baseline gap-2">
+          <h1 className="text-xl font-semibold text-text truncate min-w-0">{title}</h1>
+          {openCount !== undefined && (
+            <span className="text-[13px] text-text-muted flex-none tabular-nums">
+              {t("{n} open", { n: openCount })}
+            </span>
+          )}
+        </div>
         {titleAfter}
-        <span className="flex-1" />
 
         {filters && (
           <>
@@ -178,7 +179,7 @@ export default function ContentHeader({
                   ref={p.ref as (el: HTMLButtonElement | null) => void}
                   onClick={p.onClick}
                   aria-expanded={p["aria-expanded"]}
-                  className="icon-btn flex-none"
+                  className="icon-btn flex-none hidden md:inline-flex"
                   aria-label={t("Sort by")}
                   title={t("Sort by")}
                 >
@@ -204,7 +205,7 @@ export default function ContentHeader({
             {total > 0 && (
               <button
                 onClick={() => { if (filters.selectMode) filters.clearSelection(); else filters.setSelectMode(true); }}
-                className={`icon-btn flex-none ${filters.selectMode ? "icon-btn-on" : ""}`}
+                className={`icon-btn flex-none hidden md:inline-flex ${filters.selectMode ? "icon-btn-on" : ""}`}
                 aria-label={filters.selectMode ? t("Cancel selection") : t("Select multiple")}
                 title={filters.selectMode ? t("Cancel selection") : t("Select multiple")}
               >
@@ -217,7 +218,7 @@ export default function ContentHeader({
         {onToggleCalendar && (
           <button
             onClick={onToggleCalendar}
-            className={`icon-btn flex-none ${calendarOpen ? "icon-btn-on" : ""}`}
+            className={`icon-btn flex-none hidden md:inline-flex ${calendarOpen ? "icon-btn-on" : ""}`}
             aria-label={t("Calendar")}
             title={`${t("Calendar")}  C`}
           >
@@ -225,6 +226,71 @@ export default function ContentHeader({
           </button>
         )}
         {actions}
+
+        {/* A phone head has room for a title, the filter and one more button.
+            Sorting, multiple selection and the calendar move in here. */}
+        {(filters || onToggleCalendar) && (
+          <Popover
+            align="end"
+            label={t("More")}
+            trigger={(p) => (
+              <button
+                ref={p.ref as (el: HTMLButtonElement | null) => void}
+                onClick={p.onClick}
+                aria-expanded={p["aria-expanded"]}
+                className="icon-btn flex-none md:hidden"
+                aria-label={t("More")}
+              >
+                <MoreHorizontal size={16} />
+              </button>
+            )}
+          >
+            {(close) => (
+              <div className="min-w-[200px]">
+                {filters && (
+                  <>
+                    <p className="px-2 pb-1 text-xs text-text-faint">{t("Sort by")}</p>
+                    {(Object.keys(SORT_LABELS) as SortBy[]).map((s) => (
+                      <PopoverItem
+                        key={s}
+                        icon={<Tick on={filters.sortBy === s} />}
+                        onClick={() => { filters.setSortBy(s); close(); }}
+                      >
+                        {t(SORT_LABELS[s])}
+                      </PopoverItem>
+                    ))}
+                  </>
+                )}
+                {filters && total > 0 && (
+                  <>
+                    <div className="my-1 h-px bg-border" />
+                    <PopoverItem
+                      icon={<CheckSquare size={16} />}
+                      onClick={() => {
+                        if (filters.selectMode) filters.clearSelection();
+                        else filters.setSelectMode(true);
+                        close();
+                      }}
+                    >
+                      {filters.selectMode ? t("Cancel selection") : t("Select multiple")}
+                    </PopoverItem>
+                  </>
+                )}
+                {onToggleCalendar && (
+                  <>
+                    <div className="my-1 h-px bg-border" />
+                    <PopoverItem
+                      icon={<CalendarDays size={16} />}
+                      onClick={() => { onToggleCalendar(); close(); }}
+                    >
+                      {t("Calendar")}
+                    </PopoverItem>
+                  </>
+                )}
+              </div>
+            )}
+          </Popover>
+        )}
       </div>
 
       {chips.length > 0 && (
@@ -276,8 +342,13 @@ function buildChips(
     const tag = tags.find((x) => x.id === filters.tagId);
     chips.push({ key: "tag", label: `${t("Tag")}: ${tag?.name ?? ""}`, onClear: () => filters.setTagId(null) });
   }
-  if (filters.sortBy !== "default") {
-    chips.push({ key: "sort", label: `${t("Sort by")}: ${t(SORT_LABELS[filters.sortBy])}`, onClear: () => filters.setSortBy("default") });
+  // The sort a view starts with is not a choice the user made, so no chip
+  if (filters.sortBy !== filters.defaultSortBy) {
+    chips.push({
+      key: "sort",
+      label: `${t("Sort by")}: ${t(SORT_LABELS[filters.sortBy])}`,
+      onClear: () => filters.setSortBy(filters.defaultSortBy),
+    });
   }
   return chips;
 }

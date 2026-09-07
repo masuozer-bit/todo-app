@@ -103,8 +103,6 @@ export interface TodoListProps {
   defaultSortBy?: SortBy;
   /** Namespaces the collapsed-group memory and the manual order. */
   viewKey?: string;
-  /** Focus mode trims the list down to rows. */
-  focusMode?: boolean;
   /** Hide this timeline group's head; the view title already says it. */
   suppressGroupKey?: string;
 
@@ -140,7 +138,6 @@ export default function TodoList({
   filters,
   defaultSortBy = "default",
   viewKey = "default",
-  focusMode = false,
   suppressGroupKey,
   habits = [],
   showHabits = false,
@@ -358,7 +355,7 @@ export default function TodoList({
   );
 
   // ── Drag ──────────────────────────────────────────────────────────────
-  const dragEnabled = sortBy === "default" && !selectMode && !focusMode;
+  const dragEnabled = sortBy === "default" && !selectMode;
 
   const handleDragEnd = useCallback(
     (event: DragEndEvent) => {

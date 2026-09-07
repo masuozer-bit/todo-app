@@ -19,11 +19,14 @@ export const metadata: Metadata = {
   description: "A minimalist to-do app",
 };
 
-// Without viewportFit the safe-area insets stay zero on notched phones
+// Without viewportFit the safe-area insets stay zero on notched phones.
+// interactiveWidget lets the browser resize the layout viewport for the
+// keyboard instead of only sliding the visual one out from under the page.
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
+  interactiveWidget: "resizes-content",
 };
 
 // Runs before the first paint so nobody sees the wrong theme flash past.
@@ -50,6 +53,21 @@ const THEME_BOOTSTRAP = `(function(){
     root.style.setProperty("--accent-hover", set[1]);
     root.style.setProperty("--accent-soft", set[2]);
     root.style.setProperty("--accent-contrast", dark ? "#0F1115" : "#FFFFFF");
+
+    // Does the app open on the focus view? Decided here, before the first
+    // paint, so the server-rendered shell never flashes past on the way in.
+    // The dashboard reads the mark on mount and clears it.
+    var params = new URLSearchParams(location.search);
+    var deepLink = ["view", "list", "folder", "task", "sel", "dates"]
+      .some(function (key) { return params.get(key); });
+    if (
+      !deepLink &&
+      location.pathname.indexOf("/dashboard") === 0 &&
+      localStorage.getItem("focusStart") !== "off" &&
+      localStorage.getItem("focusView") !== "off"
+    ) {
+      root.setAttribute("data-focus", "pending");
+    }
   } catch (e) {}
 })();`;
 

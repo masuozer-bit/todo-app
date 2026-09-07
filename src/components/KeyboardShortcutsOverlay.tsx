@@ -35,6 +35,7 @@ const GROUPS: ShortcutGroup[] = [
       { keys: [["Enter"]], description: "Save / confirm" },
       { keys: [["Esc"]], description: "Cancel / close" },
       { keys: [["⌘", "⇧", "L"]], description: "Dark / light mode" },
+      { keys: [["⌘", "⇧", "F"]], description: "Focus view" },
     ],
   },
   {

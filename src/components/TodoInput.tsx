@@ -279,6 +279,41 @@ export default function TodoInput({
     }
   }
 
+  /**
+   * On a mouse the field keeps the focus so the next task can be typed right
+   * away. On a touch screen that would hold the keyboard open after every
+   * entry, which is what leaves iOS Safari with a shifted viewport. There the
+   * focus only stays when the field lives in an open sheet, where the keyboard
+   * is the point.
+   */
+  function refocusAfterSubmit() {
+    const el = inputRef.current;
+    if (!el) return;
+    const finePointer =
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(pointer: fine)").matches;
+    const inSheet = el.closest('[data-sheet], [role="dialog"]') !== null;
+    if (finePointer || inSheet) el.focus();
+  }
+
+  function handleFocus() {
+    setFocused(true);
+    if (suggestions.length > 0) setShowSuggestions(true);
+    // The keyboard can cover the field; bring it back into view
+    if (typeof window !== "undefined" && window.innerWidth < 768) {
+      inputRef.current?.scrollIntoView({ block: "nearest" });
+    }
+  }
+
+  function handleBlur() {
+    setFocused(false);
+    setTimeout(() => setShowSuggestions(false), 150);
+    // Safari can leave the page scrolled after the keyboard closes
+    if (typeof window !== "undefined" && window.innerWidth < 768) {
+      requestAnimationFrame(() => window.scrollTo(0, 0));
+    }
+  }
+
   function reset() {
     setTitle("");
     setDueDate(null);
@@ -321,7 +356,7 @@ export default function TodoInput({
 
     // Clear before the request returns, so typing can carry on
     reset();
-    inputRef.current?.focus();
+    refocusAfterSubmit();
 
     try {
       // An unknown #tag is created instead of being thrown away
@@ -361,8 +396,8 @@ export default function TodoInput({
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           onKeyDown={handleKeyDown}
-          onFocus={() => { setFocused(true); if (suggestions.length > 0) setShowSuggestions(true); }}
-          onBlur={() => { setFocused(false); setTimeout(() => setShowSuggestions(false), 150); }}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
           placeholder={placeholder ?? t("Add a task")}
           aria-label={t("New task title")}
           data-new-task-input=""

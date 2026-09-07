@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import Header from "@/components/Header";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { useTodos } from "@/hooks/useTodos";
 import { useTags } from "@/hooks/useTags";
@@ -203,7 +202,6 @@ export default function SettingsPage() {
 
   return (
     <div className="min-h-screen transition-colors">
-      <Header email={user?.email} />
 
       <main className="max-w-4xl mx-auto px-4 pb-16">
         <div className="mt-4 mb-6 flex items-center gap-3">

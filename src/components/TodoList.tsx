@@ -1058,6 +1058,7 @@ export default function TodoList({
             placeholder={t("Search tasks...")}
             className="flex-1 bg-transparent text-sm text-black dark:text-white placeholder:text-gray-400 focus:outline-none"
             aria-label={t("Search tasks")}
+            data-search-input=""
           />
           {search && (
             <button onClick={() => setSearch("")} className="text-gray-400 hover:text-black dark:hover:text-white transition-default">
@@ -1076,6 +1077,7 @@ export default function TodoList({
               placeholder={t("Search tasks...")}
               className="flex-1 bg-transparent text-sm text-black dark:text-white placeholder:text-gray-400 focus:outline-none"
               aria-label={t("Search tasks")}
+            data-search-input=""
             />
             {search && (
               <button onClick={() => setSearch("")} className="text-gray-400 hover:text-black dark:hover:text-white transition-default">

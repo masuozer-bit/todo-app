@@ -440,6 +440,47 @@
     overflow-y: auto;
     overflow-x: hidden;
   }
+
+  /* ── Navigation rows ──────────────────────────────────────
+     One row shape for views, lists, folders and the more
+     section: 32 px, 6 px radius, icon 18 px, text 13 px. ── */
+  .nav-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    height: 32px;
+    padding: 0 8px;
+    border-radius: var(--radius);
+    font-size: 13px;
+    color: var(--text);
+    text-align: left;
+    transition: background-color var(--duration) var(--ease),
+                color var(--duration) var(--ease);
+  }
+  .nav-row:hover {
+    background-color: var(--surface-2);
+  }
+  .nav-row-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    color: var(--text-muted);
+  }
+  .nav-row.is-active {
+    background-color: var(--accent-soft);
+    color: var(--text);
+  }
+  .nav-row.is-active .nav-row-icon {
+    color: var(--accent);
+  }
+
+  /* The collapse button has nothing to collapse once the column
+     is already the icon rail */
+  @media (max-width: 1279px) {
+    .nav-collapse-btn { display: none; }
+  }
 }
 
 /* ============================================================

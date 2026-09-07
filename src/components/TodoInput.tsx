@@ -450,6 +450,7 @@ export default function TodoInput({
             placeholder={t("Add a task... (try: Buy milk tomorrow at 3pm !high #errands @Groceries)")}
             className="flex-1 bg-transparent text-black dark:text-white placeholder:text-gray-400 focus:outline-none text-base"
             aria-label={t("New task title")}
+            data-new-task-input=""
           />
           <button
             type="button"

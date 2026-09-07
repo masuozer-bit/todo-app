@@ -8,11 +8,27 @@ export type ViewKind =
   | "today"
   | "week"
   | "overdue"
+  /** Everything currently being worked on: a tracked task, or one that has started. */
+  | "running"
   | "events"
   | "habits"
-  | "rules";
+  | "journal"
+  | "rules"
+  /** Time tracking, moved out of the sidebar into a view of its own. */
+  | "time";
 
-const VIEW_KINDS: ViewKind[] = ["all", "today", "week", "overdue", "events", "habits", "rules"];
+const VIEW_KINDS: ViewKind[] = [
+  "all",
+  "today",
+  "week",
+  "overdue",
+  "running",
+  "events",
+  "habits",
+  "journal",
+  "rules",
+  "time",
+];
 
 export interface DashboardView {
   kind: ViewKind;

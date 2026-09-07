@@ -68,6 +68,24 @@ export function formatRelativeDate(dateStr: string, locale: string = ""): string
 }
 
 
+/**
+ * What a task row shows on its right: "Today", "Tomorrow", "Yesterday" for the
+ * three days people name, otherwise the weekday and the date, because a bare
+ * "12 Sep" does not tell you which day of the week you are looking at.
+ * The three words come back in English for the caller to run through t().
+ */
+export function formatRowDate(dateStr: string, locale: string = ""): string {
+  const d = toDate(dateStr);
+  if (!d) return dateStr;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const diff = Math.round((d.getTime() - today.getTime()) / 86_400_000);
+  if (diff === 0) return "Today";
+  if (diff === 1) return "Tomorrow";
+  if (diff === -1) return "Yesterday";
+  return formatDateWithWeekday(dateStr, locale || activeLocale);
+}
+
 /* Month names in the active locale, January first */
 export function monthNames(): string[] {
   const fmt = new Intl.DateTimeFormat(activeLocale, { month: "long" });

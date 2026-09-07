@@ -27,6 +27,7 @@ import TemplatesModal from "@/components/TemplatesModal";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import AppShell from "@/components/shell/AppShell";
 import SideNav from "@/components/shell/SideNav";
+import ContentHeader from "@/components/shell/ContentHeader";
 import NavSheet from "@/components/shell/NavSheet";
 import JournalView from "@/components/JournalView";
 import TaskDetail from "@/components/TaskDetail";
@@ -41,40 +42,18 @@ import { useTemplates } from "@/hooks/useTemplates";
 import { useJournal } from "@/hooks/useJournal";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useDashboardView, type ViewKind } from "@/hooks/useDashboardView";
+import { useTaskFilters } from "@/hooks/useTaskFilters";
 import { useToday } from "@/hooks/useToday";
 import { useProfileSync } from "@/hooks/useProfileSync";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { useTheme } from "@/components/ThemeProvider";
-import { Trash2, Edit2, Check, X, Menu, CalendarDays, CalendarRange, Target, Palette, LayoutTemplate, Keyboard } from "lucide-react";
+import { X, CalendarRange, Target, Keyboard } from "lucide-react";
 import { getToday } from "@/lib/date-helpers";
 import { fetchCalendarEvents } from "@/lib/calendar-sync-client";
 import type { List as ListType, Todo } from "@/lib/types";
 import { isRunning } from "@/lib/running";
 
 
-
-function ColorPickerPopover({ color, onChange, onClose }: { color?: string | null; onChange: (c: string | null) => void; onClose: () => void }) {
-  const { t } = useI18n();
-  return (
-    <div className="absolute z-50 top-full left-0 mt-1 p-2 rounded-xl glass-card-raised flex items-center gap-2 w-auto" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
-      <input
-        type="color"
-        value={color || "#60a5fa"}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-8 h-8 rounded-lg cursor-pointer border-0 bg-transparent [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:rounded-lg [&::-webkit-color-swatch]:border-2 [&::-webkit-color-swatch]:border-white/30"
-        title={t("Pick a color")}
-      />
-      <button
-        onClick={() => { onChange(null); onClose(); }}
-        className="w-8 h-8 rounded-lg border-2 border-white/20 flex items-center justify-center transition-default hover:border-white/50"
-        style={{ background: "rgba(120,120,120,0.3)" }}
-        title={t("Remove color")}
-      >
-        <X size={12} className="text-white/60" />
-      </button>
-    </div>
-  );
-}
 
 export default function DashboardClient({
   userId,
@@ -87,9 +66,6 @@ export default function DashboardClient({
 }) {
   const { t } = useI18n();
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
-  const [editingListId, setEditingListId] = useState<string | null>(null);
-  const [editListName, setEditListName] = useState("");
-  const [showListColorPicker, setShowListColorPicker] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [highlightedTodoId, setHighlightedTodoId] = useState<string | null>(null);
@@ -531,12 +507,6 @@ export default function DashboardClient({
   }, [userId]);
 
   // Sensors for list drag & drop
-  async function handleUpdateList(id: string) {
-    const trimmed = editListName.trim();
-    if (trimmed) await updateList(id, trimmed);
-    setEditingListId(null);
-    setEditListName("");
-  }
 
   // Live task stopwatch
   const liveTask = liveTaskId ? todos.find(t => t.id === liveTaskId) ?? null : null;
@@ -851,6 +821,51 @@ export default function DashboardClient({
               ? "overdue"
               : "allTasks";
 
+  /* What the content head says. One place, so the title, the count and the
+     ring cannot disagree with each other. */
+  const isTaskView = !eventsView && !habitsView && !rulesView && !journalView && !timeView;
+  const viewTitle = eventsView ? t("Projects")
+    : rulesView ? t("Principles")
+    : habitsView ? t("Habits")
+    : journalView ? t("Journal")
+    : timeView ? t("Time Tracking")
+    : runningView ? t("Running")
+    : calendarDates.length > 0
+      ? calendarDates.length === 1
+        ? new Date(calendarDates[0] + "T00:00:00").toLocaleDateString(formatLocale(), { weekday: "short", day: "numeric", month: "short" })
+        : t("{n} days selected", { n: calendarDates.length })
+      : quickFilter === "today" ? t("Today")
+      : quickFilter === "thisWeek" ? t("This Week")
+      : quickFilter === "overdue" ? t("Overdue")
+      : activeList ? activeList.name
+      : activeFolder ? activeFolder.name
+      : t("All Tasks");
+
+  /* Search, filter, sort and bulk select. The header owns the controls,
+     the list owns the rows, so the state sits between them. */
+  const taskFilters = useTaskFilters(
+    viewKeyForList,
+    activeListId ? "default" : "timeline"
+  );
+
+  /* A copy carries everything but the identity: same title, date, priority,
+     list, project, notes and tags, no subtasks and no tracked time. */
+  const handleDuplicateTodo = useCallback(
+    (todo: Todo) => {
+      addTodo(todo.title, (todo.tags ?? []).map((tag) => tag.id), {
+        due_date: todo.due_date ?? null,
+        start_date: todo.start_date ?? null,
+        start_time: todo.start_time ?? null,
+        end_time: todo.end_time ?? null,
+        priority: todo.priority,
+        notes: todo.notes ?? null,
+        list_id: todo.list_id ?? null,
+        event_id: todo.event_id ?? null,
+      });
+    },
+    [addTodo]
+  );
+
   const focusModeHandlers = {
     onAdd: handleAddTodo,
     onToggle: handleToggleTodo,
@@ -959,184 +974,65 @@ export default function DashboardClient({
               lists={lists}
               onClose={closeDetail}
               onToggle={(todo) => handleToggleTodo(todo.id, !todo.completed)}
+              onSaveNotes={(id, notes) => updateTodo(id, { notes: notes.trim() === "" ? null : notes })}
+              onAddSubtask={addSubtask}
+              onToggleSubtask={toggleSubtask}
+              onDeleteSubtask={deleteSubtask}
             />
           </ErrorBoundary>
         )
       }
       content={
-        <div className="app-col-body px-4 pt-4 pb-6">
-          {/* Stats + calendar toggle + notification bell + mobile menu */}
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              {/* Mobile hamburger */}
-              <button
-                onClick={() => setMobileSidebarOpen(true)}
-                className="md:hidden p-1.5 -ml-1.5 rounded-xl text-gray-400 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-default"
-                aria-label={t("Open menu")}
-              >
-                <Menu size={20} />
-              </button>
-
-              <div className="display-inset inline-flex items-center gap-3 px-4 py-2 rounded-2xl">
-                <h2 className="text-2xl md:text-3xl font-bold text-white" style={{ textShadow: "0 2px 10px rgba(0,0,0,0.85), 0 1px 3px rgba(0,0,0,0.7)" }}>
-                  {eventsView
-                    ? t("Projects")
-                    : rulesView
-                      ? t("Principles")
-                    : habitsView
-                      ? t("Habits")
-                      : calendarDates.length > 0
-                        ? calendarDates.length === 1
-                          ? new Date(calendarDates[0] + "T00:00:00").toLocaleDateString(formatLocale(), { weekday: "short", day: "numeric", month: "short" })
-                          : t("{n} days selected", { n: calendarDates.length })
-                        : quickFilter === "today"
-                          ? t("Today")
-                          : quickFilter === "thisWeek"
-                            ? t("This Week")
-                            : quickFilter === "overdue"
-                              ? t("Overdue")
-                              : activeList
-                                ? activeList.name
-                                : activeFolder
-                                  ? activeFolder.name
-                                  : t("All Tasks")}
-                </h2>
-                {activeList && !editingListId && (
-                  <div className="flex items-center gap-1">
-                    <div className="relative">
-                      <button
-                        onClick={() => setShowListColorPicker((v) => !v)}
-                        className="p-1.5 rounded-lg text-white/50 hover:text-white transition-default"
-                        aria-label={t("Change color")}
-                      >
-                        {activeList.color ? (
-                          <span className="w-3.5 h-3.5 rounded-full block" style={{ backgroundColor: activeList.color }} />
-                        ) : (
-                          <Palette size={16} />
-                        )}
-                      </button>
-                      {showListColorPicker && (
-                        <ColorPickerPopover color={activeList.color} onChange={(c) => { updateListColor(activeList.id, c); }} onClose={() => setShowListColorPicker(false)} />
-                      )}
-                    </div>
-                    <button
-                      onClick={() => { setEditingListId(activeList.id); setEditListName(activeList.name); }}
-                      className="p-1.5 rounded-lg text-white/50 hover:text-white transition-default"
-                      aria-label={t("Edit list")}
-                    >
-                      <Edit2 size={16} />
-                    </button>
-                    <button
-                      onClick={() => { deleteList(activeList.id); switchToAllTasks(); }}
-                      className="p-1.5 rounded-lg text-white/50 hover:text-red-400 transition-default"
-                      aria-label={t("Delete list")}
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                )}
-                {activeList && editingListId === activeList.id && (
-                  <div className="flex items-center gap-1">
-                    <input
-                      autoFocus
-                      type="text"
-                      value={editListName}
-                      onChange={(e) => setEditListName(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") { handleUpdateList(activeList.id); }
-                        if (e.key === "Escape") setEditingListId(null);
-                      }}
-                      className="text-sm bg-white/10 rounded-lg px-2 py-1 text-white focus:outline-none focus:ring-1 focus:ring-white/30"
-                    />
-                    <button onClick={() => handleUpdateList(activeList.id)} className="p-1.5 text-white/50 hover:text-white transition-default"><Check size={16} /></button>
-                    <button onClick={() => setEditingListId(null)} className="p-1.5 text-white/50 hover:text-white transition-default"><X size={16} /></button>
-                  </div>
-                )}
-                <div className="flex items-center gap-3 text-sm text-black/50 dark:text-gray-400">
-                  {eventsView ? (
-                    <span>{t(events.length === 1 ? "{n} project" : "{n} projects", { n: events.length })}</span>
-                  ) : habitsView ? (
-                    <span>
-                      {todaysHabits.filter((h) => h.completedToday).length}/
-                      {todaysHabits.length} today
-                    </span>
-                  ) : (
-                    <>
-                      <span>{t("{n} active", { n: activeTodoCount })}</span>
-                      {completedTodoCount > 0 && (
-                        <span>{t("{n} done", { n: completedTodoCount })}</span>
-                      )}
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Toolbar — every shortcut also has a button */}
-            <div className="flex items-center gap-1 flex-shrink-0">
-              <button
-                onClick={() => setShowCalendar((prev) => !prev)}
-                className={`hidden md:flex p-2 rounded-xl transition-default ${
-                  showCalendar
-                    ? "glass-card-subtle text-black dark:text-white"
-                    : "text-gray-400 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10"
-                }`}
-                aria-label={t("Toggle calendar panel")}
-                aria-pressed={showCalendar}
-                title={t("Calendar (C)")}
-              >
-                <CalendarDays size={16} />
-              </button>
-              <button
-                onClick={() => setShowScheduleWeek((prev) => !prev)}
-                className={`hidden md:flex p-2 rounded-xl transition-default ${
-                  showScheduleWeek
-                    ? "glass-card-subtle text-black dark:text-white"
-                    : "text-gray-400 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10"
-                }`}
-                aria-label={t("Toggle week planner")}
-                aria-pressed={showScheduleWeek}
-                title={t("Week planner (S)")}
-              >
-                <CalendarRange size={16} />
-              </button>
-              <button
-                onClick={() => setShowTemplates(true)}
-                className="p-2 rounded-xl text-gray-400 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-default"
-                aria-label={t("Open templates")}
-                title={t("Templates (T)")}
-              >
-                <LayoutTemplate size={16} />
-              </button>
-              <button
-                onClick={() => setShowShortcuts(true)}
-                className="hidden md:flex p-2 rounded-xl text-gray-400 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-default"
-                aria-label={t("Show keyboard shortcuts")}
-                title={t("Keyboard shortcuts (?)")}
-              >
-                <Keyboard size={16} />
-              </button>
-            </div>
-
-          </div>
-
-
-          {/* Progress bar — always visible beneath the title when tasks exist */}
-          {!habitsView && !eventsView && totalTodoCount > 0 && (
-            <div className="mb-5">
-              <div className="w-full h-1 bg-black/5 dark:bg-white/10 rounded-full">
-                <div
-                  className="h-full bg-black dark:bg-white rounded-full transition-all duration-500"
-                  style={{ width: `${progressPct}%` }}
+        <>
+          <ContentHeader
+            title={viewTitle}
+            openCount={isTaskView ? activeTodoCount : undefined}
+            titleBefore={
+              activeList ? (
+                <span
+                  className="w-2.5 h-2.5 rounded-full flex-none"
+                  style={{ background: activeList.color ?? "var(--text-faint)" }}
                 />
-              </div>
-              <div className="flex items-center justify-between mt-1">
-                <span className="text-[11px] text-black/50 dark:text-gray-400">{t("{done}/{total} completed", { done: completedTodoCount, total: totalTodoCount })}</span>
-                <span className="text-[11px] text-black/50 dark:text-gray-400">{Math.round(progressPct)}%</span>
-              </div>
-            </div>
-          )}
+              ) : undefined
+            }
+            titleAfter={
+              quickFilter === "today" && totalTodoCount > 0 ? (
+                <ProgressRing percent={progressPct} />
+              ) : undefined
+            }
+            filters={isTaskView ? taskFilters : undefined}
+            tags={tags}
+            total={totalTodoCount}
+            calendarOpen={showCalendar}
+            onToggleCalendar={
+              !habitsView && !eventsView && !journalView && !timeView
+                ? () => setShowCalendar((prev) => !prev)
+                : undefined
+            }
+            onOpenMenu={() => setMobileSidebarOpen(true)}
+            actions={
+              <>
+                <button
+                  onClick={() => setShowScheduleWeek((prev) => !prev)}
+                  className={`icon-btn flex-none hidden md:inline-flex ${showScheduleWeek ? "icon-btn-on" : ""}`}
+                  aria-label={t("Toggle week planner")}
+                  title={`${t("Week planner")}  S`}
+                >
+                  <CalendarRange size={16} />
+                </button>
+                <button
+                  onClick={() => setShowShortcuts(true)}
+                  className="icon-btn flex-none hidden md:inline-flex"
+                  aria-label={t("Show keyboard shortcuts")}
+                  title={`${t("Keyboard shortcuts")}  ?`}
+                >
+                  <Keyboard size={16} />
+                </button>
+              </>
+            }
+          />
 
+        <div className="app-col-body px-4 pt-4 pb-6">
 
           {/* Input */}
           {(eventsView || habitsView || rulesView || showBar) && (
@@ -1303,6 +1199,8 @@ export default function DashboardClient({
               onDeleteSubtask={deleteSubtask}
               onCreateTag={addTag}
               onSaveAsTemplate={handleSaveAsTemplate}
+              onDuplicate={handleDuplicateTodo}
+              filters={taskFilters}
               loading={todosLoading}
               loadError={todosLoadError}
               onRetry={refetchTodos}
@@ -1312,8 +1210,6 @@ export default function DashboardClient({
               lists={lists}
               activeListId={activeListId}
               events={eventsWithTodos}
-              onAssignEvent={handleAssignTodoToEvent}
-              onDeleteEvent={handleDeleteEvent}
               onOpenEventDetail={handleOpenEventDetail}
               defaultSortBy={
                 activeListId ? "default"
@@ -1322,12 +1218,6 @@ export default function DashboardClient({
                 : "timeline"  /* allTasks default */
               }
               viewKey={viewKeyForList}
-              showBar={showBar}
-              onToggleBar={() => setShowBar((prev) => {
-                const next = !prev;
-                try { localStorage.setItem("showTaskBar", String(next)); } catch {}
-                return next;
-              })}
               suppressGroupKey={
                 quickFilter === "today" ? "today"
                 : quickFilter === "overdue" ? "overdue"
@@ -1337,13 +1227,13 @@ export default function DashboardClient({
               showHabits={visibleHabits.length > 0}
               onToggleHabit={toggleCompletion}
               highlightedTodoId={highlightedTodoId}
-              wideMode={!showCalendar}
               onStartLiveTask={handleStartLiveTask}
               liveTaskId={liveTaskId}
             />
           )}
           </ErrorBoundary>
         </div>
+        </>
       }
     >
       {/* Schedule week modal — independent of calendar panel */}
@@ -1416,5 +1306,23 @@ export default function DashboardClient({
       )}
     </AppShell>
     </>
+  );
+}
+
+/** A 16 px ring instead of a progress bar: it says the same thing quietly. */
+function ProgressRing({ percent }: { percent: number }) {
+  const r = 6;
+  const c = 2 * Math.PI * r;
+  const filled = Math.max(0, Math.min(100, percent)) / 100;
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" className="flex-none" aria-hidden="true">
+      <circle cx="8" cy="8" r={r} fill="none" stroke="var(--border-strong)" strokeWidth="2" />
+      <circle
+        cx="8" cy="8" r={r} fill="none"
+        stroke="var(--accent)" strokeWidth="2" strokeLinecap="round"
+        strokeDasharray={`${c * filled} ${c}`}
+        transform="rotate(-90 8 8)"
+      />
+    </svg>
   );
 }

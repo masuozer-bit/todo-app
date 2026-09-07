@@ -484,6 +484,184 @@
 }
 
 /* ============================================================
+   Task rows and group heads.
+
+   A task is a row, not a card: fixed height, one line under it,
+   no border, no radius, no shadow. Everything on the right is
+   meta; the actions only appear on hover, on keyboard focus,
+   and always on touch.
+   ============================================================ */
+@layer components {
+  .task-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: var(--row-h);
+    padding: 0 12px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    outline-offset: -2px;
+    transition: background-color var(--duration) var(--ease);
+  }
+  .task-row:hover {
+    background-color: var(--surface-2);
+  }
+  .task-row.is-selected {
+    background-color: var(--surface-3);
+    box-shadow: inset 2px 0 0 var(--accent);
+  }
+  .task-row.is-highlighted {
+    background-color: var(--accent-soft);
+  }
+
+  .task-row-title {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 14px;
+    color: var(--text);
+  }
+  .task-row.is-done .task-row-title {
+    color: var(--text-faint);
+    text-decoration: line-through;
+  }
+
+  /* The circle: 18 px, filled with the accent once the task is done */
+  .task-circle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    flex: none;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-full);
+    color: var(--accent-contrast);
+    transition: background-color var(--duration) var(--ease),
+                border-color var(--duration) var(--ease);
+  }
+  .task-circle:hover {
+    border-color: var(--accent);
+  }
+  .task-circle.is-square {
+    border-radius: var(--radius);
+  }
+  .task-row.is-done .task-circle,
+  .task-circle[aria-pressed="true"] {
+    background-color: var(--accent);
+    border-color: var(--accent);
+  }
+
+  /* The priority marker sits left of the title, not around the whole row */
+  .task-pbar {
+    width: 3px;
+    height: 16px;
+    flex: none;
+    border-radius: var(--radius-full);
+  }
+
+  .task-row-grip {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    flex: none;
+    margin-left: -6px;
+    color: var(--text-faint);
+    cursor: grab;
+    opacity: 0;
+    touch-action: none;
+  }
+  .task-row-grip:active { cursor: grabbing; }
+  .task-row:hover .task-row-grip,
+  .task-row:focus-within .task-row-grip { opacity: 1; }
+
+  .task-row-meta {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    /* The title gives way first; the meta only shrinks once it has to */
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+
+  /* On a phone the meta is the date and the subtask count, nothing else */
+  @media (max-width: 767px) {
+    .task-meta-tag,
+    .task-meta-list {
+      display: none;
+    }
+  }
+  .task-meta-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+  }
+  .task-meta-icon { color: var(--text-faint); }
+  .task-meta-tag {
+    white-space: nowrap;
+    color: var(--text-muted);
+  }
+  .task-meta-date {
+    white-space: nowrap;
+    color: var(--text-muted);
+    border-radius: var(--radius);
+    padding: 2px 4px;
+    margin: -2px -4px;
+  }
+  .task-meta-date:hover { background-color: var(--surface-3); }
+
+  /* Actions take the place of the meta on hover instead of pushing it around */
+  .task-row-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex: none;
+    opacity: 0;
+  }
+  .task-row:hover .task-row-actions,
+  .task-row:focus-within .task-row-actions { opacity: 1; }
+  @media (hover: none) {
+    .task-row-actions { opacity: 1; }
+  }
+
+  /* ── Group heads ─────────────────────────────────────────── */
+  .group-head {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    height: 32px;
+    padding: 0 12px;
+    background-color: var(--bg);
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-faint);
+    text-align: left;
+  }
+  .group-head:hover { color: var(--text-muted); }
+  .group-head-count {
+    margin-left: auto;
+    font-variant-numeric: tabular-nums;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+  .group-head.is-overdue { color: var(--danger); }
+}
+
+/* ============================================================
    Transitional layer, phases 2 to 8 remove it.
 
    The glass, blur and tint rules these class names used to carry
@@ -571,11 +749,8 @@
                 opacity var(--duration) var(--ease);
   }
 
-  /* The pulse and the ticker animation are gone; what is left is the colour
-     the overdue marker carried and a static line of text. */
-  .urgency-pulse {
-    color: var(--danger);
-  }
+  /* The ticker animation is gone; the line of text stays put. Phase 7
+     removes the last call site in EventCard. */
   .peek-ticker {
     opacity: 1;
   }

@@ -240,6 +240,20 @@ export const de: Record<string, string> = {
   "Your account information": "Deine Kontodaten",
   "Customize the look and feel": "Aussehen anpassen",
 
+  // ── Task list and rows ──────────────────────────────────────────────
+  "{n} open": "{n} offen",
+  "A to Z": "A bis Z",
+  "Filter": "Filter",
+  "Reorder": "Sortieren",
+  "Task title": "Aufgabentitel",
+  "Task options": "Aufgabenoptionen",
+  "Move to list": "In Liste verschieben",
+  "Duplicate": "Duplizieren",
+  "Show all {n}": "Alle {n} anzeigen",
+  "Week planner": "Wochenplaner",
+  "Keyboard shortcuts": "Tastenkürzel",
+  "Select": "Auswählen",
+
   // ── Navigation ──────────────────────────────────────────────────────
   "Views": "Ansichten",
   "More": "Mehr",

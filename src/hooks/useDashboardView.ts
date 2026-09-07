@@ -19,6 +19,8 @@ export interface DashboardView {
   listId: string | null;
   folderId: string | null;
   eventId: string | null;
+  /** The task open in the detail panel. Shareable, and the back button works. */
+  taskId: string | null;
   dates: string[];
 }
 
@@ -30,6 +32,7 @@ function buildQuery(view: DashboardView): string {
   if (view.listId) params.set("list", view.listId);
   if (view.folderId) params.set("folder", view.folderId);
   if (view.eventId) params.set("event", view.eventId);
+  if (view.taskId) params.set("task", view.taskId);
   if (view.dates.length > 0) params.set("dates", view.dates.join(","));
   const query = params.toString();
   return query ? `?${query}` : "";
@@ -61,6 +64,7 @@ export function useDashboardView() {
     const listId = searchParams.get("list");
     const folderId = searchParams.get("folder");
     const eventId = searchParams.get("event");
+    const taskId = searchParams.get("task");
     const dates = (searchParams.get("dates") ?? "")
       .split(",")
       .map((d) => d.trim())
@@ -77,6 +81,7 @@ export function useDashboardView() {
       listId: kind === "all" ? listId : null,
       folderId: kind === "all" ? folderId : null,
       eventId: kind === "events" ? eventId : null,
+      taskId,
       dates: kind === "all" ? dates : [],
     };
   }, [searchParams]);
@@ -88,8 +93,13 @@ export function useDashboardView() {
         listId: next.listId !== undefined ? next.listId : view.listId,
         folderId: next.folderId !== undefined ? next.folderId : view.folderId,
         eventId: next.eventId !== undefined ? next.eventId : view.eventId,
+        taskId: next.taskId !== undefined ? next.taskId : view.taskId,
         dates: next.dates !== undefined ? next.dates : view.dates,
       };
+      // Changing view closes the panel: the selected task is rarely in the new list
+      if (next.kind !== undefined && next.kind !== view.kind && next.taskId === undefined) {
+        target.taskId = null;
+      }
       // Switching away from the task views drops their filters
       if (target.kind !== "all") {
         target.listId = null;
@@ -112,6 +122,7 @@ export function useDashboardView() {
       listId: next.listId !== undefined ? next.listId : view.listId,
       folderId: next.folderId !== undefined ? next.folderId : view.folderId,
       eventId: next.eventId !== undefined ? next.eventId : view.eventId,
+      taskId: next.taskId !== undefined ? next.taskId : view.taskId,
       dates: next.dates !== undefined ? next.dates : view.dates,
     };
     const url = `${window.location.pathname}${buildQuery(target)}`;

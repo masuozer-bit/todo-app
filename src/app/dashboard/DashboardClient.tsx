@@ -26,6 +26,8 @@ import TimeStats from "@/components/TimeStats";
 import TemplatesModal from "@/components/TemplatesModal";
 import TagManager from "@/components/TagManager";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import AppShell from "@/components/shell/AppShell";
+import TaskDetail from "@/components/TaskDetail";
 import { useTodos } from "@/hooks/useTodos";
 import { useTags } from "@/hooks/useTags";
 import { useLists } from "@/hooks/useLists";
@@ -351,6 +353,14 @@ export default function DashboardClient({
   // The active view comes from the URL: back button, reload and deep links
   // all work, and switching views costs no server roundtrip
   const { view, navigate } = useDashboardView();
+  // The open task travels in the URL, so a reload and the back button both
+  // land on the same panel
+  const selectedTodoId = view.taskId;
+  const selectTodo = useCallback(
+    (id: string | null) => navigate({ taskId: id }),
+    [navigate]
+  );
+  const closeDetail = useCallback(() => navigate({ taskId: null }), [navigate]);
   // Flips at midnight, so an open tab does not keep yesterday's "Today"
   const todayStr = useToday();
   const activeListId = view.listId;
@@ -937,6 +947,14 @@ export default function DashboardClient({
     setEditFolderName("");
   }
 
+  // The task the panel shows. A stale id (deleted elsewhere, filtered away)
+  // simply leaves the panel in its empty state.
+  const selectedTodo = useMemo(
+    () => (selectedTodoId ? todos.find((todo) => todo.id === selectedTodoId) ?? null : null),
+    [todos, selectedTodoId]
+  );
+  const detailOpen = selectedTodo !== null || (showCalendar && !habitsView && !eventsView);
+
   // Task counts for sidebar badges — computed before early returns (Rules of Hooks)
   type ListBadges = { overdue: number; today: number; thisWeek: number };
 
@@ -1129,10 +1147,11 @@ export default function DashboardClient({
         {...focusModeHandlers}
       />
     )}
-    <div className="h-screen overflow-hidden transition-colors relative" style={{ zIndex: 1 }}>
-      <div className={`mx-auto px-4 pt-6 pb-0 flex gap-6 h-full ${!habitsView && !eventsView ? "max-w-[1380px]" : "max-w-5xl"}`}>
-        {/* Sidebar — desktop */}
-        <aside className="hidden md:flex md:flex-col w-48 flex-shrink-0 pt-4 overflow-y-auto overflow-x-hidden pb-4" style={{ maxHeight: "calc(100vh - 24px)" }}>
+    <AppShell
+      detailOpen={detailOpen}
+      onCloseDetail={closeDetail}
+      nav={
+        <div className="app-col-body p-2">
           <div className="space-y-2">
 
             {/* Smart views pill */}
@@ -1345,10 +1364,52 @@ export default function DashboardClient({
             )}
 
           </div>
-        </aside>
-
-        {/* Main content */}
-        <main className="flex-1 min-w-0 pt-4 overflow-y-auto overflow-x-hidden pb-6" style={{ maxHeight: "calc(100vh - 24px)" }}>
+        </div>
+      }
+      detail={
+        showCalendar && !habitsView && !eventsView ? (
+          <>
+            <div className="app-col-head">
+              <h2 className="flex-1 text-base font-medium text-text">{t("Calendar")}</h2>
+              <button onClick={() => setShowCalendar(false)} className="icon-btn flex-none" aria-label={t("Close")}>
+                <X size={16} />
+              </button>
+            </div>
+            <div className="app-col-body p-4 space-y-2">
+              <ErrorBoundary variant="panel" label={t("Calendar")}>
+              <CalendarPanel
+                todos={todos}
+                selectedDates={calendarDates}
+                onSelectDates={handleCalendarDatesChange}
+                onGoogleEventsImported={refetchTodos}
+              />
+              <TimelinePanel
+                todos={todos}
+                habits={todaysHabits}
+                lists={lists}
+                events={eventsWithTodos}
+                onTodoClick={handleTimelineTodoClick}
+                onHabitClick={handleTimelineHabitClick}
+                onUpdateTodo={updateTodo}
+                weekModalOpen={showScheduleWeek}
+                onToggleWeekModal={() => setShowScheduleWeek(prev => !prev)}
+              />
+              </ErrorBoundary>
+            </div>
+          </>
+        ) : (
+          <ErrorBoundary variant="panel" label={t("Task")}>
+            <TaskDetail
+              todo={selectedTodo}
+              lists={lists}
+              onClose={closeDetail}
+              onToggle={(todo) => handleToggleTodo(todo.id, !todo.completed)}
+            />
+          </ErrorBoundary>
+        )
+      }
+      content={
+        <div className="app-col-body px-4 pt-4 pb-6">
           {/* Stats + calendar toggle + notification bell + mobile menu */}
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
@@ -1664,6 +1725,8 @@ export default function DashboardClient({
             />
           ) : (
             <TodoList
+              selectedTodoId={selectedTodoId}
+              onSelectTodo={selectTodo}
               key={viewKeyForList}
               todos={visibleTodos}
               allTags={tags}
@@ -1717,34 +1780,9 @@ export default function DashboardClient({
             />
           )}
           </ErrorBoundary>
-        </main>
-
-        {/* Calendar + Timeline panel — desktop only, toggle with C key */}
-        {showCalendar && !habitsView && !eventsView && (
-          <aside className="hidden md:block md:w-96 md:flex-shrink-0 pt-6 space-y-2 overflow-y-auto overflow-x-hidden pb-6" style={{ maxHeight: "calc(100vh - 24px)" }}>
-            <ErrorBoundary variant="panel" label={t("Calendar")}>
-            <CalendarPanel
-              todos={todos}
-              selectedDates={calendarDates}
-              onSelectDates={handleCalendarDatesChange}
-              onGoogleEventsImported={refetchTodos}
-            />
-            <TimelinePanel
-              todos={todos}
-              habits={todaysHabits}
-              lists={lists}
-              events={eventsWithTodos}
-              onTodoClick={handleTimelineTodoClick}
-              onHabitClick={handleTimelineHabitClick}
-              onUpdateTodo={updateTodo}
-              weekModalOpen={showScheduleWeek}
-              onToggleWeekModal={() => setShowScheduleWeek(prev => !prev)}
-            />
-            </ErrorBoundary>
-          </aside>
-        )}
-      </div>
-
+        </div>
+      }
+    >
       <Header email={email} />
 
       {/* Schedule week modal — independent of calendar panel */}
@@ -1833,7 +1871,7 @@ export default function DashboardClient({
           <Target size={18} />
         </button>
       )}
-    </div>
+    </AppShell>
     </>
   );
 }

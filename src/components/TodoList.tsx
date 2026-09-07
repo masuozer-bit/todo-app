@@ -301,6 +301,10 @@ interface TodoListProps {
   wideMode?: boolean;
   /** Start live task timer */
   onStartLiveTask?: (todoId: string) => void;
+  /** The task open in the detail panel, if any. */
+  selectedTodoId?: string | null;
+  /** Opens a task in the detail panel. */
+  onSelectTodo?: (id: string) => void;
   /** Currently active live task ID */
   liveTaskId?: string | null;
 }
@@ -342,6 +346,8 @@ export default function TodoList({
   highlightedTodoId,
   wideMode,
   onStartLiveTask,
+  selectedTodoId,
+  onSelectTodo,
   liveTaskId,
 }: TodoListProps) {
   const { t } = useI18n();
@@ -868,6 +874,8 @@ export default function TodoList({
                 events={events}
                 onAssignEvent={onAssignEvent}
                 onStartLiveTask={onStartLiveTask}
+                selected={selectedTodoId === todo.id}
+                onSelect={onSelectTodo}
                 isLiveTask={liveTaskId === todo.id}
               />
             ))}
@@ -917,6 +925,8 @@ export default function TodoList({
         onAssignEvent={onAssignEvent}
         highlighted={highlightedTodoId === todo.id}
         onStartLiveTask={onStartLiveTask}
+        selected={selectedTodoId === todo.id}
+        onSelect={onSelectTodo}
         isLiveTask={liveTaskId === todo.id}
       />
     );

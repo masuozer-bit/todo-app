@@ -327,6 +327,122 @@
 }
 
 /* ============================================================
+   App shell. Three columns over the full width and height:
+   navigation, content, detail. Each column scrolls for itself
+   under its own 48 px head, so nothing scrolls the page.
+   ============================================================ */
+@layer components {
+  .app-shell {
+    display: grid;
+    grid-template-columns: var(--nav-w) minmax(0, 1fr) var(--detail-w);
+    height: 100dvh;
+    overflow: hidden;
+  }
+
+  /* Wide screens can afford a roomier panel */
+  @media (min-width: 1536px) {
+    .app-shell { --detail-w: 440px; }
+  }
+
+  /* The navigation drops to icons, the panel gives up 20 px */
+  @media (max-width: 1279px) {
+    .app-shell { --nav-w: var(--nav-w-collapsed); --detail-w: 380px; }
+  }
+
+  /* Tablet: the panel leaves the grid and comes in over the content */
+  @media (max-width: 1023px) {
+    .app-shell { grid-template-columns: var(--nav-w) minmax(0, 1fr); }
+  }
+
+  /* Phone: one column, navigation at the bottom, panel as a full sheet */
+  @media (max-width: 767px) {
+    .app-shell { grid-template-columns: minmax(0, 1fr); }
+  }
+
+  .app-nav {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    background-color: var(--surface);
+    border-right: 1px solid var(--border);
+    overflow: hidden;
+  }
+  @media (max-width: 767px) {
+    .app-nav { display: none; }
+  }
+
+  .app-content {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    background-color: var(--bg);
+    overflow: hidden;
+  }
+
+  .app-detail {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    background-color: var(--surface);
+    border-left: 1px solid var(--border);
+    overflow: hidden;
+  }
+
+  /* Tablet: a drawer from the right over the content */
+  @media (max-width: 1023px) and (min-width: 768px) {
+    .app-detail {
+      position: fixed;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      width: var(--detail-w);
+      z-index: 40;
+    }
+  }
+
+  /* Phone: a sheet over everything */
+  @media (max-width: 767px) {
+    .app-detail {
+      position: fixed;
+      inset: 0;
+      width: auto;
+      border-left: 0;
+      z-index: 50;
+    }
+  }
+
+  /* As an overlay the panel is only in the way when it is open */
+  @media (max-width: 1023px) {
+    .app-detail[data-open="false"] { display: none; }
+  }
+
+  .app-detail-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 39;
+    background-color: rgba(0, 0, 0, 0.32);
+  }
+
+  /* One head per column: 48 px, one line under it, never scrolls away */
+  .app-col-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: none;
+    height: var(--header-h);
+    padding: 0 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .app-col-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+}
+
+/* ============================================================
    Transitional layer, phases 2 to 8 remove it.
 
    The glass, blur and tint rules these class names used to carry

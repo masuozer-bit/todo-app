@@ -240,6 +240,14 @@ export const de: Record<string, string> = {
   "Your account information": "Deine Kontodaten",
   "Customize the look and feel": "Aussehen anpassen",
 
+  // ── Detail panel ────────────────────────────────────────────────────
+  "No task selected": "Keine Aufgabe ausgewählt",
+  "New task": "Neue Aufgabe",
+  "Open": "Öffnen",
+  "Mark as done": "Abhaken",
+  "Mark as not done": "Haken entfernen",
+  "Due": "Fällig",
+
   // ── Appearance: theme, accent, density ──────────────────────────────
   "Theme": "Theme",
   "System": "System",

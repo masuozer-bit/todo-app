@@ -68,6 +68,10 @@ interface TodoItemProps {
   onStartLiveTask?: (todoId: string) => void;
   isLiveTask?: boolean;
   highlighted?: boolean;
+  /** True when this task is the one open in the detail panel. */
+  selected?: boolean;
+  /** Opens the task in the detail panel. Phase 5 makes this the only way in. */
+  onSelect?: (id: string) => void;
 }
 
 const PRIORITY_CONFIG: Record<Priority, { label: string; color: string; dot: string }> = {
@@ -136,6 +140,8 @@ function TodoItem({
   onStartLiveTask,
   isLiveTask = false,
   highlighted = false,
+  selected = false,
+  onSelect,
 }: TodoItemProps) {
   const { t } = useI18n();
   const itemRef = useRef<HTMLDivElement>(null);
@@ -385,7 +391,7 @@ function TodoItem({
         <div
           className={`relative px-3 py-2 cursor-pointer transition-default ${
             isDragging ? "opacity-50 scale-[1.02] shadow-lg" : ""
-          } ${todo.completed ? "opacity-60" : ""} ${highlighted ? "ring-2 ring-blue-500/60 ring-offset-1" : ""}`}
+          } ${todo.completed ? "opacity-60" : ""} ${highlighted ? "ring-2 ring-blue-500/60 ring-offset-1" : ""} ${selected ? "row-selected" : ""}`}
           onClick={handleToggle}
           {...dragHandleProps}
           aria-label={`Mark "${todo.title}" as ${todo.completed ? "incomplete" : "complete"}`}
@@ -577,7 +583,11 @@ function TodoItem({
               </button>
             )}
             <button
-              onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (onSelect) { onSelect(todo.id); return; }
+                setExpanded(!expanded);
+              }}
               className="p-1.5 [@media(hover:none)]:p-2.5 rounded-lg text-gray-400 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-default"
               aria-label={expanded ? "Collapse" : "Expand"}
             >

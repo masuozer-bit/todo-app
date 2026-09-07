@@ -143,7 +143,7 @@ const EVENT_COLORS = [
 
 const INPUT =
   "text-xs bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 text-white placeholder:text-white/30 focus:outline-none focus:border-white/30 transition-colors";
-const LABEL = "text-[10px] text-white/40 uppercase tracking-wide mb-1.5";
+const LABEL = "text-[11px] text-white/40 uppercase tracking-wide mb-1.5";
 
 // ─── TaskRow ──────────────────────────────────────────────────────────────────
 
@@ -190,7 +190,7 @@ function TaskRow({
           className="flex-1 bg-transparent text-sm text-white placeholder:text-white/30 focus:outline-none min-w-0"
         />
         <div className="flex items-center gap-1 flex-shrink-0">
-          <span className="text-[10px] text-white/30">Day</span>
+          <span className="text-[11px] text-white/30">Day</span>
           <input
             type="number"
             min={1}
@@ -201,7 +201,7 @@ function TaskRow({
         </div>
         <span className={`w-2 h-2 rounded-full flex-shrink-0 ${PRIORITY_DOT[draft.priority]}`} />
         {estLabel && (
-          <span className="text-[10px] text-white/30 tabular-nums flex-shrink-0">{estLabel}</span>
+          <span className="text-[11px] text-white/30 tabular-nums flex-shrink-0">{estLabel}</span>
         )}
         <button
           onClick={onRemove}
@@ -379,7 +379,7 @@ function EventRow({
           />
         </div>
         <div className="flex items-center gap-1 flex-shrink-0">
-          <span className="text-[10px] text-white/30">Day</span>
+          <span className="text-[11px] text-white/30">Day</span>
           <input
             type="number"
             min={1}
@@ -391,7 +391,7 @@ function EventRow({
           />
           {draft.start_day !== draft.end_day && (
             <>
-              <span className="text-[10px] text-white/20">→</span>
+              <span className="text-[11px] text-white/20">→</span>
               <input
                 type="number"
                 min={parseInt(draft.start_day) || 1}
@@ -473,7 +473,7 @@ function EventRow({
             <div className="flex items-center justify-between mb-2">
               <button
                 onClick={() => setTasksExpanded((v) => !v)}
-                className="flex items-center gap-1.5 text-[10px] text-white/40 uppercase tracking-wide hover:text-white/70 transition-colors"
+                className="flex items-center gap-1.5 text-[11px] text-white/40 uppercase tracking-wide hover:text-white/70 transition-colors"
               >
                 {tasksExpanded ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
                 Tasks ({draft.tasks.length})
@@ -776,17 +776,17 @@ export default function TemplatesModal({
                       <h2 className="text-base font-semibold text-white mb-1.5">{t.name}</h2>
                       <div className="flex items-center gap-1.5 flex-wrap">
                         {maxDay > 1 && (
-                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/8 text-white/50">
+                          <span className="text-[11px] px-2 py-0.5 rounded-full bg-white/8 text-white/50">
                             {maxDay} days
                           </span>
                         )}
                         {taskCount > 0 && (
-                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/8 text-white/50">
+                          <span className="text-[11px] px-2 py-0.5 rounded-full bg-white/8 text-white/50">
                             {taskCount} task{taskCount !== 1 ? "s" : ""}
                           </span>
                         )}
                         {evtCount > 0 && (
-                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/8 text-white/50">
+                          <span className="text-[11px] px-2 py-0.5 rounded-full bg-white/8 text-white/50">
                             {evtCount} event{evtCount !== 1 ? "s" : ""}
                           </span>
                         )}
@@ -833,7 +833,7 @@ export default function TemplatesModal({
                     {days.map((day) => (
                       <div key={day}>
                         {maxDay > 1 && (
-                          <p className="text-[10px] text-white/30 uppercase tracking-wide mb-2 font-medium">
+                          <p className="text-[11px] text-white/30 uppercase tracking-wide mb-2 font-medium">
                             Day {day}
                           </p>
                         )}
@@ -857,7 +857,7 @@ export default function TemplatesModal({
                                 )}
                               </span>
                               {e.start_time && (
-                                <span className="text-[10px] text-white/30 tabular-nums">
+                                <span className="text-[11px] text-white/30 tabular-nums">
                                   {e.start_time}
                                 </span>
                               )}
@@ -885,7 +885,7 @@ export default function TemplatesModal({
                                 )}
                               </span>
                               {task.estimated_time != null && task.estimated_time > 0 && (
-                                <span className="text-[10px] text-white/30 tabular-nums">
+                                <span className="text-[11px] text-white/30 tabular-nums">
                                   {fmtEst(task.estimated_time)}
                                 </span>
                               )}

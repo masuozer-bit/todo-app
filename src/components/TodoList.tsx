@@ -21,6 +21,8 @@ import type { Todo, Tag, Priority, List, Event, HabitWithStatus } from "@/lib/ty
 import SortableItem from "./SortableItem";
 import ManualSortWrapper from "./ManualSortWrapper";
 import TodoItem from "./TodoItem";
+import { formatTime } from "@/lib/format";
+import { PRIORITY_META } from "@/lib/priority";
 import ConfirmDialog from "./ConfirmDialog";
 import BulkActionBar from "./BulkActionBar";
 
@@ -35,10 +37,10 @@ const PRIORITY_ORDER: Record<Priority, number> = {
 };
 
 const PRIORITY_DOT: Record<Priority, string> = {
-  high: "bg-red-500",
-  medium: "bg-yellow-500",
-  low: "bg-green-500",
-  none: "bg-gray-300 dark:bg-gray-600",
+  high: PRIORITY_META.high.dot,
+  medium: PRIORITY_META.medium.dot,
+  low: PRIORITY_META.low.dot,
+  none: PRIORITY_META.none.dot,
 };
 
 type TimelineGroup = {
@@ -186,7 +188,7 @@ function formatShortDate(dateStr: string): string {
   if (diffDays < 0) return `${Math.abs(diffDays)}d overdue`;
   if (diffDays === 0) return "Today";
   if (diffDays === 1) return "Tomorrow";
-  return due.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  return due.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
 }
 
 // ── Event peek ticker (cycling animated strip) ────────────────────
@@ -218,12 +220,12 @@ function EventPeekRow({ incompleteTodos, eventColor }: { incompleteTodos: Todo[]
           className="w-1.5 h-1.5 rounded-full flex-shrink-0"
           style={{ backgroundColor: dotColor, boxShadow: `0 0 6px ${dotColor}cc, 0 0 12px ${dotColor}66` }}
         />
-        <span className="text-[10px] text-white whitespace-nowrap leading-none tracking-wide font-semibold" style={{ textShadow: "0 1px 8px rgba(0,0,0,0.9), 0 0 16px rgba(0,0,0,0.5)" }}>
+        <span className="text-[11px] text-white whitespace-nowrap leading-none tracking-wide font-semibold" style={{ textShadow: "0 1px 8px rgba(0,0,0,0.9), 0 0 16px rgba(0,0,0,0.5)" }}>
           {todo.title}
         </span>
         {label && (
           <span
-            className="text-[10px] flex-shrink-0 leading-none font-semibold tracking-wide"
+            className="text-[11px] flex-shrink-0 leading-none font-semibold tracking-wide"
             style={{ color: dotColor, textShadow: `0 1px 4px rgba(0,0,0,0.8), 0 0 10px ${dotColor}cc` }}
           >
             · {label}
@@ -700,13 +702,7 @@ export default function TodoList({
   function renderHabitRow(habit: HabitWithStatus) {
     const list = lists?.find((l) => l.id === habit.list_id);
     const listColor = list?.color ?? null;
-    const time12 = habit.time
-      ? (() => {
-          const [h, m] = habit.time!.split(":").map(Number);
-          const ampm = h >= 12 ? "PM" : "AM";
-          return `${h % 12 || 12}:${String(m).padStart(2, "0")} ${ampm}`;
-        })()
-      : null;
+    const habitTime = habit.time ? formatTime(habit.time) : null;
     const scheduleLabel = habit.schedule_type === "weekly"
       ? habit.schedule_days.map((d) => ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][d]).join(", ")
       : habit.schedule_interval === 1 ? "Daily" : `Every ${habit.schedule_interval}d`;
@@ -739,16 +735,16 @@ export default function TodoList({
           </span>
           {/* Badges */}
           <div className="flex items-center gap-2 flex-shrink-0">
-            <span className="flex items-center gap-1 text-[10px] text-black/40 dark:text-gray-500">
+            <span className="flex items-center gap-1 text-[11px] text-black/40 dark:text-gray-500">
               <Repeat size={9} />{scheduleLabel}
             </span>
-            {time12 && (
-              <span className="flex items-center gap-1 text-[10px] text-black/40 dark:text-gray-500">
-                <Clock size={9} />{time12}
+            {habitTime && (
+              <span className="flex items-center gap-1 text-[11px] text-black/40 dark:text-gray-500">
+                <Clock size={9} />{habitTime}
               </span>
             )}
             {habit.streak > 0 && (
-              <span className="flex items-center gap-0.5 text-[10px] text-orange-500 dark:text-orange-400">
+              <span className="flex items-center gap-0.5 text-[11px] text-orange-500 dark:text-orange-400">
                 <Flame size={9} />{habit.streak}
               </span>
             )}
@@ -794,7 +790,7 @@ export default function TodoList({
                 </p>
                 {/* Active task count badge — color-coded by due-date urgency */}
                 {activeCount > 0 && (
-                  <span className="flex-shrink-0 min-w-[18px] h-[18px] rounded-full text-[10px] font-semibold flex items-center justify-center px-1 tabular-nums leading-none" style={URGENCY_STYLE[getEventUrgency(eventTodos)]}>
+                  <span className="flex-shrink-0 min-w-[18px] h-[18px] rounded-full text-[11px] font-semibold flex items-center justify-center px-1 tabular-nums leading-none" style={URGENCY_STYLE[getEventUrgency(eventTodos)]}>
                     {activeCount}
                   </span>
                 )}
@@ -825,7 +821,7 @@ export default function TodoList({
                       }}
                     />
                   </div>
-                  <span className="text-[10px] text-gray-400 flex-shrink-0">
+                  <span className="text-[11px] text-gray-400 flex-shrink-0">
                     {doneCount}/{eventTodos.length}
                   </span>
                 </div>
@@ -837,7 +833,7 @@ export default function TodoList({
               {onOpenEventDetail && (
                 <button
                   onClick={() => onOpenEventDetail(event.id)}
-                  className="text-gray-400 hover:text-black dark:hover:text-white transition-default p-1"
+                  className="text-gray-400 hover:text-black dark:hover:text-white transition-default p-1.5 [@media(hover:none)]:p-2.5"
                   aria-label="Open project"
                   title="Open project view"
                 >
@@ -847,7 +843,7 @@ export default function TodoList({
               {onDeleteEvent && (
                 <button
                   onClick={() => onDeleteEvent(event.id)}
-                  className="text-gray-400 hover:text-red-500 transition-default p-1"
+                  className="text-gray-400 hover:text-red-500 transition-default p-1.5 [@media(hover:none)]:p-2.5"
                   aria-label="Delete project"
                   title="Delete project"
                 >
@@ -1225,7 +1221,7 @@ export default function TodoList({
                       className={`flex-shrink-0 text-black/40 dark:text-gray-400 transition-transform duration-200 ${showSomeday ? "rotate-90" : ""}`}
                     />
                   )}
-                  <span className={`text-[10px] font-bold uppercase tracking-widest whitespace-nowrap ${
+                  <span className={`text-[11px] font-bold uppercase tracking-widest whitespace-nowrap ${
                     group.key === "overdue"
                       ? "text-red-500 dark:text-red-400"
                       : group.key === "today"
@@ -1234,7 +1230,7 @@ export default function TodoList({
                   }`}>
                     {group.label}
                   </span>
-                  <span className="text-[10px] text-black/35 dark:text-gray-600 font-normal tabular-nums whitespace-nowrap">
+                  <span className="text-[11px] text-black/35 dark:text-gray-600 font-normal tabular-nums whitespace-nowrap">
                     {count}
                   </span>
                   <div className={`flex-1 h-px ${
@@ -1263,10 +1259,10 @@ export default function TodoList({
                 className="flex items-center gap-2 w-full text-left mb-3 cursor-pointer transition-default"
               >
                 <ChevronRight size={10} className={`flex-shrink-0 text-black/40 dark:text-gray-400 transition-transform duration-200 ${showDone ? "rotate-90" : ""}`} />
-                <span className="text-[10px] font-bold uppercase tracking-widest text-black/50 dark:text-gray-500 whitespace-nowrap">
+                <span className="text-[11px] font-bold uppercase tracking-widest text-black/50 dark:text-gray-500 whitespace-nowrap">
                   Done
                 </span>
-                <span className="text-[10px] text-black/35 dark:text-gray-600 font-normal tabular-nums whitespace-nowrap">
+                <span className="text-[11px] text-black/35 dark:text-gray-600 font-normal tabular-nums whitespace-nowrap">
                   {standaloneCompletedTodos.length}
                 </span>
                 <div className="flex-1 h-px bg-black/10 dark:bg-white/[0.07]" />
@@ -1330,10 +1326,10 @@ export default function TodoList({
                 className="flex items-center gap-2 w-full text-left mb-3 cursor-pointer transition-default"
               >
                 <ChevronRight size={10} className={`flex-shrink-0 text-black/40 dark:text-gray-400 transition-transform duration-200 ${showDone ? "rotate-90" : ""}`} />
-                <span className="text-[10px] font-bold uppercase tracking-widest text-black/50 dark:text-gray-500 whitespace-nowrap">
+                <span className="text-[11px] font-bold uppercase tracking-widest text-black/50 dark:text-gray-500 whitespace-nowrap">
                   Done
                 </span>
-                <span className="text-[10px] text-black/35 dark:text-gray-600 font-normal tabular-nums whitespace-nowrap">
+                <span className="text-[11px] text-black/35 dark:text-gray-600 font-normal tabular-nums whitespace-nowrap">
                   {standaloneCompletedTodos.length}
                 </span>
                 <div className="flex-1 h-px bg-black/10 dark:bg-white/[0.07]" />

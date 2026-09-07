@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { X, ChevronLeft, ChevronRight, Check } from "lucide-react";
+import { formatTime } from "@/lib/format";
 import type { HabitWithStatus, HabitCompletion } from "@/lib/types";
 
 interface HabitWeekModalProps {
@@ -44,12 +45,6 @@ function isScheduledForDate(habit: HabitWithStatus, date: Date): boolean {
   return diffDays >= 0 && diffDays % interval === 0;
 }
 
-function formatTime12(time24: string): string {
-  const [h, m] = time24.split(":").map(Number);
-  const ampm = h >= 12 ? "PM" : "AM";
-  const h12 = h % 12 || 12;
-  return `${h12}:${String(m).padStart(2, "0")} ${ampm}`;
-}
 
 export default function HabitWeekModal({ habit, completions, onClose }: HabitWeekModalProps) {
   const today = new Date();
@@ -108,7 +103,7 @@ export default function HabitWeekModal({ habit, completions, onClose }: HabitWee
             </h2>
             {(habit.time) && (
               <p className="text-xs text-black/40 dark:text-gray-500 mt-0.5">
-                {formatTime12(habit.time)}{habit.end_time ? ` – ${formatTime12(habit.end_time)}` : ""}
+                {formatTime(habit.time)}{habit.end_time ? ` – ${formatTime(habit.end_time)}` : ""}
               </p>
             )}
           </div>
@@ -137,7 +132,7 @@ export default function HabitWeekModal({ habit, completions, onClose }: HabitWee
             {!isCurrentWeek && (
               <button
                 onClick={goToday}
-                className="text-[10px] px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 text-black/50 dark:text-gray-400 hover:text-black dark:hover:text-white transition-default"
+                className="text-[11px] px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 text-black/50 dark:text-gray-400 hover:text-black dark:hover:text-white transition-default"
               >
                 today
               </button>
@@ -164,7 +159,7 @@ export default function HabitWeekModal({ habit, completions, onClose }: HabitWee
             return (
               <div key={dateStr} className="flex flex-col items-center gap-1.5 py-2">
                 {/* Day label */}
-                <span className={`text-[10px] font-medium uppercase tracking-wider ${
+                <span className={`text-[11px] font-medium uppercase tracking-wider ${
                   isToday ? "text-black dark:text-white" : "text-black/40 dark:text-gray-500"
                 }`}>
                   {DAY_SHORT[day.getDay()]}
@@ -216,15 +211,15 @@ export default function HabitWeekModal({ habit, completions, onClose }: HabitWee
 
         {/* Legend */}
         <div className="flex items-center gap-4 mt-3 pt-3 border-t border-black/5 dark:border-white/5">
-          <span className="flex items-center gap-1.5 text-[10px] text-black/40 dark:text-gray-600">
+          <span className="flex items-center gap-1.5 text-[11px] text-black/40 dark:text-gray-600">
             <Check size={10} className="text-green-500" strokeWidth={2.5} />
             Completed
           </span>
-          <span className="flex items-center gap-1.5 text-[10px] text-black/40 dark:text-gray-600">
+          <span className="flex items-center gap-1.5 text-[11px] text-black/40 dark:text-gray-600">
             <span className="w-3 h-3 rounded-md bg-black/10 dark:bg-white/10 inline-block" />
             Scheduled
           </span>
-          <span className="flex items-center gap-1.5 text-[10px] text-black/40 dark:text-gray-600">
+          <span className="flex items-center gap-1.5 text-[11px] text-black/40 dark:text-gray-600">
             <span className="w-3 h-3 rounded-md bg-transparent border border-black/10 dark:border-white/10 inline-block" />
             Not scheduled
           </span>

@@ -119,18 +119,23 @@ export default function LavaLampBackground({ tint, opacity = 0.58 }: { tint: str
     /* reset index so every mount gets a fresh deterministic spread */
     _fi = 0;
 
+    /* Half resolution: the whole thing is blurred anyway, and this is a
+       quarter of the pixels to paint every frame. Radii scale with it, so
+       the blobs keep their size on screen. */
+    const SCALE = 0.5;
+
     /* ── blob definitions (created once, moved via maths) ── */
     const blobs: BlobDef[] = [
-      /* 4 large  */ ...Array.from({ length: 4  }, () => makeBlob(145 + Math.random() * 65)),
-      /* 5 medium */ ...Array.from({ length: 5  }, () => makeBlob(75  + Math.random() * 55)),
-      /* 5 small  */ ...Array.from({ length: 5  }, () => makeBlob(32  + Math.random() * 38)),
-      /* 3 micro  */ ...Array.from({ length: 3  }, () => makeBlob(14  + Math.random() * 18)),
+      /* 4 large  */ ...Array.from({ length: 4  }, () => makeBlob((145 + Math.random() * 65) * SCALE)),
+      /* 5 medium */ ...Array.from({ length: 5  }, () => makeBlob((75  + Math.random() * 55) * SCALE)),
+      /* 5 small  */ ...Array.from({ length: 5  }, () => makeBlob((32  + Math.random() * 38) * SCALE)),
+      /* 3 micro  */ ...Array.from({ length: 3  }, () => makeBlob((14  + Math.random() * 18) * SCALE)),
     ];
 
     /* ── canvas sizing ── */
     const resize = () => {
-      canvas.width  = window.innerWidth;
-      canvas.height = window.innerHeight;
+      canvas.width  = Math.round(window.innerWidth * SCALE);
+      canvas.height = Math.round(window.innerHeight * SCALE);
     };
     resize();
     window.addEventListener("resize", resize);
@@ -145,9 +150,20 @@ export default function LavaLampBackground({ tint, opacity = 0.58 }: { tint: str
     const ctx   = canvas.getContext("2d")!;
     let   t     = Math.random() * 50_000;
     let   animId = 0;
+    /* 30 fps is plenty for slowly drifting blobs and halves the work */
+    const FRAME_MS = 1000 / 30;
+    let   lastFrame = 0;
+    const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
 
-    const draw = () => {
-      t++;
+    const draw = (now = 0) => {
+      animId = requestAnimationFrame(draw);
+
+      // Nothing to paint while the tab is hidden
+      if (document.hidden) return;
+      if (now - lastFrame < FRAME_MS) return;
+      lastFrame = now;
+
+      if (!reduceMotion) t++;
       const w = canvas.width;
       const h = canvas.height;
 
@@ -190,8 +206,6 @@ export default function LavaLampBackground({ tint, opacity = 0.58 }: { tint: str
 
         drawBlobShape(ctx, x, y, b, t);
       }
-
-      animId = requestAnimationFrame(draw);
     };
 
     draw();
@@ -220,7 +234,8 @@ export default function LavaLampBackground({ tint, opacity = 0.58 }: { tint: str
           contrast — snaps blurred edges back into hard organic outlines
           Together these produce the classic "metaball / goo" silhouette.
         */
-        filter:        "blur(30px) contrast(14)",
+        /* the canvas is rendered at half resolution, so half the blur here */
+        filter:        "blur(15px) contrast(14)",
         opacity,
       }}
     />

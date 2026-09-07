@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useMemo, useState } from "react";
 import { Repeat, Maximize2 } from "lucide-react";
+import { formatTime } from "@/lib/format";
 import type { Todo, HabitWithStatus, List, Event } from "@/lib/types";
 import ScheduleWeekModal from "./ScheduleWeekModal";
 
@@ -34,12 +35,6 @@ function parseTime(t: string): number {
   return h * 60 + m;
 }
 
-function fmtTime(t: string): string {
-  const [h, m] = t.split(":").map(Number);
-  const suffix = h >= 12 ? "pm" : "am";
-  const hr = h === 0 ? 12 : h > 12 ? h - 12 : h;
-  return m === 0 ? `${hr}${suffix}` : `${hr}:${String(m).padStart(2, "0")}${suffix}`;
-}
 
 function hourLabel(d: Date): string {
   const h = d.getHours();
@@ -153,9 +148,9 @@ export default function TimelinePanel({ todos, habits, lists, events, onTodoClic
     <div className="glass-card overflow-hidden flex flex-col" style={{ height: 420 }}>
       {/* Header */}
       <div className="px-3 pt-2.5 pb-2 flex items-center gap-2 border-b border-black/[0.06] dark:border-white/[0.05]">
-        <span className="text-[10px] font-bold uppercase tracking-widest text-black/50 dark:text-gray-400">Schedule</span>
+        <span className="text-[11px] font-bold uppercase tracking-widest text-black/50 dark:text-gray-400">Schedule</span>
         <div className="flex-1 h-px bg-black/[0.06] dark:bg-white/[0.05]" />
-        <span className="text-[10px] text-black/30 dark:text-gray-600 tabular-nums">{currentTimeLabel}</span>
+        <span className="text-[11px] text-black/30 dark:text-gray-600 tabular-nums">{currentTimeLabel}</span>
         <button
           onClick={toggleWeekModal}
           className="text-black/25 dark:text-gray-700 hover:text-black dark:hover:text-white transition-default"
@@ -181,7 +176,7 @@ export default function TimelinePanel({ todos, habits, lists, events, onTodoClic
                 style={{ top: topPx }}
               >
                 <div className="w-10 flex-shrink-0 flex items-start justify-end pr-2 -translate-y-2">
-                  <span className={`text-[10px] tabular-nums leading-none ${
+                  <span className={`text-[11px] tabular-nums leading-none ${
                     isPast
                       ? "text-black/15 dark:text-white/10"
                       : isMidnight
@@ -234,8 +229,8 @@ export default function TimelinePanel({ todos, habits, lists, events, onTodoClic
                 <div className="px-2 py-1 h-full flex flex-col justify-center">
                   <span className="text-[11px] font-medium text-white truncate leading-tight">{todo.title}</span>
                   {heightPx > 36 && (
-                    <span className="text-[9px] text-white/50 mt-0.5">
-                      {fmtTime(todo.start_time!)}{todo.end_time ? ` – ${fmtTime(todo.end_time)}` : ""}
+                    <span className="text-[11px] text-white/50 mt-0.5">
+                      {formatTime(todo.start_time!)}{todo.end_time ? ` – ${formatTime(todo.end_time)}` : ""}
                     </span>
                   )}
                 </div>
@@ -263,8 +258,8 @@ export default function TimelinePanel({ todos, habits, lists, events, onTodoClic
                   {habit.title}
                 </span>
                 {heightPx > 36 && (
-                  <span className="text-[9px] text-white/50 mt-0.5 pl-[18px]">
-                    {fmtTime(habit.time!)}{habit.end_time ? ` – ${fmtTime(habit.end_time)}` : ""}
+                  <span className="text-[11px] text-white/50 mt-0.5 pl-[18px]">
+                    {formatTime(habit.time!)}{habit.end_time ? ` – ${formatTime(habit.end_time)}` : ""}
                   </span>
                 )}
               </div>

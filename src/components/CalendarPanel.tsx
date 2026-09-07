@@ -39,7 +39,7 @@ function toDateStr(d: Date): string {
 
 function formatShort(dateStr: string): string {
   const [y, m, d] = dateStr.split("-").map(Number);
-  return new Date(y, m - 1, d).toLocaleDateString("en", { month: "short", day: "numeric" });
+  return new Date(y, m - 1, d).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
 }
 
 export default function CalendarPanel({
@@ -189,7 +189,7 @@ export default function CalendarPanel({
         {/* Day labels */}
         <div className="grid grid-cols-7 mb-1">
           {DAY_LABELS.map((label) => (
-            <div key={label} className="text-center text-[10px] font-medium text-gray-400 uppercase tracking-wider py-1">
+            <div key={label} className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-1">
               {label}
             </div>
           ))}
@@ -307,15 +307,15 @@ export default function CalendarPanel({
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-medium text-black dark:text-white truncate">{event.summary}</p>
                     {selectedDates.length > 1 && (
-                      <p className="text-[10px] text-gray-400 mt-0.5">{formatShort(event.date)}</p>
+                      <p className="text-[11px] text-gray-400 mt-0.5">{formatShort(event.date)}</p>
                     )}
                     {event.startTime ? (
-                      <p className="text-[10px] text-gray-400 flex items-center gap-0.5 mt-0.5">
+                      <p className="text-[11px] text-gray-400 flex items-center gap-0.5 mt-0.5">
                         <Clock size={9} />
                         {event.startTime}{event.endTime && `–${event.endTime}`}
                       </p>
                     ) : (
-                      <p className="text-[10px] text-gray-400 mt-0.5">All day</p>
+                      <p className="text-[11px] text-gray-400 mt-0.5">All day</p>
                     )}
                   </div>
                   {event.htmlLink && (

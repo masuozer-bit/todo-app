@@ -90,7 +90,7 @@ export default function LiveTaskBar({ todo, lists, onSaveTime, onClose }: LiveTa
   }, [running, todo.id, onSaveTime]);
 
   return (
-    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3 rounded-2xl glass-card-raised shadow-2xl max-w-lg w-[calc(100%-2rem)]"
+    <div className="fixed bottom-32 md:bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3 rounded-2xl glass-card-raised shadow-2xl max-w-lg w-[calc(100%-2rem)]"
       style={listColor ? { borderBottom: `3px solid ${listColor}` } : undefined}
     >
       {/* Pulse indicator */}
@@ -104,7 +104,7 @@ export default function LiveTaskBar({ todo, lists, onSaveTime, onClose }: LiveTa
       {/* Task info */}
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-black dark:text-white truncate">{todo.title}</p>
-        <p className="text-[10px] text-black/40 dark:text-gray-500">
+        <p className="text-[11px] text-black/40 dark:text-gray-500">
           {confirmReset ? "Click reset again to clear the time" : running ? "Tracking..." : "Paused"}
         </p>
       </div>

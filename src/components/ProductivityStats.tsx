@@ -53,15 +53,15 @@ export default function ProductivityStats({ todos }: ProductivityStatsProps) {
     <div className="flex items-center justify-around px-1 py-0.5">
       <div className="flex items-center gap-1" title="Done today">
         <Target size={10} className="text-green-500/60" />
-        <span className="text-[10px] tabular-nums text-black/30 dark:text-white/25">{stats.completedToday}</span>
+        <span className="text-[11px] tabular-nums text-black/30 dark:text-white/25">{stats.completedToday}</span>
       </div>
       <div className="flex items-center gap-1" title="Done this week">
         <TrendingUp size={10} className="text-blue-500/60" />
-        <span className="text-[10px] tabular-nums text-black/30 dark:text-white/25">{stats.completedThisWeek}</span>
+        <span className="text-[11px] tabular-nums text-black/30 dark:text-white/25">{stats.completedThisWeek}</span>
       </div>
       <div className="flex items-center gap-1" title="Active">
         <CheckCircle2 size={10} className="text-white/20" />
-        <span className="text-[10px] tabular-nums text-black/30 dark:text-white/25">{stats.totalActive}</span>
+        <span className="text-[11px] tabular-nums text-black/30 dark:text-white/25">{stats.totalActive}</span>
       </div>
     </div>
   );

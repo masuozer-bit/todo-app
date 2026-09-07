@@ -17,7 +17,7 @@ import { CustomSelect, DatePicker, TimePicker } from "./Pickers";
 
 function formatEventDate(dateStr: string): string {
   const [y, m, d] = dateStr.split("-").map(Number);
-  return new Date(y, m - 1, d).toLocaleDateString(undefined, {
+  return new Date(y, m - 1, d).toLocaleDateString("en-GB", {
     month: "short",
     day: "numeric",
   });

@@ -190,7 +190,7 @@ export default function CommandReference() {
                   <span className="text-xs font-semibold text-black dark:text-white uppercase tracking-wide">
                     Keyboard Shortcuts
                   </span>
-                  <span className="text-[10px] text-gray-400 bg-black/5 dark:bg-white/10 px-1.5 py-0.5 rounded-full">
+                  <span className="text-[11px] text-gray-400 bg-black/5 dark:bg-white/10 px-1.5 py-0.5 rounded-full">
                     {filteredShortcuts.length}
                   </span>
                 </div>
@@ -205,7 +205,7 @@ export default function CommandReference() {
                   {filteredShortcuts.map((s) => (
                     <div key={s.keys} className="flex items-center justify-between py-1.5 border-t border-black/[0.03] dark:border-white/[0.05]">
                       <span className="text-xs text-gray-600 dark:text-gray-400">{s.description}</span>
-                      <kbd className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-black/[0.04] dark:bg-white/[0.08] text-black dark:text-white border border-black/[0.06] dark:border-white/[0.08]">
+                      <kbd className="text-[11px] font-mono px-2 py-0.5 rounded-md bg-black/[0.04] dark:bg-white/[0.08] text-black dark:text-white border border-black/[0.06] dark:border-white/[0.08]">
                         {s.keys}
                       </kbd>
                     </div>
@@ -232,7 +232,7 @@ export default function CommandReference() {
                     <span className="text-xs font-semibold text-black dark:text-white uppercase tracking-wide">
                       {category.name}
                     </span>
-                    <span className="text-[10px] text-gray-400 bg-black/5 dark:bg-white/10 px-1.5 py-0.5 rounded-full">
+                    <span className="text-[11px] text-gray-400 bg-black/5 dark:bg-white/10 px-1.5 py-0.5 rounded-full">
                       {category.commands.length}
                     </span>
                   </div>
@@ -258,7 +258,7 @@ export default function CommandReference() {
                             {cmd.description}
                           </p>
                           {cmd.example && (
-                            <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5 truncate">
+                            <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5 truncate">
                               e.g. &ldquo;{cmd.example}&rdquo;
                             </p>
                           )}
@@ -286,7 +286,7 @@ export default function CommandReference() {
                     <code className="block text-xs font-mono px-3 py-2 rounded-lg bg-black/[0.03] dark:bg-white/[0.06] text-black dark:text-white border border-black/[0.06] dark:border-white/[0.08] break-words">
                       {ex.input}
                     </code>
-                    <p className="text-[10px] text-gray-400 dark:text-gray-500 pl-3">
+                    <p className="text-[11px] text-gray-400 dark:text-gray-500 pl-3">
                       → {ex.parsed}
                     </p>
                   </div>

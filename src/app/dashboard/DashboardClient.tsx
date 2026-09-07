@@ -146,17 +146,17 @@ function SortableListItem({
           {(badges.overdue > 0 || badges.today > 0 || badges.thisWeek > 0) && (
             <div className="flex items-center gap-0.5 flex-shrink-0 mr-3">
               {badges.overdue > 0 && (
-                <span className="min-w-[18px] h-[18px] rounded-full text-[10px] font-semibold flex items-center justify-center px-1 tabular-nums leading-none" style={URGENCY_STYLE.overdue}>
+                <span className="min-w-[18px] h-[18px] rounded-full text-[11px] font-semibold flex items-center justify-center px-1 tabular-nums leading-none" style={URGENCY_STYLE.overdue}>
                   {badges.overdue}
                 </span>
               )}
               {badges.today > 0 && (
-                <span className="min-w-[18px] h-[18px] rounded-full text-[10px] font-semibold flex items-center justify-center px-1 tabular-nums leading-none" style={URGENCY_STYLE.today}>
+                <span className="min-w-[18px] h-[18px] rounded-full text-[11px] font-semibold flex items-center justify-center px-1 tabular-nums leading-none" style={URGENCY_STYLE.today}>
                   {badges.today}
                 </span>
               )}
               {badges.thisWeek > 0 && (
-                <span className="min-w-[18px] h-[18px] rounded-full text-[10px] font-semibold flex items-center justify-center px-1 tabular-nums leading-none" style={URGENCY_STYLE.soon}>
+                <span className="min-w-[18px] h-[18px] rounded-full text-[11px] font-semibold flex items-center justify-center px-1 tabular-nums leading-none" style={URGENCY_STYLE.soon}>
                   {badges.thisWeek}
                 </span>
               )}
@@ -256,13 +256,13 @@ function FolderGroup({
             {(badges.overdue > 0 || badges.today > 0 || badges.thisWeek > 0) && (
               <div className="flex items-center gap-0.5 flex-shrink-0 mr-3">
                 {badges.overdue > 0 && (
-                  <span className="min-w-[18px] h-[18px] rounded-full text-[10px] font-semibold flex items-center justify-center px-1 tabular-nums leading-none" style={URGENCY_STYLE.overdue}>{badges.overdue}</span>
+                  <span className="min-w-[18px] h-[18px] rounded-full text-[11px] font-semibold flex items-center justify-center px-1 tabular-nums leading-none" style={URGENCY_STYLE.overdue}>{badges.overdue}</span>
                 )}
                 {badges.today > 0 && (
-                  <span className="min-w-[18px] h-[18px] rounded-full text-[10px] font-semibold flex items-center justify-center px-1 tabular-nums leading-none" style={URGENCY_STYLE.today}>{badges.today}</span>
+                  <span className="min-w-[18px] h-[18px] rounded-full text-[11px] font-semibold flex items-center justify-center px-1 tabular-nums leading-none" style={URGENCY_STYLE.today}>{badges.today}</span>
                 )}
                 {badges.thisWeek > 0 && (
-                  <span className="min-w-[18px] h-[18px] rounded-full text-[10px] font-semibold flex items-center justify-center px-1 tabular-nums leading-none" style={URGENCY_STYLE.soon}>{badges.thisWeek}</span>
+                  <span className="min-w-[18px] h-[18px] rounded-full text-[11px] font-semibold flex items-center justify-center px-1 tabular-nums leading-none" style={URGENCY_STYLE.soon}>{badges.thisWeek}</span>
                 )}
               </div>
             )}
@@ -283,7 +283,7 @@ function FolderGroup({
             />
           ))}
           {folderLists.length === 0 && (
-            <p className="text-[10px] text-gray-300 dark:text-gray-600 px-1 py-1">Drop lists here</p>
+            <p className="text-[11px] text-gray-300 dark:text-gray-600 px-1 py-1">Drop lists here</p>
           )}
         </div>
       )}
@@ -1130,9 +1130,9 @@ export default function DashboardClient({
                 <span className="flex-1 text-left truncate">All Tasks</span>
                 {(taskCounts.overdue > 0 || taskCounts.today > 0 || taskCounts.thisWeek > 0) && (
                   <div className="flex items-center gap-0.5 flex-shrink-0">
-                    {taskCounts.overdue > 0 && <span className="min-w-[18px] h-[18px] rounded-full text-[10px] font-semibold flex items-center justify-center px-1 tabular-nums leading-none" style={URGENCY_STYLE.overdue}>{taskCounts.overdue}</span>}
-                    {taskCounts.today > 0 && <span className="min-w-[18px] h-[18px] rounded-full text-[10px] font-semibold flex items-center justify-center px-1 tabular-nums leading-none" style={URGENCY_STYLE.today}>{taskCounts.today}</span>}
-                    {taskCounts.thisWeek > 0 && <span className="min-w-[18px] h-[18px] rounded-full text-[10px] font-semibold flex items-center justify-center px-1 tabular-nums leading-none" style={URGENCY_STYLE.soon}>{taskCounts.thisWeek}</span>}
+                    {taskCounts.overdue > 0 && <span className="min-w-[18px] h-[18px] rounded-full text-[11px] font-semibold flex items-center justify-center px-1 tabular-nums leading-none" style={URGENCY_STYLE.overdue}>{taskCounts.overdue}</span>}
+                    {taskCounts.today > 0 && <span className="min-w-[18px] h-[18px] rounded-full text-[11px] font-semibold flex items-center justify-center px-1 tabular-nums leading-none" style={URGENCY_STYLE.today}>{taskCounts.today}</span>}
+                    {taskCounts.thisWeek > 0 && <span className="min-w-[18px] h-[18px] rounded-full text-[11px] font-semibold flex items-center justify-center px-1 tabular-nums leading-none" style={URGENCY_STYLE.soon}>{taskCounts.thisWeek}</span>}
                   </div>
                 )}
               </button>
@@ -1140,20 +1140,20 @@ export default function DashboardClient({
               <button onClick={switchToToday} className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-sm transition-default ${quickFilter === "today" ? "glass-nav-active font-medium" : "text-black dark:text-white glass-nav-hover border border-transparent"}`}>
                 <Sun size={14} className="flex-shrink-0" />
                 <span className="flex-1 text-left truncate">Today</span>
-                {taskCounts.today > 0 && <span className="flex-shrink-0 min-w-[18px] h-[18px] rounded-full text-[10px] font-semibold flex items-center justify-center px-1 tabular-nums leading-none" style={URGENCY_STYLE["today"]}>{taskCounts.today}</span>}
+                {taskCounts.today > 0 && <span className="flex-shrink-0 min-w-[18px] h-[18px] rounded-full text-[11px] font-semibold flex items-center justify-center px-1 tabular-nums leading-none" style={URGENCY_STYLE["today"]}>{taskCounts.today}</span>}
               </button>
 
               <button onClick={switchToThisWeek} className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-sm transition-default ${quickFilter === "thisWeek" ? "glass-nav-active font-medium" : "text-black dark:text-white glass-nav-hover border border-transparent"}`}>
                 <CalendarDays size={14} className="flex-shrink-0" />
                 <span className="flex-1 text-left truncate">This Week</span>
-                {taskCounts.thisWeekTotal > 0 && <span className="flex-shrink-0 min-w-[18px] h-[18px] rounded-full text-[10px] font-semibold flex items-center justify-center px-1 tabular-nums leading-none" style={URGENCY_STYLE[taskCounts.thisWeekUrgency]}>{taskCounts.thisWeekTotal}</span>}
+                {taskCounts.thisWeekTotal > 0 && <span className="flex-shrink-0 min-w-[18px] h-[18px] rounded-full text-[11px] font-semibold flex items-center justify-center px-1 tabular-nums leading-none" style={URGENCY_STYLE[taskCounts.thisWeekUrgency]}>{taskCounts.thisWeekTotal}</span>}
               </button>
 
               {taskCounts.overdue > 0 && (
                 <button onClick={switchToOverdue} className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-sm transition-default ${quickFilter === "overdue" ? "glass-nav-active font-medium" : "text-black dark:text-white glass-nav-hover border border-transparent"}`}>
                   <AlertCircle size={14} className={`flex-shrink-0 ${quickFilter !== "overdue" ? "text-red-400" : ""}`} />
                   <span className="flex-1 text-left truncate">Overdue</span>
-                  <span className="flex-shrink-0 min-w-[18px] h-[18px] rounded-full text-[10px] font-semibold flex items-center justify-center px-1 tabular-nums leading-none" style={URGENCY_STYLE["overdue"]}>{taskCounts.overdue}</span>
+                  <span className="flex-shrink-0 min-w-[18px] h-[18px] rounded-full text-[11px] font-semibold flex items-center justify-center px-1 tabular-nums leading-none" style={URGENCY_STYLE["overdue"]}>{taskCounts.overdue}</span>
                 </button>
               )}
             </div>
@@ -1161,7 +1161,7 @@ export default function DashboardClient({
             {/* Lists pill */}
             <div className="glass-card px-2 py-2 space-y-0.5">
               <div className="flex items-center justify-between px-2.5 py-1">
-                <span className="text-[10px] text-black/40 dark:text-gray-600 uppercase tracking-wider font-medium">Lists</span>
+                <span className="text-[11px] text-black/40 dark:text-gray-600 uppercase tracking-wider font-medium">Lists</span>
                 <div className="flex items-center gap-1">
                   {!showNewFolder && (
                     <button onClick={() => setShowNewFolder(true)} className="text-gray-400 dark:text-gray-400 hover:text-black dark:hover:text-white transition-default" aria-label="New folder" title="New folder">
@@ -1263,7 +1263,7 @@ export default function DashboardClient({
               <button onClick={() => setShowTemplates(true)} className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-sm transition-default text-black dark:text-white glass-nav-hover border border-transparent">
                 <LayoutTemplate size={14} className="flex-shrink-0" />
                 <span className="flex-1 text-left truncate">Templates</span>
-                <span className="text-[10px] text-gray-400 font-mono">T</span>
+                <span className="text-[11px] text-gray-400 font-mono">T</span>
               </button>
             </div>
 
@@ -1301,7 +1301,7 @@ export default function DashboardClient({
                       <div className="flex-1 min-w-0">
                         <span className="text-[11px] font-medium text-black dark:text-white leading-snug line-clamp-2">{rule.title}</span>
                         {rule.description && (
-                          <p className="text-[9px] text-black/30 dark:text-gray-600 leading-tight mt-0.5 line-clamp-1">{rule.description}</p>
+                          <p className="text-[11px] text-black/30 dark:text-gray-600 leading-tight mt-0.5 line-clamp-1">{rule.description}</p>
                         )}
                       </div>
                       <button
@@ -1315,7 +1315,7 @@ export default function DashboardClient({
                 </div>
               )}
               {rules.length === 0 && !showRuleInput && (
-                <p className="text-[10px] text-gray-600 text-center py-2">No principles yet</p>
+                <p className="text-[11px] text-gray-600 text-center py-2">No principles yet</p>
               )}
             </div>
 
@@ -1792,6 +1792,8 @@ export default function DashboardClient({
         onSwitchToToday={switchToToday}
         onSwitchToThisWeek={switchToThisWeek}
         onAddList={() => setShowNewList(true)}
+        onCreateList={(name) => addList(name)}
+        onDeleteList={(id) => { deleteList(id); if (activeListId === id) switchToAllTasks(); }}
         todos={todos}
       />
 
@@ -1825,7 +1827,7 @@ export default function DashboardClient({
       {isMobile && !focusMode && (
         <button
           onClick={() => setFocusMode(true)}
-          className="md:hidden fixed bottom-8 right-6 z-40 flex items-center justify-center w-10 h-10 rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-black/5 dark:hover:bg-white/10 transition-all"
+          className="md:hidden fixed bottom-4 right-16 z-50 flex items-center justify-center w-11 h-11 rounded-full glass-card-subtle text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white transition-all"
           aria-label="Enter focus mode"
           title="Focus Mode"
         >

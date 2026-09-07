@@ -12,6 +12,7 @@ import {
   useDraggable,
   useDroppable,
 } from "@dnd-kit/core";
+import { PRIORITY_META } from "@/lib/priority";
 import type { DragStartEvent, DragEndEvent, DragMoveEvent } from "@dnd-kit/core";
 import type { Todo, HabitWithStatus, List, Event } from "@/lib/types";
 
@@ -141,7 +142,7 @@ function UnscheduledPill({ todo, listName, eventName }: { todo: Todo; listName?:
   });
 
   const priorityLabel = todo.priority === "high" ? "High" : todo.priority === "medium" ? "Med" : todo.priority === "low" ? "Low" : null;
-  const priorityColor = todo.priority === "high" ? "text-red-400" : todo.priority === "medium" ? "text-orange-400" : todo.priority === "low" ? "text-sky-400" : "";
+  const priorityColor = todo.priority && todo.priority !== "none" ? PRIORITY_META[todo.priority].text : "";
 
   return (
     <div
@@ -159,20 +160,20 @@ function UnscheduledPill({ todo, listName, eventName }: { todo: Todo; listName?:
           </span>
           <div className="flex items-center gap-1.5 mt-1 flex-wrap">
             {priorityLabel && (
-              <span className={`text-[10px] font-semibold ${priorityColor}`}>{priorityLabel}</span>
+              <span className={`text-[11px] font-semibold ${priorityColor}`}>{priorityLabel}</span>
             )}
             {todo.due_date && (
-              <span className="text-[10px] text-gray-500 tabular-nums">
+              <span className="text-[11px] text-gray-500 tabular-nums">
                 {formatRelDate(todo.due_date)}
               </span>
             )}
             {listName && (
-              <span className="text-[10px] text-gray-600 truncate max-w-[100px]">
+              <span className="text-[11px] text-gray-600 truncate max-w-[100px]">
                 {listName}
               </span>
             )}
             {eventName && (
-              <span className="text-[10px] text-emerald-400/70 truncate max-w-[120px] italic">
+              <span className="text-[11px] text-emerald-400/70 truncate max-w-[120px] italic">
                 {eventName}
               </span>
             )}
@@ -319,7 +320,7 @@ function ScheduledBlock({
             <span className="text-[11px] font-medium text-white truncate">{item.title}</span>
           </span>
           {displayHeight > 34 && (
-            <span className="text-[9px] text-white/40 mt-0.5 pl-[18px]">{item.extra}</span>
+            <span className="text-[11px] text-white/40 mt-0.5 pl-[18px]">{item.extra}</span>
           )}
         </div>
       </div>
@@ -340,7 +341,7 @@ function ScheduledBlock({
             <span className="text-[11px] font-medium text-white truncate">{item.title}</span>
           </span>
           {displayHeight > 34 && (
-            <span className="text-[9px] text-white/40 mt-0.5 pl-[18px]">{item.extra}</span>
+            <span className="text-[11px] text-white/40 mt-0.5 pl-[18px]">{item.extra}</span>
           )}
         </div>
       </div>
@@ -369,7 +370,7 @@ function ScheduledBlock({
       )}
       {resizingTop && topTimeLabel && (
         <div className="absolute -top-5 left-1/2 -translate-x-1/2 z-50 pointer-events-none">
-          <span className="px-1.5 py-0.5 rounded bg-black/80 text-white text-[9px] font-bold tabular-nums whitespace-nowrap shadow-lg">
+          <span className="px-1.5 py-0.5 rounded bg-black/80 text-white text-[11px] font-bold tabular-nums whitespace-nowrap shadow-lg">
             {topTimeLabel}
           </span>
         </div>
@@ -388,10 +389,10 @@ function ScheduledBlock({
       >
         <span className="text-[11px] font-medium text-white truncate leading-tight">{item.title}</span>
         {displayHeight > 32 && (
-          <span className="text-[9px] text-white/40 mt-0.5">{item.extra}</span>
+          <span className="text-[11px] text-white/40 mt-0.5">{item.extra}</span>
         )}
         {displayHeight > 46 && item.listName && (
-          <span className="text-[8px] text-white/30 truncate">{item.listName}</span>
+          <span className="text-[11px] text-white/30 truncate">{item.listName}</span>
         )}
       </div>
 
@@ -409,7 +410,7 @@ function ScheduledBlock({
       )}
       {resizingBottom && bottomTimeLabel && (
         <div className="absolute -bottom-5 left-1/2 -translate-x-1/2 z-50 pointer-events-none">
-          <span className="px-1.5 py-0.5 rounded bg-black/80 text-white text-[9px] font-bold tabular-nums whitespace-nowrap shadow-lg">
+          <span className="px-1.5 py-0.5 rounded bg-black/80 text-white text-[11px] font-bold tabular-nums whitespace-nowrap shadow-lg">
             {bottomTimeLabel}
           </span>
         </div>
@@ -471,7 +472,7 @@ function DayColumn({
         <>
           <div className="absolute left-0 right-0 z-30 pointer-events-none" style={{ top: snapPreview.y, height: 2, backgroundColor: "rgba(99,102,241,0.7)" }} />
           <div className="absolute z-40 pointer-events-none" style={{ top: snapPreview.y - 8, left: 2 }}>
-            <span className="px-1 py-0.5 rounded bg-indigo-500 text-white text-[8px] font-bold tabular-nums shadow-lg">
+            <span className="px-1 py-0.5 rounded bg-indigo-500 text-white text-[11px] font-bold tabular-nums shadow-lg">
               {snapPreview.timeLabel}
             </span>
           </div>
@@ -604,10 +605,10 @@ function UnscheduledPanel({
           <div key={section.id} className="mb-3">
             {/* Urgency header */}
             <div className="flex items-center gap-2 px-2 pt-2 pb-1">
-              <span className={`text-[10px] font-bold uppercase tracking-wider ${section.color}`}>
+              <span className={`text-[11px] font-bold uppercase tracking-wider ${section.color}`}>
                 {section.label}
               </span>
-              <span className="text-[10px] text-gray-600 tabular-nums">
+              <span className="text-[11px] text-gray-600 tabular-nums">
                 {section.subGroups.reduce((sum, g) => sum + g.todos.length, 0)}
               </span>
               <div className="flex-1 h-px bg-white/[0.06]" />
@@ -623,10 +624,10 @@ function UnscheduledPanel({
                     size={9}
                     className={`text-gray-600 flex-shrink-0 transition-transform ${collapsed.has(group.id) ? "-rotate-90" : ""}`}
                   />
-                  <span className="text-[10px] font-medium text-gray-500 truncate">
+                  <span className="text-[11px] font-medium text-gray-500 truncate">
                     {group.name}
                   </span>
-                  <span className="text-[10px] text-gray-600 tabular-nums ml-auto flex-shrink-0">
+                  <span className="text-[11px] text-gray-600 tabular-nums ml-auto flex-shrink-0">
                     {group.todos.length}
                   </span>
                 </button>
@@ -907,7 +908,7 @@ export default function ScheduleWeekModal({
       >
         <span className="text-[11px] font-medium truncate block">{todo.title}</span>
         {timeRange && (
-          <span className="text-[9px] text-white/50 block tabular-nums mt-0.5">{timeRange}</span>
+          <span className="text-[11px] text-white/50 block tabular-nums mt-0.5">{timeRange}</span>
         )}
       </div>
     );
@@ -979,7 +980,7 @@ export default function ScheduleWeekModal({
                 <div className="flex-shrink-0 relative" style={{ width: 48 }}>
                   {hourSlots.map(h => h < 24 && (
                     <div key={h} className="absolute right-0 pr-2" style={{ top: h * HOUR_PX - 7 }}>
-                      <span className="text-[10px] text-gray-600 tabular-nums leading-none">{hourLabel(h)}</span>
+                      <span className="text-[11px] text-gray-600 tabular-nums leading-none">{hourLabel(h)}</span>
                     </div>
                   ))}
                 </div>

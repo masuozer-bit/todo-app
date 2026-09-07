@@ -67,13 +67,13 @@ export default function RuleInput({ onAdd, lists, compact }: RuleInputProps) {
               className="w-full bg-transparent outline-none text-xs text-black dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 resize-none"
             />
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-[10px] text-black/40 dark:text-gray-500 uppercase tracking-wider font-medium">List:</span>
+              <span className="text-[11px] text-black/40 dark:text-gray-500 uppercase tracking-wider font-medium">List:</span>
               {lists.map((l) => (
                 <button
                   key={l.id}
                   type="button"
                   onClick={() => setCategory(category === l.name ? "" : l.name)}
-                  className={`px-2 py-0.5 rounded-full text-[10px] font-medium transition-default border ${
+                  className={`px-2 py-0.5 rounded-full text-[11px] font-medium transition-default border ${
                     category === l.name
                       ? "bg-black/10 dark:bg-white/10 border-black/20 dark:border-white/20 text-black dark:text-white"
                       : "border-transparent text-black/40 dark:text-gray-500 hover:text-black dark:hover:text-white"

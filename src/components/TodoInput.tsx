@@ -23,6 +23,8 @@ import {
   type ParsedTask,
 } from "@/lib/date-helpers";
 import TagPill from "./TagPill";
+import { formatTime } from "@/lib/format";
+import { PRIORITY_META } from "@/lib/priority";
 
 interface TodoInputProps {
   onAdd: (
@@ -50,15 +52,11 @@ interface TodoInputProps {
 
 type SubtaskEntry = { id: string; title: string; due_date: string; start_time: string };
 
-const PRIORITY_CONFIG: {
-  value: Priority;
-  label: string;
-  dot: string;
-}[] = [
-  { value: "none", label: "None", dot: "bg-gray-300 dark:bg-gray-600" },
-  { value: "low",  label: "Low",  dot: "bg-blue-500" },
-  { value: "medium", label: "Med", dot: "bg-amber-500" },
-  { value: "high", label: "High", dot: "bg-red-500" },
+const PRIORITY_CONFIG: { value: Priority; label: string; dot: string }[] = [
+  { value: "none",   label: PRIORITY_META.none.label,   dot: PRIORITY_META.none.dot },
+  { value: "low",    label: PRIORITY_META.low.label,    dot: PRIORITY_META.low.dot },
+  { value: "medium", label: PRIORITY_META.medium.label, dot: PRIORITY_META.medium.dot },
+  { value: "high",   label: PRIORITY_META.high.label,   dot: PRIORITY_META.high.dot },
 ];
 
 
@@ -212,16 +210,10 @@ function formatDateLabel(dateStr: string): string {
   if (dateStr === today) return "Today";
   if (dateStr === tomorrow) return "Tomorrow";
   const d = new Date(dateStr + "T00:00:00");
-  return d.toLocaleDateString("en", { month: "short", day: "numeric" });
+  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
 }
 
-function formatTimeLabel(time: string): string {
-  const [h, m] = time.split(":");
-  const hours = parseInt(h);
-  const suffix = hours >= 12 ? "PM" : "AM";
-  const hr = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
-  return `${hr}:${m} ${suffix}`;
-}
+
 
 const QUICK_DATES = [
   { label: "Today", fn: getToday },
@@ -542,10 +534,10 @@ export default function TodoInput({
                 }`}
               >
                 <span className="font-medium">{s.display}</span>
-                {s.kind === "list" && <span className="text-[10px] uppercase tracking-wide text-gray-400">List</span>}
-                {s.kind === "event" && <span className="text-[10px] uppercase tracking-wide text-gray-400">Project</span>}
-                {s.kind === "tag" && <span className="text-[10px] uppercase tracking-wide text-gray-400">Tag</span>}
-                {s.kind === "new-tag" && <span className="text-[10px] uppercase tracking-wide text-gray-400">New</span>}
+                {s.kind === "list" && <span className="text-[11px] uppercase tracking-wide text-gray-400">List</span>}
+                {s.kind === "event" && <span className="text-[11px] uppercase tracking-wide text-gray-400">Project</span>}
+                {s.kind === "tag" && <span className="text-[11px] uppercase tracking-wide text-gray-400">Tag</span>}
+                {s.kind === "new-tag" && <span className="text-[11px] uppercase tracking-wide text-gray-400">New</span>}
                 <span className="text-xs text-gray-400 ml-auto">↵</span>
               </button>
             ))}
@@ -555,7 +547,7 @@ export default function TodoInput({
         {/* NL live preview */}
         {(parsed || listId || eventId) && (
           <div className="mt-2.5 flex items-center gap-1.5 flex-wrap">
-            <span className="text-[10px] uppercase tracking-wider text-gray-400 mr-0.5 font-medium">
+            <span className="text-[11px] uppercase tracking-wider text-gray-400 mr-0.5 font-medium">
               Parsed:
             </span>
             {parsed?.title && parsed.title !== title.trim() && (
@@ -572,7 +564,7 @@ export default function TodoInput({
             {parsed?.start_time && (
               <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-md border border-black/10 dark:border-white/10 bg-black/[0.03] dark:bg-white/[0.06] text-black/60 dark:text-gray-300">
                 <Clock size={10} />
-                {formatTimeLabel(parsed.start_time)}
+                {formatTime(parsed.start_time)}
               </span>
             )}
             {parsed?.priority && parsed.priority !== "none" && (() => {
@@ -633,7 +625,7 @@ export default function TodoInput({
             {/* ② Tags */}
             {tags.length > 0 && (
               <div className="space-y-2">
-                <p className="text-[10px] uppercase tracking-wide text-gray-400 font-medium">Tags</p>
+                <p className="text-[11px] uppercase tracking-wide text-gray-400 font-medium">Tags</p>
                 <div className="flex flex-wrap gap-1.5">
                   {tags.map((tag) => (
                     <TagPill
@@ -651,7 +643,7 @@ export default function TodoInput({
             {/* ③ List + Event */}
             {(lists.length > 0 || events.length > 0) && (
               <div className="space-y-2">
-                <p className="text-[10px] uppercase tracking-wide text-gray-400 font-medium">Assign to</p>
+                <p className="text-[11px] uppercase tracking-wide text-gray-400 font-medium">Assign to</p>
                 <div className="flex flex-wrap gap-2">
                   {lists.length > 0 && (
                     <CustomSelect
@@ -690,7 +682,7 @@ export default function TodoInput({
 
             {/* ⑤ Subtasks */}
             <div className="space-y-2">
-              <p className="text-[10px] uppercase tracking-wide text-gray-400 font-medium">Subtasks</p>
+              <p className="text-[11px] uppercase tracking-wide text-gray-400 font-medium">Subtasks</p>
               <div className="space-y-1.5">
                 {subtaskEntries.map((s, i) => (
                   <div key={s.id} className="flex items-center gap-2 group/sub">

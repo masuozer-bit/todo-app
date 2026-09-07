@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { Trash2, Check, X, Flame, Repeat, FileText, ChevronDown, Settings2, Minus, Plus, Clock, CalendarOff } from "lucide-react";
 import type { HabitWithStatus, HabitCompletion, ScheduleType, List } from "@/lib/types";
 import HabitWeekModal from "./HabitWeekModal";
+import { formatTime } from "@/lib/format";
 import { CustomSelect, TimePicker } from "./Pickers";
 
 interface HabitItemProps {
@@ -59,12 +60,6 @@ function formatSchedule(habit: HabitWithStatus): string {
   return `Every ${interval} days`;
 }
 
-function formatTime12(time24: string): string {
-  const [h, m] = time24.split(":").map(Number);
-  const ampm = h >= 12 ? "PM" : "AM";
-  const h12 = h % 12 || 12;
-  return `${h12}:${String(m).padStart(2, "0")} ${ampm}`;
-}
 
 export default function HabitItem({
   habit,
@@ -313,7 +308,7 @@ export default function HabitItem({
                   />
                   {editTime && (
                     <>
-                      <span className="text-[10px] text-black/25 dark:text-gray-700">\u2192</span>
+                      <span className="text-[11px] text-black/25 dark:text-gray-700">\u2192</span>
                       <TimePicker
                         value={editEndTime}
                         placeholder="End time"
@@ -351,7 +346,7 @@ export default function HabitItem({
             <div className="mt-2 p-3 bg-black/[0.04] dark:bg-white/[0.04] rounded-lg space-y-3" onClick={(e) => e.stopPropagation()}>
               {/* Rhythm toggle */}
               <div>
-                <p className="text-[10px] font-semibold uppercase tracking-widest text-black/40 dark:text-gray-500 mb-1.5">Rhythm</p>
+                <p className="text-[11px] font-semibold uppercase tracking-widest text-black/40 dark:text-gray-500 mb-1.5">Rhythm</p>
                 <div className="flex gap-2">
                   <button
                     type="button"
@@ -380,7 +375,7 @@ export default function HabitItem({
 
               {editScheduleType === "interval" && (
                 <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-widest text-black/40 dark:text-gray-500 mb-1.5">Repeat every</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-widest text-black/40 dark:text-gray-500 mb-1.5">Repeat every</p>
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
@@ -404,7 +399,7 @@ export default function HabitItem({
 
               {editScheduleType === "weekly" && (
                 <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-widest text-black/40 dark:text-gray-500 mb-1.5">Days</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-widest text-black/40 dark:text-gray-500 mb-1.5">Days</p>
                   <div className="flex gap-1">
                     {WEEK_DAYS.map(({ index: i, label }, position) => (
                       <button
@@ -473,7 +468,7 @@ export default function HabitItem({
                     >
                       Cancel
                     </button>
-                    <span className="text-[10px] text-black/25 dark:text-gray-600 ml-auto">⌘↵ to save</span>
+                    <span className="text-[11px] text-black/25 dark:text-gray-600 ml-auto">⌘↵ to save</span>
                   </div>
                 </div>
               ) : (

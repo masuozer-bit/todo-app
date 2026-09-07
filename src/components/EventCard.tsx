@@ -40,7 +40,7 @@ interface EventCardProps {
 function formatEventDate(dateStr: string): string {
   // Parse YYYY-MM-DD without timezone shift
   const [y, m, d] = dateStr.split("-").map(Number);
-  return new Date(y, m - 1, d).toLocaleDateString(undefined, {
+  return new Date(y, m - 1, d).toLocaleDateString("en-GB", {
     month: "short",
     day: "numeric",
   });
@@ -64,7 +64,7 @@ function formatPeekLabel(todo: Todo): string | null {
   if (diff < 0) return `${Math.abs(diff)}d ago`;
   if (diff === 0) return "Today";
   if (diff === 1) return "Tomorrow";
-  return due.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  return due.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
 }
 
 export default function EventCard({
@@ -149,7 +149,9 @@ export default function EventCard({
         <div className="flex items-center gap-3">
           <button
             onClick={() => setExpanded(!expanded)}
-            className="text-gray-400 hover:text-black dark:hover:text-white transition-default flex-shrink-0"
+            aria-label={expanded ? "Hide tasks" : "Show tasks"}
+            aria-expanded={expanded}
+            className="p-1 text-gray-400 hover:text-black dark:hover:text-white transition-default flex-shrink-0"
           >
             {expanded ? (
               <ChevronDown size={16} />
@@ -217,7 +219,7 @@ export default function EventCard({
             {onOpenDetail && (
               <button
                 onClick={() => onOpenDetail(event.id)}
-                className="text-gray-400 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100 hover:text-black dark:hover:text-white transition-default p-1"
+                className="text-gray-400 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100 hover:text-black dark:hover:text-white transition-default p-1.5 [@media(hover:none)]:p-2.5"
                 aria-label="Open project"
                 title="Open project view"
               >
@@ -229,7 +231,7 @@ export default function EventCard({
                 setExpanded(true);
                 setShowAddTask(true);
               }}
-              className="text-gray-400 hover:text-black dark:hover:text-white transition-default p-1"
+              className="text-gray-400 hover:text-black dark:hover:text-white transition-default p-1.5 [@media(hover:none)]:p-2.5"
               aria-label="Add task to project"
               title="Add task"
             >
@@ -237,7 +239,7 @@ export default function EventCard({
             </button>
             <button
               onClick={() => onDelete(event.id)}
-              className="text-gray-400 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100 hover:text-red-500 transition-default p-1"
+              className="text-gray-400 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100 hover:text-red-500 transition-default p-1.5 [@media(hover:none)]:p-2.5"
               aria-label="Delete project"
               title="Delete project"
             >
@@ -268,11 +270,11 @@ export default function EventCard({
             <div className="mt-2 overflow-hidden h-[14px]">
               <div key={peekIdx} className="peek-ticker flex items-center gap-1.5 min-w-0">
                 <span className="w-1 h-1 rounded-full flex-shrink-0" style={{ backgroundColor: dotColor }} />
-                <span className="text-[10px] text-gray-400 dark:text-gray-500 truncate leading-none">
+                <span className="text-[11px] text-gray-400 dark:text-gray-500 truncate leading-none">
                   {peekTodo.title}
                 </span>
                 {label && (
-                  <span className="text-[10px] flex-shrink-0 leading-none font-medium" style={{ color: dotColor }}>
+                  <span className="text-[11px] flex-shrink-0 leading-none font-medium" style={{ color: dotColor }}>
                     · {label}
                   </span>
                 )}

@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import { X, Inbox, Repeat, List, Plus, Sun, CalendarDays, CalendarRange, Shield } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { X, Inbox, Repeat, List, Plus, Sun, CalendarDays, CalendarRange, Shield, Check, Trash2 } from "lucide-react";
 import type { List as ListType, Todo } from "@/lib/types";
 import ProductivityStats from "./ProductivityStats";
 
@@ -22,6 +22,9 @@ interface MobileSidebarProps {
   onSwitchToToday?: () => void;
   onSwitchToThisWeek?: () => void;
   onAddList: () => void;
+  /** Create a list without leaving the phone */
+  onCreateList?: (name: string) => void;
+  onDeleteList?: (id: string) => void;
   todos: Todo[];
 }
 
@@ -42,8 +45,12 @@ export default function MobileSidebar({
   onSwitchToToday,
   onSwitchToThisWeek,
   onAddList,
+  onCreateList,
+  onDeleteList,
   todos,
 }: MobileSidebarProps) {
+  const [showNewList, setShowNewList] = useState(false);
+  const [newListName, setNewListName] = useState("");
   const backdropRef = useRef<HTMLDivElement>(null);
 
   // Lock body scroll when open
@@ -200,33 +207,94 @@ export default function MobileSidebar({
                   Lists
                 </p>
                 {lists.map((list) => (
-                  <button
+                  <div
                     key={list.id}
-                    onClick={() => handleNav(() => onSwitchToList(list.id))}
-                    className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition-default mb-0.5 ${
+                    className={`flex items-center rounded-xl mb-0.5 ${
                       activeListId === list.id
                         ? "bg-black dark:bg-white text-white dark:text-black font-medium"
-                        : "text-gray-500 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/10"
+                        : "text-gray-500 dark:text-gray-400"
                     }`}
                   >
-                    <List size={15} />
-                    <span className="truncate">{list.name}</span>
-                  </button>
+                    <button
+                      onClick={() => handleNav(() => onSwitchToList(list.id))}
+                      className="flex-1 min-w-0 flex items-center gap-2.5 px-3 py-2.5 text-sm text-left"
+                    >
+                      {list.color && (
+                        <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: list.color }} />
+                      )}
+                      <List size={15} className="flex-shrink-0" />
+                      <span className="truncate">{list.name}</span>
+                    </button>
+                    {onDeleteList && (
+                      <button
+                        onClick={() => onDeleteList(list.id)}
+                        className="p-2.5 flex-shrink-0 opacity-60 hover:opacity-100 hover:text-red-500 transition-default"
+                        aria-label={`Delete list ${list.name}`}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
+                  </div>
                 ))}
               </div>
             )}
 
-            {/* New list */}
-            <button
-              onClick={() => {
-                onAddList();
-                onClose();
-              }}
-              className="flex items-center gap-2 px-3 py-2.5 text-xs text-gray-400 hover:text-black dark:hover:text-white transition-default w-full rounded-xl hover:bg-black/5 dark:hover:bg-white/10"
-            >
-              <Plus size={14} />
-              New list
-            </button>
+            {/* New list — the form lives here, not only on the desktop sidebar */}
+            {onCreateList ? (
+              showNewList ? (
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const name = newListName.trim();
+                    if (!name) return;
+                    onCreateList(name);
+                    setNewListName("");
+                    setShowNewList(false);
+                  }}
+                  className="flex items-center gap-2 px-3 py-2"
+                >
+                  <input
+                    autoFocus
+                    type="text"
+                    value={newListName}
+                    onChange={(e) => setNewListName(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Escape") { setShowNewList(false); setNewListName(""); } }}
+                    placeholder="List name..."
+                    className="flex-1 min-w-0 text-sm bg-transparent border-b border-black/20 dark:border-white/20 pb-1 text-black dark:text-white placeholder:text-gray-400 focus:outline-none"
+                  />
+                  <button type="submit" className="p-2 text-gray-400 hover:text-black dark:hover:text-white" aria-label="Create list">
+                    <Check size={16} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setShowNewList(false); setNewListName(""); }}
+                    className="p-2 text-gray-400 hover:text-black dark:hover:text-white"
+                    aria-label="Cancel"
+                  >
+                    <X size={16} />
+                  </button>
+                </form>
+              ) : (
+                <button
+                  onClick={() => setShowNewList(true)}
+                  className="flex items-center gap-2 px-3 py-2.5 text-xs text-gray-400 hover:text-black dark:hover:text-white transition-default w-full rounded-xl hover:bg-black/5 dark:hover:bg-white/10"
+                >
+                  <Plus size={14} />
+                  New list
+                </button>
+              )
+            ) : (
+              <button
+                onClick={() => {
+                  onAddList();
+                  onClose();
+                }}
+                className="flex items-center gap-2 px-3 py-2.5 text-xs text-gray-400 hover:text-black dark:hover:text-white transition-default w-full rounded-xl hover:bg-black/5 dark:hover:bg-white/10"
+              >
+                <Plus size={14} />
+                New list
+              </button>
+            )}
 
             {/* Stats */}
             <div className="mt-5 pt-4 border-t border-black/5 dark:border-white/5">

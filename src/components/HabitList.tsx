@@ -221,7 +221,7 @@ export default function HabitList({
         <div className="space-y-6">
           {dueToday.length > 0 && (
             <div>
-              <p className="text-[10px] uppercase tracking-wider text-black/40 dark:text-gray-500 font-medium mb-2">
+              <p className="text-[11px] uppercase tracking-wider text-black/40 dark:text-gray-500 font-medium mb-2">
                 Today
               </p>
               <DndContext
@@ -255,7 +255,7 @@ export default function HabitList({
 
           {notToday.length > 0 && (
             <div>
-              <p className="text-[10px] uppercase tracking-wider text-black/40 dark:text-gray-500 font-medium mb-2">
+              <p className="text-[11px] uppercase tracking-wider text-black/40 dark:text-gray-500 font-medium mb-2">
                 Not today
               </p>
               <DndContext

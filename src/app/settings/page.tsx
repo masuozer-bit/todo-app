@@ -389,8 +389,8 @@ export default function SettingsPage() {
                   </div>
                 )}
 
-                <p className="text-[10px] text-gray-500 mt-4">
-                  Use <kbd className="px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 text-[10px] font-mono">⌘D</kbd> to toggle dark/light mode
+                <p className="text-[11px] text-gray-500 mt-4">
+                  Use <kbd className="px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 text-[11px] font-mono">⌘D</kbd> to toggle dark/light mode
                 </p>
               </Section>
             )}
@@ -505,7 +505,7 @@ export default function SettingsPage() {
                           </p>
                         ))}
                       </div>
-                      <p className="text-[10px] text-gray-600 mt-3">Reminders are sent at 08:00 and 09:00 UTC, which is 09:00 and 10:00 in Berlin in winter, an hour later in summer. They arrive even when the browser is closed.</p>
+                      <p className="text-[11px] text-gray-600 mt-3">Reminders are sent at 08:00 and 09:00 UTC, which is 09:00 and 10:00 in Berlin in winter, an hour later in summer. They arrive even when the browser is closed.</p>
                     </div>
                   </>
                 )}

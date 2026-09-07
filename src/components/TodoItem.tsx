@@ -26,6 +26,7 @@ import { CustomSelect, DatePicker, TimePicker } from "./Pickers";
 import { getToday, getTomorrow, getNextMonday, getNextWeek } from "@/lib/date-helpers";
 import TagPill from "./TagPill";
 import { useToast } from "./Toast";
+import { PRIORITY_META } from "@/lib/priority";
 
 interface TodoItemProps {
   todo: Todo;
@@ -67,26 +68,11 @@ interface TodoItemProps {
   highlighted?: boolean;
 }
 
-const PRIORITY_CONFIG: Record<
-  Priority,
-  { label: string; color: string; dot: string }
-> = {
-  high: {
-    label: "High",
-    color: "text-red-500 dark:text-red-400",
-    dot: "bg-red-500",
-  },
-  medium: {
-    label: "Medium",
-    color: "text-amber-500 dark:text-amber-400",
-    dot: "bg-amber-500",
-  },
-  low: {
-    label: "Low",
-    color: "text-blue-500 dark:text-blue-400",
-    dot: "bg-blue-500",
-  },
-  none: { label: "None", color: "text-gray-400", dot: "bg-gray-300" },
+const PRIORITY_CONFIG: Record<Priority, { label: string; color: string; dot: string }> = {
+  high:   { label: PRIORITY_META.high.label,   color: PRIORITY_META.high.text,   dot: PRIORITY_META.high.dot },
+  medium: { label: PRIORITY_META.medium.label, color: PRIORITY_META.medium.text, dot: PRIORITY_META.medium.dot },
+  low:    { label: PRIORITY_META.low.label,    color: PRIORITY_META.low.text,    dot: PRIORITY_META.low.dot },
+  none:   { label: PRIORITY_META.none.label,   color: PRIORITY_META.none.text,   dot: PRIORITY_META.none.dot },
 };
 
 function renderWithLinks(text: string) {
@@ -122,7 +108,7 @@ function formatDueDate(dateStr: string): { text: string; overdue: boolean } {
   if (diffDays === 0) return { text: "Today", overdue: false };
   if (diffDays === 1) return { text: "Tomorrow", overdue: false };
   return {
-    text: due.toLocaleDateString("en", { month: "short", day: "numeric" }),
+    text: due.toLocaleDateString("en-GB", { day: "numeric", month: "short" }),
     overdue: false,
   };
 }
@@ -584,7 +570,7 @@ export default function TodoItem({
             {!todo.completed && onStartLiveTask && (
               <button
                 onClick={(e) => { e.stopPropagation(); onStartLiveTask(todo.id); }}
-                className={`p-1 rounded-lg transition-default ${
+                className={`p-1.5 [@media(hover:none)]:p-2.5 rounded-lg transition-default ${
                   isLiveTask
                     ? "text-emerald-400 bg-emerald-500/20"
                     : "text-gray-400 hover:text-emerald-400 hover:bg-emerald-500/10"
@@ -596,14 +582,14 @@ export default function TodoItem({
             )}
             <button
               onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
-              className="p-1 rounded-lg text-gray-400 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-default"
+              className="p-1.5 [@media(hover:none)]:p-2.5 rounded-lg text-gray-400 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-default"
               aria-label={expanded ? "Collapse" : "Expand"}
             >
               {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
             </button>
             <button
               onClick={(e) => { e.stopPropagation(); onDelete(todo.id); }}
-              className="p-1 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-500/10 transition-default"
+              className="p-1.5 [@media(hover:none)]:p-2.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-500/10 transition-default"
               aria-label={`Delete "${todo.title}"`}
             >
               <Trash2 size={14} />
@@ -651,8 +637,9 @@ export default function TodoItem({
                   onChange={() =>
                     onToggleSubtask(todo.id, subtask.id, !subtask.completed)
                   }
-                  className="custom-checkbox flex-shrink-0"
-                  style={{ width: "0.875rem", height: "0.875rem" }}
+                  aria-label={`Complete subtask ${subtask.title}`}
+                  className="custom-checkbox flex-shrink-0 my-1.5"
+                  style={{ width: "1rem", height: "1rem" }}
                 />
                 <span
                   className={`flex-1 text-sm transition-default ${
@@ -666,7 +653,7 @@ export default function TodoItem({
                 {!todo.completed && (
                   <button
                     onClick={() => onDeleteSubtask(todo.id, subtask.id)}
-                    className="opacity-0 group-hover/subtask:opacity-100 text-gray-400 hover:text-red-500 transition-default flex-shrink-0"
+                    className="p-1.5 opacity-0 group-hover/subtask:opacity-100 group-focus-within/subtask:opacity-100 [@media(hover:none)]:opacity-100 text-gray-400 hover:text-red-500 transition-default flex-shrink-0"
                     aria-label="Delete subtask"
                   >
                     <X size={12} />
@@ -724,7 +711,7 @@ export default function TodoItem({
           {/* Header */}
           <div className="flex items-start gap-3 px-5 pt-5 pb-4 border-b border-white/8 flex-shrink-0">
             <div className="flex-1 min-w-0">
-              <p className="text-[10px] uppercase tracking-widest text-white/30 font-medium mb-1">Task</p>
+              <p className="text-[11px] uppercase tracking-widest text-white/30 font-medium mb-1">Task</p>
               {editing ? (
                 <input
                   ref={editRef}
@@ -753,7 +740,8 @@ export default function TodoItem({
             </div>
             <button
               onClick={() => setExpanded(false)}
-              className="mt-0.5 p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-default flex-shrink-0"
+              aria-label="Close task details"
+              className="mt-0.5 p-2 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-default flex-shrink-0"
             >
               <X size={15} />
             </button>
@@ -776,7 +764,7 @@ export default function TodoItem({
             {/* Due date & time */}
             {!todo.completed && (
               <div>
-                <p className="text-[10px] uppercase tracking-wide text-white/35 font-medium mb-2">Due date</p>
+                <p className="text-[11px] uppercase tracking-wide text-white/35 font-medium mb-2">Due date</p>
                 <div className="flex gap-1 flex-wrap mb-2">
                   {[
                     { label: "Today",     val: getToday() },
@@ -821,7 +809,7 @@ export default function TodoItem({
                   )}
                 </div>
                 <div className="flex items-center gap-2 mt-2">
-                  <span className="text-[10px] uppercase tracking-wide text-white/35 font-medium">Start</span>
+                  <span className="text-[11px] uppercase tracking-wide text-white/35 font-medium">Start</span>
                   <DatePicker
                     value={todo.start_date ?? ""}
                     onChange={(v) => onUpdate(todo.id, { start_date: v || null })}
@@ -834,7 +822,7 @@ export default function TodoItem({
             {/* Priority */}
             {!todo.completed && (
               <div>
-                <p className="text-[10px] uppercase tracking-wide text-white/35 font-medium mb-2">Priority</p>
+                <p className="text-[11px] uppercase tracking-wide text-white/35 font-medium mb-2">Priority</p>
                 <div className="flex gap-1.5">
                   {(["high", "medium", "low", "none"] as Priority[]).map((p) => {
                     const conf = PRIORITY_CONFIG[p];
@@ -860,7 +848,7 @@ export default function TodoItem({
             {/* List — always visible so it is clear a task can have one */}
             {!todo.completed && (
               <div>
-                <p className="text-[10px] uppercase tracking-wide text-white/35 font-medium mb-2">List</p>
+                <p className="text-[11px] uppercase tracking-wide text-white/35 font-medium mb-2">List</p>
                 {lists.length > 0 ? (
                   <CustomSelect
                     value={todo.list_id ?? ""}
@@ -877,7 +865,7 @@ export default function TodoItem({
             {/* Tags — always visible, with a way to create one */}
             {!todo.completed && (
               <div>
-                <p className="text-[10px] uppercase tracking-wide text-white/35 font-medium mb-2">Tags</p>
+                <p className="text-[11px] uppercase tracking-wide text-white/35 font-medium mb-2">Tags</p>
                 <div className="flex flex-wrap gap-1.5">
                   {allTags.map((tag) => {
                     const hasTag = todoTagIds.includes(tag.id);
@@ -908,7 +896,7 @@ export default function TodoItem({
                       <button onClick={() => { setNewTagName(""); setShowTagInput(false); }} className="text-white/40 hover:text-white transition-default"><X size={14} /></button>
                     </div>
                   ) : (
-                    <button onClick={() => setShowTagInput(true)} className="mt-2 text-[10px] text-white/35 hover:text-white transition-default">+ New tag</button>
+                    <button onClick={() => setShowTagInput(true)} className="mt-2 text-[11px] text-white/35 hover:text-white transition-default">+ New tag</button>
                   )
                 )}
               </div>
@@ -917,7 +905,7 @@ export default function TodoItem({
             {/* Event assignment */}
             {!todo.completed && onAssignEvent && events.length > 0 && (
               <div>
-                <p className="text-[10px] uppercase tracking-wide text-white/35 font-medium mb-2">Project</p>
+                <p className="text-[11px] uppercase tracking-wide text-white/35 font-medium mb-2">Project</p>
                 <CustomSelect
                   value={todo.event_id ?? ""}
                   onChange={(v) => onAssignEvent(todo.id, v || null)}
@@ -930,7 +918,7 @@ export default function TodoItem({
             {/* Estimated time — buffered so typing does not write per keystroke */}
             {!todo.completed && (
               <div>
-                <p className="text-[10px] uppercase tracking-wide text-white/35 font-medium mb-2">Est. time</p>
+                <p className="text-[11px] uppercase tracking-wide text-white/35 font-medium mb-2">Est. time</p>
                 <div className="flex items-center gap-1.5">
                   <input
                     type="number"
@@ -968,7 +956,7 @@ export default function TodoItem({
                       <div className="flex-1 h-1 rounded-full bg-white/10 overflow-hidden">
                         <div className={`h-full rounded-full ${isGood ? "bg-emerald-500" : isOver ? "bg-red-400" : "bg-blue-400"}`} style={{ width: `${Math.min(pct, 100)}%` }} />
                       </div>
-                      <span className={`text-[10px] font-medium tabular-nums ${isGood ? "text-emerald-400" : isOver ? "text-red-400" : "text-blue-400"}`}>{pct}%</span>
+                      <span className={`text-[11px] font-medium tabular-nums ${isGood ? "text-emerald-400" : isOver ? "text-red-400" : "text-blue-400"}`}>{pct}%</span>
                     </div>
                   );
                 })()}
@@ -978,9 +966,9 @@ export default function TodoItem({
             {/* Notes */}
             <div>
               <div className="flex items-center justify-between mb-2">
-                <p className="text-[10px] uppercase tracking-wide text-white/35 font-medium">Notes</p>
+                <p className="text-[11px] uppercase tracking-wide text-white/35 font-medium">Notes</p>
                 {!showNotes && !todo.completed && (
-                  <button onClick={() => setShowNotes(true)} className="text-[10px] text-white/35 hover:text-white transition-default">
+                  <button onClick={() => setShowNotes(true)} className="text-[11px] text-white/35 hover:text-white transition-default">
                     {todo.notes ? "Edit" : "+ Add"}
                   </button>
                 )}
@@ -1012,11 +1000,11 @@ export default function TodoItem({
             {!todo.completed && (
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <p className="text-[10px] uppercase tracking-wide text-white/35 font-medium">
+                  <p className="text-[11px] uppercase tracking-wide text-white/35 font-medium">
                     Subtasks{subtasks.length > 0 && <span className="ml-1 font-normal normal-case text-white/25">({completedSubtasks}/{subtasks.length})</span>}
                   </p>
                   {!showSubtaskInput && (
-                    <button onClick={() => setShowSubtaskInput(true)} className="text-[10px] text-white/35 hover:text-white transition-default">+ Add</button>
+                    <button onClick={() => setShowSubtaskInput(true)} className="text-[11px] text-white/35 hover:text-white transition-default">+ Add</button>
                   )}
                 </div>
                 {subtasks.length > 0 && (
@@ -1071,7 +1059,7 @@ export default function TodoItem({
               <div>
                 <button
                   onClick={() => setShowExtraDates((v) => !v)}
-                  className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-white/35 hover:text-white/70 font-medium transition-default"
+                  className="flex items-center gap-1 text-[11px] uppercase tracking-wide text-white/35 hover:text-white/70 font-medium transition-default"
                   aria-expanded={showExtraDates}
                 >
                   <ChevronRight size={11} className={`transition-transform ${showExtraDates ? "rotate-90" : ""}`} />
@@ -1085,7 +1073,7 @@ export default function TodoItem({
                           <span className="w-2.5 h-2.5 rounded-full border border-white/15 flex-shrink-0" />
                           <span className="tabular-nums">{todo.due_date}</span>
                           {todo.start_time && <span className="tabular-nums">{todo.start_time}{todo.end_time ? `–${todo.end_time}` : ""}</span>}
-                          <span className="text-[10px] text-white/20">primary</span>
+                          <span className="text-[11px] text-white/20">primary</span>
                         </div>
                       )}
                       {[...(todo.extra_dates ?? [])].sort((a, b) => a.date.localeCompare(b.date)).map((ed, i) => (

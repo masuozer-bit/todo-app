@@ -53,7 +53,7 @@ function Key({ children }: { children: string }) {
   const isWord = children.length > 3;
   return (
     <kbd
-      className={`inline-flex items-center justify-center h-6 text-[11px] font-medium rounded-md bg-white/[0.08] border border-white/[0.12] text-white/80 ${
+      className={`inline-flex items-center justify-center h-6 text-[11px] font-medium rounded-md bg-black/[0.08] dark:bg-white/[0.08] border border-black/[0.12] dark:border-white/[0.12] text-black/80 dark:text-white/80 ${
         isWord ? "px-2 font-mono" : "min-w-[1.5rem] px-1.5"
       }`}
     >
@@ -89,12 +89,12 @@ export default function KeyboardShortcutsOverlay({
 
       <div className="relative glass-card-raised p-5 w-full max-w-md mx-4 animate-in fade-in zoom-in-95 duration-200">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-semibold text-white">
+          <h3 className="text-sm font-semibold text-black dark:text-white">
             Keyboard Shortcuts
           </h3>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg text-gray-500 hover:text-white hover:bg-white/10 transition-default"
+            className="p-1 rounded-lg text-gray-500 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-default"
             aria-label="Close"
           >
             <X size={14} />
@@ -104,7 +104,7 @@ export default function KeyboardShortcutsOverlay({
         <div className="space-y-4">
           {GROUPS.map((group) => (
             <div key={group.label}>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-2">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500 mb-2">
                 {group.label}
               </p>
               <div className="space-y-1.5">
@@ -120,14 +120,14 @@ export default function KeyboardShortcutsOverlay({
                       {s.keys.map((combo, ci) => (
                         <span key={ci} className="flex items-center gap-0.5">
                           {ci > 0 && (
-                            <span className="text-[10px] text-gray-600 mx-1">
+                            <span className="text-[11px] text-gray-600 mx-1">
                               /
                             </span>
                           )}
                           {combo.map((k, ki) => (
                             <span key={ki} className="flex items-center gap-0.5">
                               {ki > 0 && (
-                                <span className="text-[10px] text-gray-600">
+                                <span className="text-[11px] text-gray-600">
                                   +
                                 </span>
                               )}
@@ -144,7 +144,7 @@ export default function KeyboardShortcutsOverlay({
           ))}
         </div>
 
-        <p className="text-[10px] text-gray-600 mt-4 text-center">
+        <p className="text-[11px] text-gray-600 mt-4 text-center">
           Press <Key>?</Key> to toggle
         </p>
       </div>

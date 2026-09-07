@@ -108,7 +108,7 @@ function SortableRuleItem({
         </button>
 
         {/* Rule number */}
-        <span className="mt-0.5 text-[10px] font-bold text-black/20 dark:text-gray-600 tabular-nums w-4 text-right flex-shrink-0">
+        <span className="mt-0.5 text-[11px] font-bold text-black/20 dark:text-gray-600 tabular-nums w-4 text-right flex-shrink-0">
           {rule.sort_order + 1}.
         </span>
 
@@ -141,7 +141,7 @@ function SortableRuleItem({
             <div className="flex items-start gap-2">
               <span className="text-sm font-medium text-black dark:text-white leading-snug">{rule.title}</span>
               {catStyle && (
-                <span className={`flex-shrink-0 px-1.5 py-0.5 rounded-full text-[9px] font-semibold ${catStyle}`}>
+                <span className={`flex-shrink-0 px-1.5 py-0.5 rounded-full text-[11px] font-semibold ${catStyle}`}>
                   {rule.category}
                 </span>
               )}
@@ -239,7 +239,7 @@ export default function RuleList({ rules, loading, onUpdate, onDelete, onReorder
         <div className="flex items-center gap-1.5 flex-wrap">
           <button
             onClick={() => setFilterCat(null)}
-            className={`px-2.5 py-1 rounded-full text-[10px] font-semibold transition-default border ${
+            className={`px-2.5 py-1 rounded-full text-[11px] font-semibold transition-default border ${
               !filterCat
                 ? "bg-black/10 dark:bg-white/10 border-black/15 dark:border-white/15 text-black dark:text-white"
                 : "border-transparent text-black/40 dark:text-gray-500 hover:text-black dark:hover:text-white"
@@ -253,7 +253,7 @@ export default function RuleList({ rules, loading, onUpdate, onDelete, onReorder
               <button
                 key={cat}
                 onClick={() => setFilterCat(filterCat === cat ? null : cat)}
-                className={`px-2.5 py-1 rounded-full text-[10px] font-semibold transition-default border ${
+                className={`px-2.5 py-1 rounded-full text-[11px] font-semibold transition-default border ${
                   filterCat === cat
                     ? `${catStyle} border-current/20`
                     : "border-transparent text-black/40 dark:text-gray-500 hover:text-black dark:hover:text-white"

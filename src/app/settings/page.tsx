@@ -9,8 +9,7 @@ import { useTodos } from "@/hooks/useTodos";
 import { useTags } from "@/hooks/useTags";
 import Link from "next/link";
 import { Download, Trash2, User, AlertTriangle, Calendar, FileText, Terminal, Bell, Palette, ChevronRight, ArrowLeft, Languages } from "lucide-react";
-import { useTheme, PRESET_TINTS } from "@/components/ThemeProvider";
-import ColorWheelPicker from "@/components/ColorWheelPicker";
+import { useTheme, ACCENT_PRESETS, type ThemePreference, type Density } from "@/components/ThemeProvider";
 import { exportTodosPDF } from "@/lib/pdf-export";
 import CommandReference from "@/components/CommandReference";
 import {
@@ -34,6 +33,17 @@ const TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
   { id: "data", label: "Data & Export", icon: Download },
   { id: "commands", label: "Commands", icon: Terminal },
   { id: "danger", label: "Danger Zone", icon: AlertTriangle },
+];
+
+const THEME_CHOICES: { value: ThemePreference; label: string }[] = [
+  { value: "system", label: "System" },
+  { value: "light", label: "Light" },
+  { value: "dark", label: "Dark" },
+];
+
+const DENSITY_CHOICES: { value: Density; label: string }[] = [
+  { value: "comfortable", label: "Comfortable" },
+  { value: "compact", label: "Compact" },
 ];
 
 const DEFAULT_VIEWS: { value: string; label: string }[] = [
@@ -68,7 +78,7 @@ export default function SettingsPage() {
   const { tags } = useTags(dataUserId);
   const { todos, clearCompleted, exportTodos } = useTodos(dataUserId, tags);
   const { permission: notifPermission, isSubscribed: notifSubscribed, subscribe: subscribeNotifications, unsubscribe: unsubscribeNotifications } = usePushNotifications();
-  const { tint, setTint, lavaLamp, setLavaLamp, lavaColor, setLavaColor, lavaOpacity, setLavaOpacity, theme } = useTheme();
+  const { themePreference, setThemePreference, accent, setAccent, density, setDensity } = useTheme();
   const { locale, setLocale, t } = useI18n();
 
   useEffect(() => {
@@ -314,95 +324,61 @@ export default function SettingsPage() {
 
             {activeTab === "appearance" && (
               <Section title={t("Appearance")} subtitle={t("Customize the look and feel")}>
-                {/* Preset quick picks */}
-                <p className="text-xs text-gray-400 mb-3 font-medium">{t("Presets")}</p>
-                <div className="flex flex-wrap gap-2 mb-5">
-                  {PRESET_TINTS.map((t) => {
-                    const isActive = tint.toLowerCase() === t.hex.toLowerCase();
-                    return (
-                      <button
-                        key={t.id}
-                        onClick={() => setTint(t.hex)}
-                        title={t.label}
-                        className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs transition-default border ${
-                          isActive
-                            ? "border-black/30 dark:border-white/30 bg-black/5 dark:bg-white/10 text-black dark:text-white font-medium"
-                            : "border-black/10 dark:border-white/10 text-gray-500 hover:text-black dark:hover:text-white hover:border-black/20 dark:hover:border-white/20"
-                        }`}
-                      >
-                        <span
-                          className="w-3.5 h-3.5 rounded-full flex-shrink-0"
-                          style={{ background: t.hex }}
-                        />
-                        {t.label}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {/* Color wheel */}
-                <p className="text-xs text-gray-400 mb-3 font-medium">{t("Custom color")}</p>
-                <div className="rounded-2xl glass-card-subtle p-4">
-                  <ColorWheelPicker
-                    value={tint}
-                    onChange={(hex) => setTint(hex)}
-                  />
-                </div>
-                {/* Lava Lamp toggle — dark mode only */}
-                <div className="mt-6 flex items-center justify-between">
-                  <div>
-                    <p className="text-xs font-medium text-black dark:text-white">{t("Lava lamp background")}</p>
-                    <p className="text-[11px] text-gray-400 mt-0.5">Animated glowing blobs behind glass cards{theme !== "dark" ? " (dark mode only)" : ""}</p>
-                  </div>
-                  <button
-                    onClick={() => setLavaLamp(!lavaLamp)}
-                    className={`relative inline-flex h-6 w-11 flex-shrink-0 rounded-full transition-colors duration-200 focus:outline-none ${lavaLamp && theme === "dark" ? "bg-indigo-500" : "bg-black/10 dark:bg-white/10"}`}
-                    role="switch"
-                    aria-checked={lavaLamp}
-                    disabled={theme !== "dark"}
-                  >
-                    <span
-                      className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transform transition-transform duration-200 mt-0.5 ${lavaLamp && theme === "dark" ? "translate-x-5" : "translate-x-0.5"}`}
-                    />
-                  </button>
-                </div>
-
-                {/* Lava blob color picker */}
-                {theme === "dark" && (
-                  <div className="mt-4">
-                    <p className="text-xs text-gray-400 mb-3 font-medium">{t("Bubble color")}</p>
-                    <div className="rounded-2xl glass-card-subtle p-4">
-                      <ColorWheelPicker
-                        value={lavaColor}
-                        onChange={(hex) => setLavaColor(hex)}
-                      />
+                <div className="space-y-6">
+                  <Field label={t("Theme")}>
+                    <div className="flex flex-wrap gap-2">
+                      {THEME_CHOICES.map((choice) => (
+                        <Choice
+                          key={choice.value}
+                          active={themePreference === choice.value}
+                          onClick={() => setThemePreference(choice.value)}
+                        >
+                          {t(choice.label)}
+                        </Choice>
+                      ))}
                     </div>
-                    <button
-                      onClick={() => setLavaColor(tint)}
-                      className="mt-2 text-[11px] text-gray-400 hover:text-black dark:hover:text-white transition-default"
-                    >{t("Reset to app color")}</button>
+                  </Field>
 
-                    {/* Opacity slider */}
-                    <div className="mt-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <p className="text-xs text-gray-400 font-medium">{t("Opacity")}</p>
-                        <span className="text-xs font-mono text-black dark:text-white">{Math.round(lavaOpacity * 100)}%</span>
-                      </div>
-                      <input
-                        type="range"
-                        min={0.1}
-                        max={1}
-                        step={0.01}
-                        value={lavaOpacity}
-                        onChange={(e) => setLavaOpacity(parseFloat(e.target.value))}
-                        className="w-full accent-white h-1.5 rounded-full cursor-pointer"
-                      />
+                  <Field label={t("Accent color")}>
+                    <div className="flex flex-wrap gap-2">
+                      {ACCENT_PRESETS.map((preset) => (
+                        <Choice
+                          key={preset.id}
+                          active={accent === preset.id}
+                          onClick={() => setAccent(preset.id)}
+                        >
+                          <span
+                            className="w-3.5 h-3.5 rounded-full flex-shrink-0"
+                            style={{ background: preset.dark.base }}
+                          />
+                          {t(preset.label)}
+                        </Choice>
+                      ))}
                     </div>
-                  </div>
-                )}
+                  </Field>
 
-                <p className="text-[11px] text-gray-500 mt-4">{t("Use")}<kbd className="px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 text-[11px] font-mono">⌘D</kbd> to toggle dark/light mode
-                </p>
+                  <Field label={t("Density")}>
+                    <div className="flex flex-wrap gap-2">
+                      {DENSITY_CHOICES.map((choice) => (
+                        <Choice
+                          key={choice.value}
+                          active={density === choice.value}
+                          onClick={() => setDensity(choice.value)}
+                        >
+                          {t(choice.label)}
+                        </Choice>
+                      ))}
+                    </div>
+                  </Field>
+
+                  <p className="text-xs text-gray-500">
+                    {t("Use")}
+                    <kbd className="mx-1 px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 text-xs font-mono">
+                      {"\u2318\u21E7L"}
+                    </kbd>
+                    {t("to switch between dark and light.")}
+                  </p>
+                </div>
               </Section>
             )}
 
@@ -659,6 +635,24 @@ function Section({ title, subtitle, danger, children }: { title: string; subtitl
       {subtitle && <p className="text-xs text-gray-500 mb-5">{subtitle}</p>}
       {children}
     </div>
+  );
+}
+
+/** One option in a small group: theme, accent, density. */
+function Choice({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`flex items-center gap-2 h-8 px-3 rounded text-sm border transition-default ${
+        active
+          ? "border-black/30 dark:border-white/30 bg-black/5 dark:bg-white/10 text-black dark:text-white font-medium"
+          : "border-black/10 dark:border-white/10 text-gray-500 hover:text-black dark:hover:text-white hover:border-black/20 dark:hover:border-white/20"
+      }`}
+    >
+      {children}
+    </button>
   );
 }
 

@@ -2,13 +2,101 @@
 @tailwind components;
 @tailwind utilities;
 
-@layer base {
-  /* Keyboard users always get a ring, even where focus:outline-none is set */
-  :focus-visible {
-    outline: 2px solid rgba(59, 130, 246, 0.75) !important;
-    outline-offset: 2px;
-  }
+/* ============================================================
+   Design tokens. Mirror of design/tokens.css, which is the
+   source approved in phase 0. Light is the base, dark applies
+   through the .dark class on <html>.
 
+   Every value holds at least 4.5:1 against the surface it is
+   used on. The six values that differ from the concept for
+   exactly that reason are marked inline.
+   ============================================================ */
+
+:root {
+  /* Surfaces */
+  --bg: #F6F7F9;
+  --surface: #FFFFFF;
+  --surface-2: #F1F3F6;
+  --surface-3: #E9ECF1;
+
+  /* Lines */
+  --border: #E3E6EB;
+  --border-strong: #CBD1DA;
+
+  /* Text, exactly three */
+  --text: #14171C;
+  --text-muted: #5B6470;
+  --text-faint: #676F7C;   /* concept said #8A929E, that is 2.9:1 on --bg */
+
+  /* Accent: selection, focus, primary action, links */
+  --accent: #2A66D8;       /* concept said #2F6FE4, that is 4.3:1 as link text */
+  --accent-hover: #1F5ED0;
+  --accent-soft: rgba(42, 102, 216, 0.10);
+  --accent-contrast: #FFFFFF;
+
+  /* Meaning, darkened from the concept so red, amber and green also work as text */
+  --danger: #CE3238;
+  --danger-solid: #CE3238;
+  --warning: #9C600B;
+  --success: #1F7F4C;
+
+  --shadow-popover: 0 8px 24px rgba(16, 24, 40, 0.12), 0 0 0 1px var(--border);
+
+  /* Geometry */
+  --radius: 6px;
+  --radius-lg: 8px;
+  --radius-full: 999px;
+
+  /* Sizes */
+  --row-h: 40px;
+  --header-h: 48px;
+  --control-h: 32px;
+  --nav-w: 240px;
+  --nav-w-collapsed: 56px;
+  --detail-w: 400px;
+
+  /* Motion */
+  --duration: 150ms;
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+
+  color-scheme: light;
+}
+
+.dark {
+  --bg: #0F1115;
+  --surface: #151821;
+  --surface-2: #1B1F29;
+  --surface-3: #222733;
+
+  --border: #262B36;
+  --border-strong: #343A47;
+
+  --text: #E7E9EE;
+  --text-muted: #9AA3B2;
+  --text-faint: #7C8593;   /* concept said #626B7A, that is 3.5:1 on --bg */
+
+  --accent: #5B8DEF;
+  --accent-hover: #7AA3F5;
+  --accent-soft: rgba(91, 141, 239, 0.14);
+  /* White on this blue is only 3.2:1, so filled buttons carry dark text */
+  --accent-contrast: #0F1115;
+
+  --danger: #E5484D;
+  --danger-solid: #D0393E;  /* white text needs a slightly deeper red */
+  --warning: #E7A33A;
+  --success: #3DBE7A;
+
+  --shadow-popover: 0 8px 24px rgba(0, 0, 0, 0.45), 0 0 0 1px var(--border);
+
+  color-scheme: dark;
+}
+
+/* Compact density. One class on <html> moves every row. */
+.density-compact {
+  --row-h: 32px;
+}
+
+@layer base {
   * {
     margin: 0;
     padding: 0;
@@ -16,397 +104,32 @@
   }
 
   html {
-    scroll-behavior: smooth;
+    background-color: var(--bg);
   }
 
   body {
-    font-family: var(--font-inter), "Inter", system-ui, sans-serif;
+    background-color: var(--bg);
+    color: var(--text);
+    font-family: var(--font-inter), Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 14px;
+    line-height: 1.4;
+    font-variant-numeric: tabular-nums;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    min-height: 100vh;
-    color: #000000;
+    min-height: 100dvh;
   }
 
-  .dark body {
-    color: #FFFFFF;
-  }
-
-  /* ─── Tint: driven by CSS vars set from ThemeProvider ─── */
-  body {
-    background-color: var(--tint-bg, #EDEBF5);
-    background-image:
-      radial-gradient(ellipse at 20% -5%,  var(--tint-blob-1, rgba(175,160,235,0.55)) 0%, transparent 55%),
-      radial-gradient(ellipse at 80% 95%,  var(--tint-blob-2, rgba(155,175,232,0.38)) 0%, transparent 50%),
-      radial-gradient(ellipse at 50% 40%,  var(--tint-blob-3, rgba(215,210,248,0.25)) 0%, transparent 65%);
-  }
-  html.dark body {
-    background-color: var(--tint-bg, #05040B);
-    background-image:
-      radial-gradient(ellipse at 15% -5%,  var(--tint-blob-1, rgba(90,65,180,0.35))   0%, transparent 50%),
-      radial-gradient(ellipse at 85% 90%,  var(--tint-blob-2, rgba(35,55,135,0.25))   0%, transparent 50%),
-      radial-gradient(ellipse at 50% 50%,  var(--tint-blob-3, rgba(50,35,100,0.14))   0%, transparent 70%);
-  }
-}
-
-
-@layer components {
-  /* ═══════════════════════════════════════════════════
-     LIQUID GLASS — Apple-style translucent panels
-     ═══════════════════════════════════════════════════ */
-
-  .glass-card {
-    background: linear-gradient(
-      160deg,
-      rgba(255, 255, 255, 0.60) 0%,
-      rgba(255, 255, 255, 0.30) 50%,
-      rgba(255, 255, 255, 0.42) 100%
-    );
-    backdrop-filter: blur(28px) saturate(1.9) brightness(1.06);
-    -webkit-backdrop-filter: blur(28px) saturate(1.9) brightness(1.06);
-    border: 0.5px solid rgba(255, 255, 255, 0.80);
-    border-radius: 1.25rem;
-    box-shadow:
-      /* Specular top edge — the liquid glass highlight */
-      inset 0 0.5px 0 rgba(255, 255, 255, 0.95),
-      inset 0 1px 3px rgba(255, 255, 255, 0.40),
-      /* Subtle bottom inner shadow for depth */
-      inset 0 -0.5px 1px rgba(0, 0, 0, 0.03),
-      /* Outer depth shadow — soft and diffused */
-      0 10px 40px -10px rgba(0, 0, 0, 0.10),
-      0 4px 12px -4px rgba(0, 0, 0, 0.05),
-      0 1px 3px rgba(0, 0, 0, 0.03);
-  }
-
-  .dark .glass-card {
-    background: linear-gradient(
-      160deg,
-      rgba(255, 255, 255, 0.11) 0%,
-      rgba(255, 255, 255, 0.05) 50%,
-      rgba(255, 255, 255, 0.08) 100%
-    );
-    backdrop-filter: blur(28px) saturate(1.8) brightness(1.1);
-    -webkit-backdrop-filter: blur(28px) saturate(1.8) brightness(1.1);
-    border: 0.5px solid rgba(255, 255, 255, 0.16);
-    box-shadow:
-      inset 0 0.5px 0 rgba(255, 255, 255, 0.18),
-      inset 0 1px 2px rgba(255, 255, 255, 0.06),
-      0 8px 32px -8px rgba(0, 0, 0, 0.50),
-      0 2px 8px -2px rgba(0, 0, 0, 0.25);
-  }
-
-  /* Glass card subtle — recessed into glass, like a groove */
-  .glass-card-subtle {
-    background: linear-gradient(
-      180deg,
-      rgba(0, 0, 0, 0.03) 0%,
-      rgba(255, 255, 255, 0.15) 100%
-    );
-    backdrop-filter: blur(24px) saturate(1.6) brightness(0.97);
-    -webkit-backdrop-filter: blur(24px) saturate(1.6) brightness(0.97);
-    border: 0.5px solid rgba(0, 0, 0, 0.06);
-    border-top-color: rgba(0, 0, 0, 0.08);
-    border-bottom-color: rgba(255, 255, 255, 0.50);
-    border-radius: 1rem;
-    box-shadow:
-      /* Inner shadow — pressed into the glass */
-      inset 0 2px 6px rgba(0, 0, 0, 0.05),
-      inset 0 1px 2px rgba(0, 0, 0, 0.03),
-      /* Bottom light catch — glass refraction edge */
-      inset 0 -1px 0 rgba(255, 255, 255, 0.60);
-  }
-
-  .dark .glass-card-subtle {
-    background: linear-gradient(
-      180deg,
-      rgba(0, 0, 0, 0.25) 0%,
-      rgba(255, 255, 255, 0.04) 100%
-    );
-    backdrop-filter: blur(24px) saturate(1.6) brightness(0.85);
-    -webkit-backdrop-filter: blur(24px) saturate(1.6) brightness(0.85);
-    border: 0.5px solid rgba(0, 0, 0, 0.30);
-    border-top-color: rgba(0, 0, 0, 0.40);
-    border-bottom-color: rgba(255, 255, 255, 0.10);
-    box-shadow:
-      inset 0 2px 8px rgba(0, 0, 0, 0.20),
-      inset 0 1px 3px rgba(0, 0, 0, 0.12),
-      inset 0 -1px 0 rgba(255, 255, 255, 0.08);
-  }
-
-  /* Glass card raised — modals, floating panels */
-  .glass-card-raised {
-    background: linear-gradient(
-      160deg,
-      rgba(255, 255, 255, 0.72) 0%,
-      rgba(255, 255, 255, 0.42) 50%,
-      rgba(255, 255, 255, 0.55) 100%
-    );
-    backdrop-filter: blur(30px) saturate(2.0) brightness(1.08);
-    -webkit-backdrop-filter: blur(30px) saturate(2.0) brightness(1.08);
-    border: 0.5px solid rgba(255, 255, 255, 0.80);
-    border-radius: 1.5rem;
-    box-shadow:
-      inset 0 0.5px 0 rgba(255, 255, 255, 0.95),
-      inset 0 1px 3px rgba(255, 255, 255, 0.35),
-      0 24px 48px -12px rgba(0, 0, 0, 0.12),
-      0 8px 24px -6px rgba(0, 0, 0, 0.08),
-      0 2px 6px -1px rgba(0, 0, 0, 0.04);
-  }
-
-  .dark .glass-card-raised {
-    background: linear-gradient(
-      160deg,
-      rgba(255, 255, 255, 0.15) 0%,
-      rgba(255, 255, 255, 0.06) 50%,
-      rgba(255, 255, 255, 0.10) 100%
-    );
-    backdrop-filter: blur(30px) saturate(2.0) brightness(1.15);
-    -webkit-backdrop-filter: blur(30px) saturate(2.0) brightness(1.15);
-    border: 0.5px solid rgba(255, 255, 255, 0.20);
-    box-shadow:
-      inset 0 0.5px 0 rgba(255, 255, 255, 0.22),
-      inset 0 1px 3px rgba(255, 255, 255, 0.08),
-      0 24px 48px -12px rgba(0, 0, 0, 0.65),
-      0 8px 24px -6px rgba(0, 0, 0, 0.40),
-      0 2px 6px -1px rgba(0, 0, 0, 0.20);
-  }
-
-  /* ═══════════════════════════════════════════════════
-     NAV — Active pill with liquid glass depth
-     ═══════════════════════════════════════════════════ */
-
-  /* Diagonal sheen sweep — GPU-accelerated */
-  @keyframes glass-reflection {
-    from { transform: translateX(-120%); }
-    to   { transform: translateX(220%); }
-  }
-
-  .glass-nav-active {
-    position: relative;
-    overflow: hidden;
-    background: linear-gradient(
-      155deg,
-      rgba(0, 0, 0, 0.55) 0%,
-      rgba(0, 0, 0, 0.68) 40%,
-      rgba(0, 0, 0, 0.74) 75%,
-      rgba(0, 0, 0, 0.60) 100%
-    );
-    backdrop-filter: blur(24px) saturate(2.2) brightness(0.50);
-    -webkit-backdrop-filter: blur(24px) saturate(2.2) brightness(0.50);
-    border: 0.5px solid rgba(255, 255, 255, 0.22);
-    box-shadow:
-      inset 0 0.5px 0 rgba(255, 255, 255, 0.28),
-      inset 0 1px 4px rgba(255, 255, 255, 0.08),
-      inset 0 -1px 2px rgba(0, 0, 0, 0.12),
-      0 6px 20px -6px rgba(0, 0, 0, 0.22),
-      0 2px 6px rgba(0, 0, 0, 0.10);
-    color: #fff;
-  }
-
-  .dark .glass-nav-active {
-    background: linear-gradient(
-      155deg,
-      rgba(255, 255, 255, 0.12) 0%,
-      rgba(255, 255, 255, 0.06) 40%,
-      rgba(255, 255, 255, 0.04) 75%,
-      rgba(255, 255, 255, 0.08) 100%
-    );
-    backdrop-filter: blur(24px) saturate(1.8) brightness(1.1);
-    -webkit-backdrop-filter: blur(24px) saturate(1.8) brightness(1.1);
-    border: 0.5px solid rgba(255, 255, 255, 0.18);
-    box-shadow:
-      inset 0 0.5px 0 rgba(255, 255, 255, 0.20),
-      inset 0 1px 3px rgba(255, 255, 255, 0.06),
-      0 4px 16px -4px rgba(0, 0, 0, 0.40),
-      0 1px 3px rgba(0, 0, 0, 0.20);
-    color: #fff;
-  }
-
-  /* Sheen sweep on activation */
-  .glass-nav-active::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(
-      105deg,
-      transparent 30%,
-      rgba(255, 255, 255, 0.06) 46%,
-      rgba(255, 255, 255, 0.10) 50%,
-      rgba(255, 255, 255, 0.06) 54%,
-      transparent 68%
-    );
-    animation: glass-reflection 0.7s ease-out forwards;
-    pointer-events: none;
-    border-radius: inherit;
-  }
-
-  /* Nav hover — very subtle glass tint */
-  .glass-nav-hover:hover {
-    background: linear-gradient(
-      160deg,
-      rgba(0, 0, 0, 0.04) 0%,
-      rgba(0, 0, 0, 0.06) 50%,
-      rgba(0, 0, 0, 0.04) 100%
-    );
-    backdrop-filter: blur(20px) saturate(1.2);
-    -webkit-backdrop-filter: blur(20px) saturate(1.2);
-    border: 0.5px solid rgba(0, 0, 0, 0.06);
-    box-shadow: 0 1px 4px -1px rgba(0, 0, 0, 0.04);
-  }
-
-  .dark .glass-nav-hover:hover {
-    background: linear-gradient(
-      160deg,
-      rgba(255, 255, 255, 0.06) 0%,
-      rgba(255, 255, 255, 0.03) 50%,
-      rgba(255, 255, 255, 0.05) 100%
-    );
-    backdrop-filter: blur(20px) saturate(1.3);
-    -webkit-backdrop-filter: blur(20px) saturate(1.3);
-    border: 0.5px solid rgba(255, 255, 255, 0.08);
-    box-shadow:
-      inset 0 0.5px 0 rgba(255, 255, 255, 0.06),
-      0 1px 4px -1px rgba(0, 0, 0, 0.30);
-  }
-
-  /* ═══════════════════════════════════════════════════
-     CHECKBOX & TODO
-     ═══════════════════════════════════════════════════ */
-
-  .todo-completed {
-    text-decoration: line-through;
-    opacity: 0.5;
-    transition: all 200ms ease;
-  }
-
-  .custom-checkbox {
-    appearance: none;
-    -webkit-appearance: none;
-    width: 1.25rem;
-    height: 1.25rem;
-    border: 1.5px solid rgba(0, 0, 0, 0.25);
-    border-radius: 0.375rem;
-    cursor: pointer;
-    transition: all 200ms ease;
-    position: relative;
-    flex-shrink: 0;
-    background: rgba(255, 255, 255, 0.40);
-    backdrop-filter: blur(8px);
-  }
-
-  .dark .custom-checkbox {
-    border: 1.5px solid rgba(255, 255, 255, 0.25);
-    background: rgba(255, 255, 255, 0.06);
-  }
-
-  .custom-checkbox:checked {
-    background-color: #000000;
-    border-color: #000000;
-  }
-
-  .dark .custom-checkbox:checked {
-    background-color: #FFFFFF;
-    border-color: #FFFFFF;
-  }
-
-  .custom-checkbox:checked::after {
-    content: "";
-    position: absolute;
-    left: 50%;
-    top: 45%;
-    width: 5px;
-    height: 9px;
-    border: solid #FFFFFF;
-    border-width: 0 2px 2px 0;
-    transform: translate(-50%, -50%) rotate(45deg);
-  }
-
-  .dark .custom-checkbox:checked::after {
-    border-color: #000000;
-  }
-
-  .custom-checkbox:focus-visible {
-    outline: 2px solid rgba(0, 0, 0, 0.30);
+  /* Keyboard users always get a ring, even where focus:outline-none is set */
+  :focus-visible {
+    outline: 2px solid var(--accent) !important;
     outline-offset: 2px;
+    border-radius: var(--radius);
   }
 
-  .dark .custom-checkbox:focus-visible {
-    outline-color: rgba(255, 255, 255, 0.40);
-  }
-
-  .custom-checkbox:hover {
-    border-color: rgba(0, 0, 0, 0.45);
-    background: rgba(255, 255, 255, 0.55);
-  }
-
-  .dark .custom-checkbox:hover {
-    border-color: rgba(255, 255, 255, 0.45);
-    background: rgba(255, 255, 255, 0.10);
-  }
-
-  /* Dark mode selects — native dropdown appears dark */
-  .dark select {
-    color-scheme: dark;
-  }
-
-  /* ── Animated list-colour strip at bottom of card ── */
-  .list-strip {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: 3px;
-    /* Solid base bar at the list colour */
-    background: linear-gradient(
-      90deg,
-      transparent        0%,
-      var(--list-color)  20%,
-      var(--list-color)  80%,
-      transparent        100%
-    );
-    opacity: 0.55;
-    overflow: hidden;
-    pointer-events: none;
-  }
-
-  /* Shimmer glint — sweeps left→right, resets while invisible = seamless loop */
-  .list-strip::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    left: -45%;
-    width: 45%;
-    background: linear-gradient(
-      90deg,
-      transparent          0%,
-      rgba(255,255,255,0.5) 50%,
-      transparent          100%
-    );
-    animation: strip-glint 5.5s ease-in-out infinite;
-  }
-
-  @keyframes strip-glint {
-    0%   { left: -45%; opacity: 0; }
-    8%   { opacity: 1; }
-    72%  { left: 100%; opacity: 1; }
-    80%  { left: 100%; opacity: 0; }
-    100% { left: 100%; opacity: 0; }   /* hold off-screen → snap back is invisible */
-  }
-
-  /* Dragging state */
-  .dragging {
-    opacity: 0.5;
-    transform: scale(1.02);
-  }
-
-  /* ═══════════════════════════════════════════════════
-     SCROLLBAR — minimal, blends into glass
-     ═══════════════════════════════════════════════════ */
-
-  /* Slim scrollbars — visible enough to show that something scrolls */
+  /* Slim scrollbars instead of hiding them: something that scrolls says so */
   * {
     scrollbar-width: thin;
-    scrollbar-color: rgba(120, 120, 120, 0.35) transparent;
+    scrollbar-color: var(--border-strong) transparent;
   }
   *::-webkit-scrollbar {
     width: 8px;
@@ -416,67 +139,292 @@
     background: transparent;
   }
   *::-webkit-scrollbar-thumb {
-    background-color: rgba(120, 120, 120, 0.35);
-    border-radius: 999px;
+    background-color: var(--border-strong);
+    border-radius: var(--radius-full);
   }
-  *::-webkit-scrollbar-thumb:hover {
-    background-color: rgba(120, 120, 120, 0.55);
+
+  ::selection {
+    background: var(--accent-soft);
+  }
+}
+
+@layer components {
+  /* ── Surfaces ───────────────────────────────────────────── */
+
+  .surface {
+    background-color: var(--surface);
+  }
+
+  .surface-2 {
+    background-color: var(--surface-2);
+  }
+
+  .popover {
+    background-color: var(--surface);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-popover);
+    padding: 8px;
+  }
+
+  /* ── Rows ───────────────────────────────────────────────── */
+
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: var(--row-h);
+    padding: 0 12px;
+    border-bottom: 1px solid var(--border);
+    background-color: transparent;
+    transition: background-color var(--duration) var(--ease);
+  }
+
+  .row:hover {
+    background-color: var(--surface-2);
+  }
+
+  .row-selected {
+    background-color: var(--surface-3);
+    box-shadow: inset 2px 0 0 var(--accent);
+  }
+
+  /* ── Buttons ────────────────────────────────────────────── */
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: var(--control-h);
+    padding: 0 12px;
+    border: 1px solid transparent;
+    border-radius: var(--radius);
+    font-size: 13px;
+    font-weight: 500;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color var(--duration) var(--ease),
+                color var(--duration) var(--ease),
+                border-color var(--duration) var(--ease);
+  }
+
+  .btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  .btn-primary {
+    background-color: var(--accent);
+    color: var(--accent-contrast);
+  }
+  .btn-primary:hover:not(:disabled) {
+    background-color: var(--accent-hover);
+  }
+
+  .btn-secondary {
+    background-color: var(--surface-2);
+    border-color: var(--border);
+    color: var(--text);
+  }
+  .btn-secondary:hover:not(:disabled) {
+    background-color: var(--surface-3);
+  }
+
+  .btn-ghost {
+    color: var(--text-muted);
+  }
+  .btn-ghost:hover:not(:disabled) {
+    background-color: var(--surface-2);
+    color: var(--text);
+  }
+
+  .btn-danger {
+    background-color: var(--danger-solid);
+    color: #FFFFFF;
+  }
+  .btn-danger:hover:not(:disabled) {
+    filter: brightness(1.08);
+  }
+
+  /* Destructive action written as text, for panel footers */
+  .btn-text-danger {
+    color: var(--danger);
+  }
+  .btn-text-danger:hover:not(:disabled) {
+    background-color: var(--surface-2);
+  }
+
+  .icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--control-h);
+    height: var(--control-h);
+    border-radius: var(--radius);
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: background-color var(--duration) var(--ease),
+                color var(--duration) var(--ease);
+  }
+  .icon-btn:hover:not(:disabled) {
+    background-color: var(--surface-2);
+    color: var(--text);
+  }
+  .icon-btn-on {
+    background-color: var(--accent-soft);
+    color: var(--accent);
+  }
+
+  /* ── Inputs ─────────────────────────────────────────────── */
+
+  .input {
+    height: var(--control-h);
+    width: 100%;
+    padding: 0 10px;
+    background-color: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-size: 14px;
+    transition: border-color var(--duration) var(--ease);
+  }
+  .input::placeholder {
+    color: var(--text-faint);
+  }
+  .input:focus {
+    outline: none;
+    border-color: var(--border-strong);
+    box-shadow: 0 0 0 2px var(--accent-soft);
+  }
+
+  /* ── Chips and labels ───────────────────────────────────── */
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    height: 22px;
+    padding: 0 8px;
+    background-color: var(--surface-2);
+    border-radius: var(--radius);
+    color: var(--text-muted);
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
+  .chip-accent {
+    background-color: var(--accent-soft);
+    color: var(--accent);
+  }
+
+  .section-title {
+    font-size: 12px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-faint);
+  }
+}
+
+/* ============================================================
+   Transitional layer, phases 2 to 8 remove it.
+
+   The glass, blur and tint rules these class names used to carry
+   are gone. What is left here are flat token surfaces so the app
+   stays legible in every deploy while its markup is rewritten
+   phase by phase. Each rule disappears with the last call site
+   that uses it; phase 8 checks that this whole block is empty.
+   ============================================================ */
+@layer components {
+  .glass-card,
+  .glass-card-subtle,
+  .glass-card-raised {
+    background-color: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+  }
+
+  .glass-card-subtle {
+    background-color: var(--surface-2);
+  }
+
+  .glass-nav-active {
+    background-color: var(--accent-soft);
+    color: var(--text);
+  }
+
+  .glass-nav-hover:hover {
+    background-color: var(--surface-2);
+  }
+
+  .display-inset {
+    background-color: var(--surface-2);
+    border: 1px solid var(--border);
+  }
+
+  .list-strip {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background-color: var(--list-color);
+    pointer-events: none;
+  }
+
+  .custom-checkbox {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-full);
+    background-color: transparent;
+    cursor: pointer;
+    position: relative;
+    transition: background-color var(--duration) var(--ease),
+                border-color var(--duration) var(--ease);
+  }
+  .custom-checkbox:hover {
+    border-color: var(--accent);
+  }
+  .custom-checkbox:checked {
+    background-color: var(--accent);
+    border-color: var(--accent);
+  }
+  .custom-checkbox:checked::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 45%;
+    width: 4px;
+    height: 8px;
+    border: solid var(--accent-contrast);
+    border-width: 0 2px 2px 0;
+    transform: translate(-50%, -50%) rotate(45deg);
   }
 }
 
 @layer utilities {
   .transition-default {
-    transition: all 200ms ease;
+    transition: background-color var(--duration) var(--ease),
+                color var(--duration) var(--ease),
+                border-color var(--duration) var(--ease),
+                opacity var(--duration) var(--ease);
   }
 
-  @keyframes urgency-pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.4; }
+  /* The pulse and the ticker animation are gone; what is left is the colour
+     the overdue marker carried and a static line of text. */
+  .urgency-pulse {
+    color: var(--danger);
   }
-
-  @keyframes peek-in {
-    0%   { opacity: 0; transform: translateY(4px); }
-    12%  { opacity: 1; transform: translateY(0); }
-    88%  { opacity: 1; transform: translateY(0); }
-    100% { opacity: 0; transform: translateY(-4px); }
-  }
-
   .peek-ticker {
-    animation: peek-in 2.8s ease-in-out forwards;
-  }
-
-  /* iOS-style frosted inset — recessed liquid glass well */
-  .display-inset {
-    background: rgba(0, 0, 0, 0.42);
-    backdrop-filter: blur(28px) saturate(2.0) brightness(0.92);
-    -webkit-backdrop-filter: blur(28px) saturate(2.0) brightness(0.92);
-    border: 0.5px solid rgba(0, 0, 0, 0.08);
-    border-top-color: rgba(0, 0, 0, 0.12);
-    border-bottom-color: rgba(255, 255, 255, 0.30);
-    box-shadow:
-      inset 0 4px 16px rgba(0, 0, 0, 0.06),
-      inset 0 1px 3px rgba(0, 0, 0, 0.04),
-      inset 0 -1px 0 rgba(255, 255, 255, 0.40);
-  }
-  .dark .display-inset {
-    background: rgba(0, 0, 0, 0.40);
-    backdrop-filter: blur(28px) saturate(1.8) brightness(0.70);
-    -webkit-backdrop-filter: blur(28px) saturate(1.8) brightness(0.70);
-    border: 0.5px solid rgba(0, 0, 0, 0.50);
-    border-top-color: rgba(0, 0, 0, 0.65);
-    border-bottom-color: rgba(255, 255, 255, 0.08);
-    box-shadow:
-      inset 0 4px 16px rgba(0, 0, 0, 0.35),
-      inset 0 1px 3px rgba(0, 0, 0, 0.20),
-      inset 0 -1px 0 rgba(255, 255, 255, 0.06);
+    opacity: 1;
   }
 }
 
-
-/* ═══════════════════════════════════════════════════
-   Reduced motion — no glints, no pulses, no drifting
-   background for people who asked their system for it
-   ═══════════════════════════════════════════════════ */
+/* People who asked their system for less motion get none of it */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

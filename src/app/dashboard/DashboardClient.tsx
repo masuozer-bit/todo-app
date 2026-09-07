@@ -40,7 +40,6 @@ import { useToday } from "@/hooks/useToday";
 import { useProfileSync } from "@/hooks/useProfileSync";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { useTheme } from "@/components/ThemeProvider";
-import LavaLampBackground from "@/components/LavaLampBackground";
 import {
   DndContext,
   closestCenter,
@@ -347,7 +346,7 @@ export default function DashboardClient({
     if (typeof window === "undefined") return true;
     try { return localStorage.getItem("showTaskBar") !== "false"; } catch { return true; }
   });
-  const { toggleTheme, theme, tint, lavaLamp, lavaColor, lavaOpacity, syncServerTheme } = useTheme();
+  const { toggleTheme, theme, syncServerTheme } = useTheme();
 
   // The active view comes from the URL: back button, reload and deep links
   // all work, and switching views costs no server roundtrip
@@ -1115,9 +1114,6 @@ export default function DashboardClient({
 
   return (
     <>
-    {/* Lava lamp animated background (dark mode only) */}
-    {theme === "dark" && lavaLamp && <LavaLampBackground tint={lavaColor} opacity={lavaOpacity} />}
-
     {/* Focus Mode overlay (mobile only) */}
     {isMobile && focusMode && (
       <FocusModeView

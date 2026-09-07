@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import { useI18n } from "./I18nProvider";
 import { Plus, X, Tag as TagIcon } from "lucide-react";
 import type { Tag } from "@/lib/types";
 
@@ -11,6 +12,7 @@ interface TagManagerProps {
 }
 
 export default function TagManager({ tags, onAdd, onDelete }: TagManagerProps) {
+  const { t } = useI18n();
   const [expanded, setExpanded] = useState(false);
   const [newTag, setNewTag] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -32,7 +34,7 @@ export default function TagManager({ tags, onAdd, onDelete }: TagManagerProps) {
     <div>
       <button
         onClick={() => setExpanded(!expanded)}
-        className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-black dark:hover:text-white transition-default"
+        className="flex items-center gap-1.5 text-xs text-text-faint hover:text-text transition-default"
         aria-expanded={expanded}
       >
         <TagIcon size={12} />
@@ -44,12 +46,12 @@ export default function TagManager({ tags, onAdd, onDelete }: TagManagerProps) {
           {tags.map((tag) => (
             <span
               key={tag.id}
-              className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-lg border border-black/8 dark:border-white/8 text-gray-500 dark:text-gray-400"
+              className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-lg border border-black/8 dark:border-white/8 text-text-muted dark:text-text-faint"
             >
               {tag.name}
               <button
                 onClick={() => onDelete(tag.id)}
-                className="text-gray-300 dark:text-gray-600 hover:text-black dark:hover:text-white transition-default"
+                className="text-gray-300 dark:text-gray-600 hover:text-text transition-default"
                 aria-label={`Remove tag ${tag.name}`}
               >
                 <X size={10} />
@@ -66,8 +68,8 @@ export default function TagManager({ tags, onAdd, onDelete }: TagManagerProps) {
               onChange={(e) => setNewTag(e.target.value)}
               placeholder="+ add"
               maxLength={30}
-              className="w-16 text-xs bg-transparent text-gray-400 placeholder:text-gray-300 dark:placeholder:text-gray-600 focus:outline-none focus:w-24 transition-all duration-200"
-              aria-label="New tag name"
+              className="w-16 text-xs bg-transparent text-text-faint placeholder:text-gray-300 dark:placeholder:text-gray-600 focus:outline-none focus:w-24 transition-all duration-200"
+              aria-label={t("New tag name")}
             />
           </form>
         </div>

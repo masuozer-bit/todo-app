@@ -2,94 +2,140 @@
 
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
+  useMemo,
+  useRef,
   useState,
-  useCallback,
   type ReactNode,
 } from "react";
 
 import { createClient } from "@/lib/supabase/client";
-import { hexToHsv } from "@/lib/color-utils";
 
-type Theme = "light" | "dark";
+/** What the user picked. "system" follows prefers-color-scheme. */
+export type ThemePreference = "system" | "light" | "dark";
+/** What is actually on screen. */
+export type ResolvedTheme = "light" | "dark";
+export type Density = "comfortable" | "compact";
 
-// Still exported for compat — now just a hex string alias
-export type Tint = string;
+// ── Accent presets ───────────────────────────────────────────────────────────
+// Six colours, each holding at least 4.5:1 as text on its own background.
+// The light values are darkened against the concept for exactly that reason.
 
-// Preset quick-pick swatches
-export const PRESET_TINTS: { id: string; label: string; hex: string }[] = [
-  { id: "lavender", label: "Lavender", hex: "#5540A0" },
-  { id: "warm",     label: "Warm",     hex: "#A05820" },
-  { id: "sage",     label: "Sage",     hex: "#207840" },
-  { id: "rose",     label: "Rose",     hex: "#A02045" },
-  { id: "ocean",    label: "Ocean",    hex: "#1E4FA0" },
-  { id: "neutral",  label: "Neutral",  hex: "#606060" },
-];
-
-// Old name → hex for backward compat
-const LEGACY_MAP: Record<string, string> = {
-  lavender: "#5540A0",
-  warm:     "#A05820",
-  sage:     "#207840",
-  rose:     "#A02045",
-  ocean:    "#1E4FA0",
-  neutral:  "#606060",
-};
-
-function resolveStoredTint(raw: string | null): string {
-  if (!raw) return "#5540A0";
-  if (raw.startsWith("#")) return raw;
-  return LEGACY_MAP[raw] ?? "#5540A0";
+export interface AccentPreset {
+  id: string;
+  /** English label; the settings page runs it through t(). */
+  label: string;
+  light: { base: string; hover: string; soft: string };
+  dark: { base: string; hover: string; soft: string };
 }
 
-// ── Derive CSS vars from a hex color ────────────────────────────────────────
+export const ACCENT_PRESETS: AccentPreset[] = [
+  {
+    id: "blue",
+    label: "Blue",
+    light: { base: "#2A66D8", hover: "#1F5ED0", soft: "rgba(42, 102, 216, 0.10)" },
+    dark: { base: "#5B8DEF", hover: "#7AA3F5", soft: "rgba(91, 141, 239, 0.14)" },
+  },
+  {
+    id: "indigo",
+    label: "Indigo",
+    light: { base: "#5B5BD6", hover: "#5048C8", soft: "rgba(91, 91, 214, 0.10)" },
+    dark: { base: "#8A8AF0", hover: "#A3A3F5", soft: "rgba(138, 138, 240, 0.14)" },
+  },
+  {
+    id: "green",
+    label: "Green",
+    light: { base: "#1F7F4C", hover: "#186740", soft: "rgba(31, 127, 76, 0.10)" },
+    dark: { base: "#3DBE7A", hover: "#5FCD93", soft: "rgba(61, 190, 122, 0.14)" },
+  },
+  {
+    id: "orange",
+    label: "Orange",
+    light: { base: "#9C600B", hover: "#8A5309", soft: "rgba(156, 96, 11, 0.10)" },
+    dark: { base: "#E7A33A", hover: "#EFB865", soft: "rgba(231, 163, 58, 0.14)" },
+  },
+  {
+    id: "pink",
+    label: "Pink",
+    light: { base: "#BE3576", hover: "#A32663", soft: "rgba(190, 53, 118, 0.10)" },
+    dark: { base: "#E8699F", hover: "#EF8AB4", soft: "rgba(232, 105, 159, 0.14)" },
+  },
+  {
+    id: "grey",
+    label: "Grey",
+    light: { base: "#5B6470", hover: "#4B535D", soft: "rgba(91, 100, 112, 0.10)" },
+    dark: { base: "#9AA3B2", hover: "#B4BBC7", soft: "rgba(154, 163, 178, 0.14)" },
+  },
+];
 
-function applyTintColor(hex: string, isDark: boolean) {
-  const [h, s] = hexToHsv(hex);
-  const root   = document.documentElement;
+const DEFAULT_ACCENT = "blue";
 
-  if (isDark) {
-    const sc = Math.min(s * 0.4, 20);
-    root.style.setProperty("--tint-bg",     `hsl(${h}, ${sc}%, 4%)`);
-    root.style.setProperty("--tint-blob-1", `hsla(${h}, ${Math.min(s * 2.5, 80)}%, 36%, 0.40)`);
-    root.style.setProperty("--tint-blob-2", `hsla(${(h + 20) % 360}, ${Math.min(s * 2.0, 68)}%, 28%, 0.28)`);
-    root.style.setProperty("--tint-blob-3", `hsla(${(h + 10) % 360}, ${Math.min(s * 1.5, 55)}%, 20%, 0.15)`);
-  } else {
-    const sc = Math.min(s * 0.45, 20);
-    root.style.setProperty("--tint-bg",     `hsl(${h}, ${sc}%, 94%)`);
-    root.style.setProperty("--tint-blob-1", `hsla(${h}, ${Math.min(s * 1.6, 68)}%, 79%, 0.58)`);
-    root.style.setProperty("--tint-blob-2", `hsla(${(h + 15) % 360}, ${Math.min(s * 1.3, 60)}%, 76%, 0.40)`);
-    root.style.setProperty("--tint-blob-3", `hsla(${(h + 5) % 360}, ${Math.min(s * 1.1, 52)}%, 82%, 0.28)`);
-  }
+function findAccent(id: string): AccentPreset {
+  return ACCENT_PRESETS.find((a) => a.id === id) ?? ACCENT_PRESETS[0];
+}
+
+// ── Applying to the document ─────────────────────────────────────────────────
+
+function systemPrefersDark(): boolean {
+  if (typeof window === "undefined" || !window.matchMedia) return true;
+  return !window.matchMedia("(prefers-color-scheme: light)").matches;
+}
+
+function resolve(pref: ThemePreference): ResolvedTheme {
+  if (pref === "light" || pref === "dark") return pref;
+  return systemPrefersDark() ? "dark" : "light";
+}
+
+function applyTheme(resolved: ResolvedTheme) {
+  document.documentElement.classList.toggle("dark", resolved === "dark");
+}
+
+function applyAccent(id: string, resolved: ResolvedTheme) {
+  const preset = findAccent(id);
+  const set = resolved === "dark" ? preset.dark : preset.light;
+  const root = document.documentElement.style;
+  root.setProperty("--accent", set.base);
+  root.setProperty("--accent-hover", set.hover);
+  root.setProperty("--accent-soft", set.soft);
+  // Blue on white reads at 5.3:1, the same blue on near-black only at 3.2:1,
+  // so a filled button carries dark text in dark mode and white text in light.
+  root.setProperty("--accent-contrast", resolved === "dark" ? "#0F1115" : "#FFFFFF");
+}
+
+function applyDensity(density: Density) {
+  document.documentElement.classList.toggle("density-compact", density === "compact");
 }
 
 // ── Context ──────────────────────────────────────────────────────────────────
 
 interface ThemeContextType {
-  theme: Theme;
+  /** What the user picked, including "system". */
+  themePreference: ThemePreference;
+  /** What is on screen right now. */
+  theme: ResolvedTheme;
+  setThemePreference: (pref: ThemePreference) => void;
+  /** Steps light, dark, back to light. Used by the one button in the nav foot. */
   toggleTheme: () => void;
-  tint: string; // hex color
-  setTint: (hex: string) => void;
-  lavaLamp: boolean;
-  setLavaLamp: (v: boolean) => void;
-  lavaColor: string; // hex color for lava blobs (defaults to tint)
-  setLavaColor: (hex: string) => void;
-  lavaOpacity: number; // 0–1
-  setLavaOpacity: (v: number) => void;
+  /** Apply the theme the server already knows about, without an auth roundtrip. */
+  syncServerTheme: (theme: ResolvedTheme | null, userId?: string | null) => void;
+  accent: string;
+  setAccent: (id: string) => void;
+  density: Density;
+  setDensity: (density: Density) => void;
 }
 
 const ThemeContext = createContext<ThemeContextType>({
-  theme: "light",
+  themePreference: "system",
+  theme: "dark",
+  setThemePreference: () => {},
   toggleTheme: () => {},
-  tint: "#5540A0",
-  setTint: () => {},
-  lavaLamp: false,
-  setLavaLamp: () => {},
-  lavaColor: "#5540A0",
-  setLavaColor: () => {},
-  lavaOpacity: 0.58,
-  setLavaOpacity: () => {},
+  syncServerTheme: () => {},
+  accent: DEFAULT_ACCENT,
+  setAccent: () => {},
+  density: "comfortable",
+  setDensity: () => {},
 });
 
 export function useTheme() {
@@ -99,103 +145,143 @@ export function useTheme() {
 // ── Provider ─────────────────────────────────────────────────────────────────
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setTheme]            = useState<Theme>("light");
-  const [tint, setTintState]         = useState<string>("#5540A0");
-  const [lavaLamp, setLavaLampState] = useState(false);
-  const [lavaColor, setLavaColorState]     = useState<string>("#5540A0");
-  const [lavaOpacity, setLavaOpacityState] = useState<number>(0.58);
+  // Server and first client render agree; the stored choice lands on mount,
+  // and the inline script in layout.tsx has already painted the right theme.
+  const [themePreference, setPreferenceState] = useState<ThemePreference>("system");
+  const [theme, setTheme] = useState<ResolvedTheme>("dark");
+  const [accent, setAccentState] = useState<string>(DEFAULT_ACCENT);
+  const [density, setDensityState] = useState<Density>("comfortable");
+
+  // Set once the page knows who is signed in, so a toggle needs no auth roundtrip
+  const userIdRef = useRef<string | null>(null);
+  const accentRef = useRef(accent);
+  accentRef.current = accent;
 
   useEffect(() => {
-    // Theme
-    const storedTheme = localStorage.getItem("theme") as Theme | null;
-    const isDark = storedTheme === "dark";
-    if (storedTheme) {
-      setTheme(storedTheme);
-      document.documentElement.classList.toggle("dark", isDark);
+    let storedTheme: string | null = null;
+    let storedAccent: string | null = null;
+    let storedDensity: string | null = null;
+    try {
+      storedTheme = localStorage.getItem("theme");
+      storedAccent = localStorage.getItem("accent");
+      storedDensity = localStorage.getItem("density");
+    } catch {
+      /* private mode, stay on the defaults */
     }
 
-    // Tint
-    const hex = resolveStoredTint(localStorage.getItem("tint"));
-    setTintState(hex);
-    applyTintColor(hex, isDark);
+    const pref: ThemePreference =
+      storedTheme === "light" || storedTheme === "dark" || storedTheme === "system"
+        ? storedTheme
+        : "system";
+    const resolved = resolve(pref);
+    setPreferenceState(pref);
+    setTheme(resolved);
+    applyTheme(resolved);
 
-    // Lava lamp
-    setLavaLampState(localStorage.getItem("lava-lamp") === "1");
+    const accentId = storedAccent && findAccent(storedAccent).id === storedAccent ? storedAccent : DEFAULT_ACCENT;
+    setAccentState(accentId);
+    applyAccent(accentId, resolved);
 
-    // Lava color (defaults to tint if not set)
-    const storedLavaColor = localStorage.getItem("lava-color");
-    setLavaColorState(storedLavaColor ?? hex);
-
-    // Lava opacity
-    const storedOpacity = localStorage.getItem("lava-opacity");
-    if (storedOpacity !== null) setLavaOpacityState(parseFloat(storedOpacity));
-
-    // Sync theme from DB
-    const supabase = createClient();
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) {
-        supabase
-          .from("profiles")
-          .select("theme_preference")
-          .eq("id", user.id)
-          .single()
-          .then(({ data }) => {
-            if (data?.theme_preference) {
-              const dbTheme = data.theme_preference as Theme;
-              setTheme(dbTheme);
-              localStorage.setItem("theme", dbTheme);
-              document.documentElement.classList.toggle("dark", dbTheme === "dark");
-              // Re-apply tint vars with correct dark mode
-              applyTintColor(hex, dbTheme === "dark");
-            }
-          });
-      }
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const nextDensity: Density = storedDensity === "compact" ? "compact" : "comfortable";
+    setDensityState(nextDensity);
+    applyDensity(nextDensity);
   }, []);
 
-  const toggleTheme = useCallback(() => {
-    const next = theme === "light" ? "dark" : "light";
-    setTheme(next);
-    localStorage.setItem("theme", next);
-    document.documentElement.classList.toggle("dark", next === "dark");
-    applyTintColor(tint, next === "dark");
+  // Follow the system while the preference is "system"
+  useEffect(() => {
+    if (themePreference !== "system") return;
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    const mq = window.matchMedia("(prefers-color-scheme: light)");
+    const onChange = () => {
+      const resolved = resolve("system");
+      setTheme(resolved);
+      applyTheme(resolved);
+      applyAccent(accentRef.current, resolved);
+    };
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, [themePreference]);
 
+  const persistServerTheme = useCallback((resolved: ResolvedTheme) => {
     const supabase = createClient();
+    const knownUserId = userIdRef.current;
+    if (knownUserId) {
+      supabase.from("profiles").update({ theme_preference: resolved }).eq("id", knownUserId).then(() => {});
+      return;
+    }
     supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) {
-        supabase.from("profiles").update({ theme_preference: next }).eq("id", user.id).then(() => {});
-      }
+      if (!user) return;
+      userIdRef.current = user.id;
+      supabase.from("profiles").update({ theme_preference: resolved }).eq("id", user.id).then(() => {});
     });
-  }, [theme, tint]);
+  }, []);
 
-  const setTint = useCallback(
-    (hex: string) => {
-      setTintState(hex);
-      localStorage.setItem("tint", hex);
-      applyTintColor(hex, theme === "dark");
+  const setThemePreference = useCallback(
+    (pref: ThemePreference) => {
+      const resolved = resolve(pref);
+      setPreferenceState(pref);
+      setTheme(resolved);
+      applyTheme(resolved);
+      applyAccent(accentRef.current, resolved);
+      try { localStorage.setItem("theme", pref); } catch { /* ignore */ }
+      persistServerTheme(resolved);
+    },
+    [persistServerTheme]
+  );
+
+  const toggleTheme = useCallback(() => {
+    setThemePreference(theme === "dark" ? "light" : "dark");
+  }, [theme, setThemePreference]);
+
+  // Called by pages that already resolved the user server-side
+  const syncServerTheme = useCallback(
+    (serverTheme: ResolvedTheme | null, userId?: string | null) => {
+      if (userId) userIdRef.current = userId;
+      if (serverTheme !== "light" && serverTheme !== "dark") return;
+      // A local choice wins over the stored one, so nothing flips under the user
+      let storedTheme: string | null = null;
+      try { storedTheme = localStorage.getItem("theme"); } catch { /* ignore */ }
+      if (storedTheme === "light" || storedTheme === "dark" || storedTheme === "system") return;
+
+      setPreferenceState(serverTheme);
+      setTheme(serverTheme);
+      applyTheme(serverTheme);
+      applyAccent(accentRef.current, serverTheme);
+      try { localStorage.setItem("theme", serverTheme); } catch { /* ignore */ }
+    },
+    []
+  );
+
+  const setAccent = useCallback(
+    (id: string) => {
+      const next = findAccent(id).id;
+      setAccentState(next);
+      applyAccent(next, theme);
+      try { localStorage.setItem("accent", next); } catch { /* ignore */ }
     },
     [theme]
   );
 
-  const setLavaLamp = useCallback((v: boolean) => {
-    setLavaLampState(v);
-    localStorage.setItem("lava-lamp", v ? "1" : "0");
+  const setDensity = useCallback((next: Density) => {
+    setDensityState(next);
+    applyDensity(next);
+    try { localStorage.setItem("density", next); } catch { /* ignore */ }
   }, []);
 
-  const setLavaColor = useCallback((hex: string) => {
-    setLavaColorState(hex);
-    localStorage.setItem("lava-color", hex);
-  }, []);
-
-  const setLavaOpacity = useCallback((v: number) => {
-    setLavaOpacityState(v);
-    localStorage.setItem("lava-opacity", String(v));
-  }, []);
-
-  return (
-    <ThemeContext.Provider value={{ theme, toggleTheme, tint, setTint, lavaLamp, setLavaLamp, lavaColor, setLavaColor, lavaOpacity, setLavaOpacity }}>
-      {children}
-    </ThemeContext.Provider>
+  const value = useMemo(
+    () => ({
+      themePreference,
+      theme,
+      setThemePreference,
+      toggleTheme,
+      syncServerTheme,
+      accent,
+      setAccent,
+      density,
+      setDensity,
+    }),
+    [themePreference, theme, setThemePreference, toggleTheme, syncServerTheme, accent, setAccent, density, setDensity]
   );
+
+  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }

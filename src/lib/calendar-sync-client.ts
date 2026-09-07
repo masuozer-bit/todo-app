@@ -163,10 +163,15 @@ export async function fetchCalendarEvents(
     htmlLink?: string;
     source: "google" | "synced";
   }[];
-  imported?: boolean;
+  /* number of todos actually created or updated by the import */
+  imported?: number;
 }> {
   try {
-    const params = new URLSearchParams({ timeMin, timeMax });
+    const params = new URLSearchParams({
+      timeMin,
+      timeMax,
+      tz: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+    });
     const response = await fetch(`/api/calendar/events?${params}`);
     if (!response.ok) return { events: [] };
     return response.json();

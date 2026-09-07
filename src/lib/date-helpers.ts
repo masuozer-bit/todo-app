@@ -58,9 +58,27 @@ const DAY_NAMES: Record<string, number> = {
   thursday: 4, thu: 4, thurs: 4,
   friday: 5, fri: 5,
   saturday: 6, sat: 6,
+  // German — both languages are understood at the same time, so a mixed
+  // sentence like "Zahnarzt tomorrow um 10 Uhr" still parses
+  sonntag: 0, so: 0,
+  montag: 1, mo: 1,
+  dienstag: 2, di: 2,
+  mittwoch: 3, mi: 3,
+  donnerstag: 4, "do": 4,
+  freitag: 5, fr: 5,
+  samstag: 6, sa: 6, sonnabend: 6,
 };
 
+/* After "nächsten"/"kommenden" the short forms are safe */
+const GERMAN_DAY_PATTERN =
+  "montag|dienstag|mittwoch|donnerstag|freitag|samstag|sonnabend|sonntag|mo|di|mi|do|fr|sa|so";
+/* On their own they are not: "Mail an Mo schreiben", "Do the laundry" */
+const GERMAN_DAY_PATTERN_FULL =
+  "montag|dienstag|mittwoch|donnerstag|freitag|samstag|sonnabend|sonntag";
+
 const MONTH_NAMES: Record<string, number> = {
+  januar: 0, februar: 1, "märz": 2, maerz: 2, mai: 4, juni: 5, juli: 6,
+  oktober: 9, dezember: 11,
   january: 0, jan: 0,
   february: 1, feb: 1,
   march: 2, mar: 2,
@@ -90,6 +108,25 @@ function parseTimeString(timeStr: string): string | null {
   return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
 }
 
+/* "24.12." or "24.12.2026" — returns the input with the date removed */
+function replaceGermanDate(input: string, onMatch: (date: string) => void): string {
+  return input.replace(/(?<![\d.])(\d{1,2})\.(\d{1,2})\.(\d{4})?(?![\d.])/g, (match, d, m, y) => {
+    const day = parseInt(d, 10);
+    const month = parseInt(m, 10) - 1;
+    if (day < 1 || day > 31 || month < 0 || month > 11) return match;
+    const date = new Date();
+    date.setHours(0, 0, 0, 0);
+    if (y) date.setFullYear(parseInt(y, 10));
+    date.setMonth(month);
+    date.setDate(day);
+    if (!y && date < new Date(new Date().setHours(0, 0, 0, 0))) {
+      date.setFullYear(date.getFullYear() + 1);
+    }
+    onMatch(toDateStr(date));
+    return "";
+  });
+}
+
 function getNextDayOfWeek(dayIndex: number): string {
   const d = new Date();
   const current = d.getDay();
@@ -117,20 +154,154 @@ export function parseNaturalLanguage(input: string): ParsedTask {
   let priority: Priority = "none";
   const tagNames: string[] = [];
 
-  // Extract tags: #tagname
-  remaining = remaining.replace(/#(\w+)/g, (_, tag) => {
+  // Extract tags: #tagname — letters of any language, so #Büro works
+  remaining = remaining.replace(/#([\p{L}\p{N}_]+)/gu, (_, tag) => {
     tagNames.push(tag);
     return "";
   });
 
-  // Extract priority: !high, !med, !medium, !low, !urgent (=high), !important (=high)
-  remaining = remaining.replace(/!(high|med|medium|low|urgent|important|p1|p2|p3)/gi, (_, p) => {
-    const pl = p.toLowerCase();
-    if (pl === "high" || pl === "urgent" || pl === "important" || pl === "p1") priority = "high";
-    else if (pl === "med" || pl === "medium" || pl === "p2") priority = "medium";
-    else if (pl === "low" || pl === "p3") priority = "low";
+  // Extract priority: English and German markers
+  remaining = remaining.replace(
+    /!(high|med|medium|low|urgent|important|p1|p2|p3|hoch|mittel|niedrig|dringend|wichtig)/gi,
+    (_, p) => {
+      const pl = p.toLowerCase();
+      if (["high", "urgent", "important", "p1", "hoch", "dringend", "wichtig"].includes(pl)) priority = "high";
+      else if (["med", "medium", "p2", "mittel"].includes(pl)) priority = "medium";
+      else if (["low", "p3", "niedrig"].includes(pl)) priority = "low";
+      return "";
+    }
+  );
+
+
+  // ── German patterns ──────────────────────────────────────────────────
+  // Times: "um 15 Uhr", "15 Uhr", "um 15:30", "15.30 Uhr"
+  remaining = remaining.replace(
+    /\b(?:um\s+)?(\d{1,2})(?:[:.](\d{2}))?\s*uhr\b/gi,
+    (match, h, m) => {
+      if (start_time) return match;
+      const hours = parseInt(h, 10);
+      const minutes = m ? parseInt(m, 10) : 0;
+      if (hours > 23 || minutes > 59) return match;
+      start_time = `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+      return "";
+    }
+  );
+
+  // "um 15:30" / "um 9" — bare hours between 1 and 6 mean the afternoon
+  remaining = remaining.replace(/\bum\s+(\d{1,2})(?::(\d{2}))?\b/gi, (match, h, m) => {
+    if (start_time) return match;
+    let hours = parseInt(h, 10);
+    const minutes = m ? parseInt(m, 10) : 0;
+    if (hours > 23 || minutes > 59) return match;
+    if (!m && hours >= 1 && hours <= 6) hours += 12;
+    start_time = `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
     return "";
   });
+
+  remaining = remaining.replace(/(?<!\p{L})(heute|morgen|übermorgen|uebermorgen)(?!\p{L})/giu, (match, word) => {
+    if (due_date) return match;
+    const w = word.toLowerCase();
+    const d = new Date();
+    if (w === "morgen") d.setDate(d.getDate() + 1);
+    else if (w === "übermorgen" || w === "uebermorgen") d.setDate(d.getDate() + 2);
+    due_date = toDateStr(d);
+    return "";
+  });
+
+  // "heute abend", "morgen früh" — the day is already gone by now, so this
+  // only fills in a time
+  remaining = remaining.replace(/\b(abends?|morgens|mittags|nachmittags|vormittags|nachts)\b/gi, (_, part) => {
+    const p = part.toLowerCase();
+    if (!start_time) {
+      if (p.startsWith("abend")) start_time = "18:00";
+      else if (p === "morgens" || p === "vormittags") start_time = "09:00";
+      else if (p === "mittags") start_time = "12:00";
+      else if (p === "nachmittags") start_time = "15:00";
+      else if (p === "nachts") start_time = "21:00";
+    }
+    if (!due_date) due_date = getToday();
+    return "";
+  });
+
+  remaining = remaining.replace(/(?<!\p{L})(?:früh|frueh)(?!\p{L})/giu, () => {
+    if (!start_time) start_time = "08:00";
+    return "";
+  });
+
+  // "nächsten Montag", "kommenden Freitag"
+  remaining = remaining.replace(
+    new RegExp(`(?<!\\p{L})(?:nächsten|naechsten|nächste|naechste|kommenden|kommende)\\s+(${GERMAN_DAY_PATTERN})(?!\\p{L})`, "giu"),
+    (match, day) => {
+      const dayIndex = DAY_NAMES[day.toLowerCase()];
+      if (dayIndex === undefined) return match;
+      due_date = getNextDayOfWeek(dayIndex);
+      return "";
+    }
+  );
+
+  remaining = remaining.replace(/(?<!\p{L})(?:nächste|naechste|kommende)\s+woche(?!\p{L})/giu, () => {
+    due_date = getNextWeek();
+    return "";
+  });
+
+  remaining = remaining.replace(/(?<!\p{L})(?:nächsten|naechsten|kommenden)\s+monat(?!\p{L})/giu, () => {
+    const d = new Date();
+    d.setMonth(d.getMonth() + 1);
+    d.setDate(1);
+    due_date = toDateStr(d);
+    return "";
+  });
+
+  // Bare German weekday: next occurrence
+  remaining = remaining.replace(
+    new RegExp(`(?<!\\p{L})(${GERMAN_DAY_PATTERN_FULL})(?!\\p{L})`, "giu"),
+    (match, day) => {
+      if (due_date) return match;
+      const lower = day.toLowerCase();
+      const dayIndex = DAY_NAMES[lower];
+      if (dayIndex === undefined) return match;
+      due_date = getThisDayOfWeek(dayIndex);
+      return "";
+    }
+  );
+
+  remaining = remaining.replace(/\bin\s+(\d+)\s+(tagen?|wochen?|monaten?|jahren?)\b/gi, (_, n, unit) => {
+    const num = parseInt(n, 10);
+    const d = new Date();
+    const u = unit.toLowerCase();
+    if (u.startsWith("tag")) d.setDate(d.getDate() + num);
+    else if (u.startsWith("woche")) d.setDate(d.getDate() + 7 * num);
+    else if (u.startsWith("monat")) d.setMonth(d.getMonth() + num);
+    else if (u.startsWith("jahr")) d.setFullYear(d.getFullYear() + num);
+    due_date = toDateStr(d);
+    return "";
+  });
+
+  remaining = remaining.replace(/\bwochenende\b/gi, () => {
+    if (due_date) return "";
+    const d = new Date();
+    const day = d.getDay();
+    const untilSaturday = (6 - day + 7) % 7 || (day === 6 ? 0 : 7);
+    d.setDate(d.getDate() + untilSaturday);
+    due_date = toDateStr(d);
+    return "";
+  });
+
+  remaining = remaining.replace(/\b(?:ende\s+der\s+woche|wochenende\s+ende)\b/gi, () => {
+    due_date = getEndOfWeek();
+    return "";
+  });
+
+  remaining = remaining.replace(/\bmonatsende\b|\bende\s+des\s+monats\b/gi, () => {
+    const d = new Date();
+    d.setMonth(d.getMonth() + 1);
+    d.setDate(0);
+    due_date = toDateStr(d);
+    return "";
+  });
+
+  // "24.12." and "24.12.2026"
+  remaining = replaceGermanDate(remaining, (date) => { if (!due_date) due_date = date; });
 
   // Extract time range: "at 3pm-5pm", "from 3pm to 5pm", "3pm-5pm", "at 3:30pm-5pm"
   remaining = remaining.replace(
@@ -150,8 +321,15 @@ export function parseNaturalLanguage(input: string): ParsedTask {
   // Extract time: "at 3pm", "at 15:00", "at 3:30pm"
   remaining = remaining.replace(/\bat\s+(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)\b/gi, (_, t) => {
     if (start_time) return ""; // already have a time from range parsing
-    const parsed = parseTimeString(t.trim());
-    if (parsed) start_time = parsed;
+    const raw = t.trim();
+    const parsed = parseTimeString(raw);
+    if (!parsed) return "";
+    // "at 5" almost always means the afternoon, "at 9" the morning
+    const bare = /^\d{1,2}$/.test(raw);
+    const hour = parseInt(parsed.slice(0, 2), 10);
+    start_time = bare && hour >= 1 && hour <= 6
+      ? `${String(hour + 12).padStart(2, "0")}:00`
+      : parsed;
     return "";
   });
 
@@ -318,8 +496,13 @@ export function parseNaturalLanguage(input: string): ParsedTask {
     due_date = getToday();
   }
 
-  // Clean up remaining title
-  const title = remaining.replace(/\s+/g, " ").trim();
+  // Clean up remaining title — remove the prepositions that belonged to the
+  // date or time we just took out ("Sport am" → "Sport")
+  const title = remaining
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/[\s,]+(?:am|um|bis|für|fuer|im|in|von|ab|at|on|by|to)$/i, "")
+    .trim();
 
   return {
     title,

@@ -229,3 +229,12 @@ export interface PushSubscriptionRecord {
   auth: string;
   created_at: string;
 }
+
+export interface JournalEntry {
+  id: string;
+  user_id: string;
+  entry_date: string; // YYYY-MM-DD, one entry per day
+  content: string;
+  created_at: string;
+  updated_at: string;
+}

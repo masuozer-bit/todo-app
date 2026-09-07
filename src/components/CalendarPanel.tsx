@@ -1,6 +1,9 @@
 "use client";
 
 import { useState, useMemo, useEffect, useCallback } from "react";
+import { toDateStr } from "@/lib/date-helpers";
+import { formatLocale, monthNames, weekdayLabels } from "@/lib/format";
+import { useI18n } from "./I18nProvider";
 import { ChevronLeft, ChevronRight, X, ExternalLink, Clock } from "lucide-react";
 import type { Todo } from "@/lib/types";
 import { fetchCalendarEvents } from "@/lib/calendar-sync-client";
@@ -24,22 +27,12 @@ interface CalendarPanelProps {
   onGoogleEventsImported?: () => void;
 }
 
-const DAY_LABELS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
-const MONTH_NAMES = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December",
-];
 
-function toDateStr(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
+
 
 function formatShort(dateStr: string): string {
   const [y, m, d] = dateStr.split("-").map(Number);
-  return new Date(y, m - 1, d).toLocaleDateString("en", { month: "short", day: "numeric" });
+  return new Date(y, m - 1, d).toLocaleDateString(formatLocale(), { day: "numeric", month: "short" });
 }
 
 export default function CalendarPanel({
@@ -48,6 +41,7 @@ export default function CalendarPanel({
   onSelectDates,
   onGoogleEventsImported,
 }: CalendarPanelProps) {
+  const { t } = useI18n();
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const todayStr = toDateStr(today);
@@ -67,8 +61,8 @@ export default function CalendarPanel({
     const result = await fetchCalendarEvents(toDateStr(firstDay), toDateStr(lastDay));
     setGoogleEvents(result.events);
     setEventsLoading(false);
-    // If events were imported from Google Calendar, notify parent to refetch
-    if (result.imported) {
+    // Only refetch when the import actually wrote something
+    if ((result.imported ?? 0) > 0) {
       onGoogleEventsImported?.();
     }
   }, [viewYear, viewMonth, onGoogleEventsImported]);
@@ -161,26 +155,26 @@ export default function CalendarPanel({
   return (
     <div className="space-y-2">
       {/* Calendar grid pill */}
-      <div className="glass-card px-3 py-3">
+      <div className="surface border border-border rounded-lg px-3 py-3">
         {/* Month header */}
         <div className="flex items-center justify-between mb-3">
           <button
             onClick={prevMonth}
-            className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-default"
-            aria-label="Previous month"
+            className="w-7 h-7 rounded-lg flex items-center justify-center text-text-faint hover:text-text hover:bg-surface-2 transition-default"
+            aria-label={t("Previous month")}
           >
             <ChevronLeft size={14} />
           </button>
           <button
             onClick={goToToday}
-            className="text-sm font-semibold text-black dark:text-white hover:opacity-70 transition-default"
+            className="text-sm font-semibold text-text hover:opacity-70 transition-default"
           >
-            {MONTH_NAMES[viewMonth]} {viewYear}
+            {monthNames()[viewMonth]} {viewYear}
           </button>
           <button
             onClick={nextMonth}
-            className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-default"
-            aria-label="Next month"
+            className="w-7 h-7 rounded-lg flex items-center justify-center text-text-faint hover:text-text hover:bg-surface-2 transition-default"
+            aria-label={t("Next month")}
           >
             <ChevronRight size={14} />
           </button>
@@ -188,8 +182,8 @@ export default function CalendarPanel({
 
         {/* Day labels */}
         <div className="grid grid-cols-7 mb-1">
-          {DAY_LABELS.map((label) => (
-            <div key={label} className="text-center text-[10px] font-medium text-gray-400 uppercase tracking-wider py-1">
+          {weekdayLabels('narrow').map((label) => (
+            <div key={label} className="text-center text-xs font-medium text-text-faint uppercase tracking-wider py-1">
               {label}
             </div>
           ))}
@@ -211,11 +205,11 @@ export default function CalendarPanel({
                 className={`
                   relative w-full aspect-square rounded-xl flex flex-col items-center justify-center text-xs transition-default
                   ${!inMonth ? "text-gray-300 dark:text-gray-700" : ""}
-                  ${inMonth && !isToday && !isSelected ? "text-black dark:text-white hover:bg-black/5 dark:hover:bg-white/10" : ""}
-                  ${isToday && !isSelected ? "bg-black dark:bg-white text-white dark:text-black font-bold" : ""}
+                  ${inMonth && !isToday && !isSelected ? "text-text hover:bg-surface-2" : ""}
+                  ${isToday && !isSelected ? "btn-primary font-bold" : ""}
                   ${isSelected ? "ring-2 ring-black dark:ring-white ring-inset font-bold" : ""}
-                  ${isSelected && isToday ? "bg-black dark:bg-white text-white dark:text-black" : ""}
-                  ${isSelected && !isToday ? "bg-black/10 dark:bg-white/15 text-black dark:text-white" : ""}
+                  ${isSelected && isToday ? "btn-primary" : ""}
+                  ${isSelected && !isToday ? "bg-black/10 dark:bg-white/15 text-text" : ""}
                 `}
                 aria-label={dateStr}
                 aria-pressed={isSelected}
@@ -247,15 +241,15 @@ export default function CalendarPanel({
 
       {/* Selected dates pill — only shown when dates are selected */}
       {selectedDates.length > 0 && (
-        <div className="glass-card px-3 py-3">
+        <div className="surface border border-border rounded-lg px-3 py-3">
           <div className="flex items-center justify-between mb-2">
             <div>
-              <p className="text-xs font-medium text-black dark:text-white">
+              <p className="text-xs font-medium text-text">
                 {selectedDates.length === 1
                   ? formatShort(sortedSelectedDates[0])
                   : `${selectedDates.length} days selected`}
               </p>
-              <p className="text-xs text-gray-400 mt-0.5">
+              <p className="text-xs text-text-faint mt-0.5">
                 {totalSelectedTasks > 0
                   ? `${totalSelectedTasks} task${totalSelectedTasks !== 1 ? "s" : ""} due`
                   : "No tasks due"}
@@ -265,8 +259,8 @@ export default function CalendarPanel({
             </div>
             <button
               onClick={() => onSelectDates([])}
-              className="text-gray-400 hover:text-black dark:hover:text-white transition-default"
-              aria-label="Clear date selection"
+              className="text-text-faint hover:text-text transition-default"
+              aria-label={t("Clear date selection")}
             >
               <X size={14} />
             </button>
@@ -280,11 +274,11 @@ export default function CalendarPanel({
                 const gEvts = googleEventsByDate[d] ?? [];
                 if (!info && gEvts.length === 0) return null;
                 return (
-                  <div key={d} className="flex items-center justify-between text-[11px]">
-                    <span className="text-gray-400">{formatShort(d)}</span>
+                  <div key={d} className="flex items-center justify-between text-xs">
+                    <span className="text-text-faint">{formatShort(d)}</span>
                     <div className="flex items-center gap-2">
                       {info && (
-                        <span className={`font-medium ${info.hasOverdue ? "text-red-500" : "text-black dark:text-white"}`}>
+                        <span className={`font-medium ${info.hasOverdue ? "text-red-500" : "text-text"}`}>
                           {info.count} task{info.count !== 1 ? "s" : ""}
                         </span>
                       )}
@@ -302,20 +296,20 @@ export default function CalendarPanel({
           {allSelectedGoogleEvents.length > 0 && (
             <div className="space-y-1.5 mt-2">
               {allSelectedGoogleEvents.map((event) => (
-                <div key={event.id} className="glass-card-subtle flex items-start gap-2 py-1.5 px-2 rounded-lg">
+                <div key={event.id} className="surface-2 border border-border rounded flex items-start gap-2 py-1.5 px-2 rounded-lg">
                   <div className="w-1 h-full min-h-[16px] bg-black/30 dark:bg-white/40 rounded-full flex-shrink-0 mt-0.5" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium text-black dark:text-white truncate">{event.summary}</p>
+                    <p className="text-xs font-medium text-text truncate">{event.summary}</p>
                     {selectedDates.length > 1 && (
-                      <p className="text-[10px] text-gray-400 mt-0.5">{formatShort(event.date)}</p>
+                      <p className="text-xs text-text-faint mt-0.5">{formatShort(event.date)}</p>
                     )}
                     {event.startTime ? (
-                      <p className="text-[10px] text-gray-400 flex items-center gap-0.5 mt-0.5">
+                      <p className="text-xs text-text-faint flex items-center gap-0.5 mt-0.5">
                         <Clock size={9} />
                         {event.startTime}{event.endTime && `–${event.endTime}`}
                       </p>
                     ) : (
-                      <p className="text-[10px] text-gray-400 mt-0.5">All day</p>
+                      <p className="text-xs text-text-faint mt-0.5">{t("All day")}</p>
                     )}
                   </div>
                   {event.htmlLink && (
@@ -323,8 +317,8 @@ export default function CalendarPanel({
                       href={event.htmlLink}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-gray-400 hover:text-black dark:hover:text-white transition-default flex-shrink-0 mt-0.5"
-                      aria-label="Open in Google Calendar"
+                      className="text-text-faint hover:text-text transition-default flex-shrink-0 mt-0.5"
+                      aria-label={t("Open in Google Calendar")}
                     >
                       <ExternalLink size={10} />
                     </a>

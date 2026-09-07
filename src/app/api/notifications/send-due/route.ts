@@ -10,6 +10,33 @@ function getAdminClient() {
   );
 }
 
+/* Date and clock time in a given timezone */
+function localParts(date: Date, timeZone: string): { date: string; hour: number; minute: number } {
+  try {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }).formatToParts(date);
+    const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "00";
+    return {
+      date: `${get("year")}-${get("month")}-${get("day")}`,
+      hour: Number(get("hour")) % 24,
+      minute: Number(get("minute")),
+    };
+  } catch {
+    return {
+      date: date.toISOString().slice(0, 10),
+      hour: date.getUTCHours(),
+      minute: date.getUTCMinutes(),
+    };
+  }
+}
+
 export async function POST(request: NextRequest) {
   // Secure the endpoint — only Vercel cron (or manual testing) can call this
   const authHeader = request.headers.get("authorization");
@@ -30,15 +57,7 @@ export async function POST(request: NextRequest) {
 
   const supabase = getAdminClient();
 
-  // Current UTC time
   const now = new Date();
-  const utcHour = now.getUTCHours();
-  const utcMinute = now.getUTCMinutes();
-  const nowTotalMins = utcHour * 60 + utcMinute;
-  const today = now.toISOString().slice(0, 10); // YYYY-MM-DD UTC
-
-  const isAllDayWindow = utcHour === 8 && utcMinute < 5;   // 08:00–08:05 UTC
-  const isOverdueWindow = utcHour === 9 && utcMinute < 5;  // 09:00–09:05 UTC
 
   // Fetch all push subscriptions
   const { data: subscriptions } = await supabase
@@ -57,10 +76,31 @@ export async function POST(request: NextRequest) {
   }
 
   const userIds = Object.keys(subsByUser);
+
+  // Everyone's clock: reminders go out by the user's own local time, not UTC
+  const { data: profiles } = await supabase
+    .from("profiles")
+    .select("*")
+    .in("id", userIds);
+
+  const timezoneByUser: Record<string, string> = {};
+  for (const profile of profiles ?? []) {
+    const tz = (profile as { id: string; timezone?: string | null }).timezone;
+    if (tz) timezoneByUser[(profile as { id: string }).id] = tz;
+  }
+
   let totalSent = 0;
 
   for (const userId of userIds) {
     const userSubs = subsByUser[userId];
+    const local = localParts(now, timezoneByUser[userId] ?? "UTC");
+    const today = local.date;
+    const nowTotalMins = local.hour * 60 + local.minute;
+    // Wide morning window: the cron may only run once a day, and the
+    // notification log makes sure each reminder still goes out only once
+    const isMorningWindow = local.hour >= 6 && local.hour <= 11;
+    const isAllDayWindow = isMorningWindow;
+    const isOverdueWindow = isMorningWindow;
 
     // Fetch this user's incomplete todos
     const { data: todos } = await supabase
@@ -103,7 +143,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // ── All-day reminder at 8 AM UTC ─────────────────────────────────────────
+    // ── All-day reminder, in the morning of the user's own day ───────────────
     if (isAllDayWindow) {
       for (const todo of todayTodos) {
         if (todo.start_time) continue; // timed todos handled above
@@ -116,7 +156,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // ── Overdue digest at 9 AM UTC ───────────────────────────────────────────
+    // ── Overdue digest, once per local day ───────────────────────────────────
     if (isOverdueWindow) {
       const overdue = todos.filter((t) => t.due_date && t.due_date < today);
       if (overdue.length > 0) {

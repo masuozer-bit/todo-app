@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useI18n } from "./I18nProvider";
 import { LayoutGrid } from "lucide-react";
 import TodoList from "./TodoList";
 import TodoInput from "./TodoInput";
@@ -50,6 +51,7 @@ interface FocusModeViewProps {
   onDeleteEvent?: (eventId: string) => void;
   onOpenEventDetail?: (eventId: string) => void;
   onExitFocusMode: () => void;
+  onCreateTag?: (name: string) => Promise<import("@/lib/types").Tag | undefined>;
 }
 
 const SLIDE_LABELS = ["Overdue", "Today", "This Week"] as const;
@@ -75,7 +77,9 @@ export default function FocusModeView({
   onDeleteEvent,
   onOpenEventDetail,
   onExitFocusMode,
+  onCreateTag,
 }: FocusModeViewProps) {
+  const { t } = useI18n();
   const [slide, setSlide] = useState<0 | 1 | 2>(1);
   const [dragOffset, setDragOffset] = useState(0);
   const touchStartX = useRef(0);
@@ -139,19 +143,20 @@ export default function FocusModeView({
       <div className="flex-shrink-0 px-5 pt-12 pb-4">
         <div className="flex items-start justify-between">
           <div>
-            <p className="text-xs text-gray-400 uppercase tracking-widest mb-1">
+            <p className="text-xs text-text-faint uppercase tracking-widest mb-1">
               {dateLabel}
             </p>
-            <h1 className="text-3xl font-bold text-black dark:text-white tracking-tight">
+            <h1 className="text-3xl font-bold text-text tracking-tight">
               {SLIDE_LABELS[slide]}
             </h1>
           </div>
           <button
             onClick={onExitFocusMode}
-            className="mt-1 p-2 rounded-xl text-gray-400 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-default"
-            aria-label="Exit focus mode"
+            className="mt-1 flex items-center gap-1.5 px-2.5 py-2 rounded-xl text-text-muted dark:text-text-faint hover:text-text hover:bg-surface-2 transition-default"
+            aria-label={t("Leave focus mode")}
           >
-            <LayoutGrid size={18} />
+            <LayoutGrid size={16} />
+            <span className="text-xs font-medium">{t("All views")}</span>
           </button>
         </div>
 
@@ -159,8 +164,10 @@ export default function FocusModeView({
         <div className="mt-4">
           <TodoInput
             onAdd={onAdd}
+            onCreateTag={onCreateTag}
             tags={allTags}
             lists={lists}
+            events={events}
             activeListId={null}
           />
         </div>
@@ -232,6 +239,7 @@ export default function FocusModeView({
               events={events}
               defaultSortBy="timeline"
               viewKey="focus:thisWeek"
+              focusMode={true}
               {...sharedHandlers}
             />
           </div>
@@ -257,7 +265,7 @@ export default function FocusModeView({
             }}
             className={
               slide === i
-                ? "text-black dark:text-white"
+                ? "text-text"
                 : "bg-black/15 dark:bg-white/20"
             }
           />

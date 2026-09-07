@@ -143,8 +143,8 @@ export default function TimeStats({ todos, lists }: TimeStatsProps) {
       {stats.accuracyScore !== null && (
         <div className="rounded-xl bg-white dark:bg-black px-3 py-2.5">
           <div className="flex items-center justify-between mb-1.5">
-            <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wide">Estimation Accuracy</span>
-            <span className="text-[10px] text-gray-500 tabular-nums">
+            <span className="text-xs font-medium text-gray-400 uppercase tracking-wide">Estimation Accuracy</span>
+            <span className="text-xs text-gray-500 tabular-nums">
               {formatDuration(stats.actualOfEstimated)} / {formatDuration(stats.estimatedTotal)} estimated
             </span>
           </div>
@@ -156,7 +156,7 @@ export default function TimeStats({ todos, lists }: TimeStatsProps) {
               style={{ width: `${Math.min(stats.accuracyScore, 100)}%` }}
             />
           </div>
-          <p className="text-[10px] text-gray-600 mt-1">
+          <p className="text-xs text-gray-600 mt-1">
             {stats.accuracyScore >= 80 ? "Great self-assessment!" : stats.accuracyScore >= 50 ? "Room for improvement" : "Try more realistic estimates"}
           </p>
         </div>
@@ -176,7 +176,7 @@ export default function TimeStats({ todos, lists }: TimeStatsProps) {
         <div className="text-center py-6">
           <Clock size={20} className="mx-auto text-gray-600 mb-2" />
           <p className="text-xs text-gray-500">No time tracked yet</p>
-          <p className="text-[10px] text-gray-600 mt-0.5">Click the play button on a task to start</p>
+          <p className="text-xs text-gray-600 mt-0.5">Click the play button on a task to start</p>
         </div>
       )}
     </div>
@@ -188,7 +188,7 @@ function StatCard({ icon, label, value, accent }: { icon: React.ReactNode; label
     <div className="rounded-xl bg-white dark:bg-black px-3 py-2.5">
       <div className={`flex items-center gap-1.5 mb-1 ${accent}`}>
         {icon}
-        <span className="text-[10px] font-medium uppercase tracking-wide">{label}</span>
+        <span className="text-xs font-medium uppercase tracking-wide">{label}</span>
       </div>
       <p className="text-lg font-bold text-black dark:text-white tabular-nums">{value}</p>
     </div>
@@ -198,7 +198,7 @@ function StatCard({ icon, label, value, accent }: { icon: React.ReactNode; label
 function ListBreakdown({ title, items, max }: { title: string; items: { name: string; color: string | null; seconds: number }[]; max: number }) {
   return (
     <div className="rounded-xl bg-white dark:bg-black px-3 py-2.5">
-      <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wide mb-2">{title}</p>
+      <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">{title}</p>
       <div className="space-y-2">
         {items.map((item) => (
           <div key={item.name}>
@@ -207,7 +207,7 @@ function ListBreakdown({ title, items, max }: { title: string; items: { name: st
                 {item.color && <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: item.color }} />}
                 {item.name}
               </span>
-              <span className="text-[10px] text-gray-500 tabular-nums">{formatDuration(item.seconds)}</span>
+              <span className="text-xs text-gray-500 tabular-nums">{formatDuration(item.seconds)}</span>
             </div>
             <div className="h-1.5 rounded-full bg-black/10 dark:bg-white/10 overflow-hidden">
               <div

@@ -1,0 +1,107 @@
+/* ============================================================
+   Design tokens — the single source for Phase 1.
+
+   Every value below holds at least 4.5:1 against the surface it
+   is used on. Six values differ from the concept for exactly
+   that reason; they are marked inline.
+   Light is the base, dark applies through the .dark class on
+   <html> (Tailwind darkMode: "class"). The theme provider adds
+   .dark by default, so dark is what people see unless they ask
+   for light.
+   ============================================================ */
+
+:root {
+  /* Surfaces */
+  --bg: #F6F7F9;
+  --surface: #FFFFFF;
+  --surface-2: #F1F3F6;
+  --surface-3: #E9ECF1;
+
+  /* Lines */
+  --border: #E3E6EB;
+  --border-strong: #CBD1DA;
+
+  /* Text — exactly three */
+  --text: #14171C;
+  --text-muted: #5B6470;
+  --text-faint: #676F7C;   /* spec said #8A929E, that is 2.9:1 on --bg */
+
+  /* Accent — selection, focus, primary action, links */
+  --accent: #2A66D8;       /* spec said #2F6FE4, that is 4.3:1 as link text */
+  --accent-hover: #1F5ED0;
+  --accent-soft: rgba(42, 102, 216, 0.10);
+  --accent-contrast: #FFFFFF;
+
+  /* Meaning — darkened from the spec so red, amber and green also work as text */
+  --danger: #CE3238;
+  --danger-solid: #CE3238; /* background of a destructive button */
+  --warning: #9C600B;
+  --success: #1F7F4C;
+
+  --shadow-popover: 0 8px 24px rgba(16, 24, 40, 0.12), 0 0 0 1px var(--border);
+
+  /* Geometry */
+  --radius: 6px;
+  --radius-lg: 8px;
+  --radius-full: 999px;
+
+  /* Rhythm — 4px grid */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  /* Sizes */
+  --row-h: 40px;          /* comfortable */
+  --row-h-compact: 32px;  /* compact */
+  --header-h: 48px;
+  --control-h: 32px;
+  --input-h: 32px;
+  --nav-w: 240px;
+  --nav-w-collapsed: 56px;
+  --detail-w: 400px;
+
+  /* Motion */
+  --duration: 150ms;
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+}
+
+.dark {
+  --bg: #0F1115;
+  --surface: #151821;
+  --surface-2: #1B1F29;
+  --surface-3: #222733;
+
+  --border: #262B36;
+  --border-strong: #343A47;
+
+  --text: #E7E9EE;
+  --text-muted: #9AA3B2;
+  --text-faint: #7C8593;   /* spec said #626B7A, that is 3.5:1 on --bg */
+
+  --accent: #5B8DEF;
+  --accent-hover: #7AA3F5;
+  --accent-soft: rgba(91, 141, 239, 0.14);
+  /* White on this blue is only 3.2:1, so filled buttons carry dark text */
+  --accent-contrast: #0F1115;
+
+  --danger: #E5484D;
+  --danger-solid: #D0393E; /* white text needs a slightly deeper red */
+  --warning: #E7A33A;
+  --success: #3DBE7A;
+
+  --shadow-popover: 0 8px 24px rgba(0, 0, 0, 0.45), 0 0 0 1px var(--border);
+}
+
+/* Compact density — one class on <html> moves every row */
+.density-compact {
+  --row-h: 32px;
+}
+
+/* Accent presets. The theme provider writes the three accent
+   variables; these are the values behind the six swatches. */
+/* blue   #2F6FE4 / #5B8DEF   indigo #5B5BD6 / #8A8AF0
+   green  #2E9E63 / #3DBE7A   orange #C7841A / #E7A33A
+   pink   #C6437F / #E8699F   grey   #5B6470 / #9AA3B2 */

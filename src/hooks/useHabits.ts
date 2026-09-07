@@ -1,7 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { toDateStr } from "@/lib/date-helpers";
+import { isScheduledForDate } from "@/lib/habit-schedule";
 import { createClient } from "@/lib/supabase/client";
+import { useToast } from "@/components/Toast";
 import type {
   Habit,
   HabitCompletion,
@@ -19,28 +22,7 @@ function getTodayStr(): string {
   return `${y}-${m}-${day}`;
 }
 
-function toDateStr(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
 
-function isScheduledForDate(habit: Habit, date: Date): boolean {
-  if (habit.schedule_type === "weekly") {
-    return habit.schedule_days.includes(date.getDay());
-  }
-  // interval: every X days from created_at
-  const interval = habit.schedule_interval || 1;
-  if (interval === 1) return true; // every day
-  const start = new Date(habit.created_at);
-  start.setHours(0, 0, 0, 0);
-  const check = new Date(date);
-  check.setHours(0, 0, 0, 0);
-  const diffMs = check.getTime() - start.getTime();
-  const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
-  return diffDays >= 0 && diffDays % interval === 0;
-}
 
 function calculateStreak(
   habit: Habit,
@@ -78,41 +60,43 @@ export function useHabits(userId: string | undefined) {
   const [skips, setSkips] = useState<HabitSkip[]>([]);
   const [loading, setLoading] = useState(true);
   const supabase = createClient();
+  const { showError } = useToast();
+  const habitsRef = useRef(habits);
+  habitsRef.current = habits;
+  const completionsRef = useRef(completions);
+  completionsRef.current = completions;
 
   const fetchHabits = useCallback(async () => {
     if (!userId) return;
 
-    const { data: habitsData } = await supabase
-      .from("habits")
-      .select("*")
-      .eq("user_id", userId)
-      .order("sort_order", { ascending: true });
-
-    if (habitsData) setHabits(habitsData);
-
-    // Fetch last 30 days of completions for streak calculation
+    // Last 30 days of completions are enough for the streak calculation
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-    const { data: completionsData } = await supabase
-      .from("habit_completions")
-      .select("*")
-      .eq("user_id", userId)
-      .gte("completed_date", toDateStr(thirtyDaysAgo));
-
-    if (completionsData) setCompletions(completionsData);
-
-    // Fetch skips for today only
     const todayStr = getTodayStr();
-    const { data: skipsData } = await supabase
-      .from("habit_skips")
-      .select("*")
-      .eq("user_id", userId)
-      .eq("skip_date", todayStr);
 
-    if (skipsData) setSkips(skipsData);
+    // All three in parallel — they do not depend on each other
+    const [habitsRes, completionsRes, skipsRes] = await Promise.all([
+      supabase
+        .from("habits")
+        .select("*")
+        .eq("user_id", userId)
+        .order("sort_order", { ascending: true }),
+      supabase
+        .from("habit_completions")
+        .select("id, habit_id, completed_date")
+        .eq("user_id", userId)
+        .gte("completed_date", toDateStr(thirtyDaysAgo)),
+      supabase
+        .from("habit_skips")
+        .select("*")
+        .eq("user_id", userId)
+        .eq("skip_date", todayStr),
+    ]);
+
+    if (habitsRes.data) setHabits(habitsRes.data);
+    if (completionsRes.data) setCompletions(completionsRes.data as HabitCompletion[]);
+    if (skipsRes.data) setSkips(skipsRes.data);
     setLoading(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
   useEffect(() => {
@@ -153,7 +137,7 @@ export function useHabits(userId: string | undefined) {
       if (!userId) return;
       const maxOrder =
         habits.length > 0 ? Math.max(...habits.map((h) => h.sort_order)) : 0;
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("habits")
         .insert({
           user_id: userId,
@@ -169,7 +153,11 @@ export function useHabits(userId: string | undefined) {
         })
         .select()
         .single();
-      if (data) {
+      if (error || !data) {
+        showError("Habit could not be created");
+        return;
+      }
+      {
         setHabits((prev) => [...prev, data]);
         // Calendar sync (fire-and-forget)
         syncHabitToCalendar("create", data.id, {
@@ -182,7 +170,7 @@ export function useHabits(userId: string | undefined) {
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [userId, habits.length]
+    [userId, habits.length, showError]
   );
 
   const updateHabit = useCallback(
@@ -199,16 +187,22 @@ export function useHabits(userId: string | undefined) {
         list_id?: string | null;
       }
     ) => {
+      const previous = habitsRef.current;
+
+      setHabits((prev) =>
+        prev.map((h) => (h.id === id ? { ...h, ...updates } : h))
+      );
+
       const { error } = await supabase
         .from("habits")
         .update(updates)
         .eq("id", id);
-      if (!error) {
-        setHabits((prev) =>
-          prev.map((h) => (h.id === id ? { ...h, ...updates } : h))
-        );
+      if (error) {
+        setHabits(previous);
+        showError("Habit could not be saved");
+      } else {
         // Calendar sync (fire-and-forget)
-        const habit = habits.find((h) => h.id === id);
+        const habit = previous.find((h) => h.id === id);
         if (habit) {
           const merged = { ...habit, ...updates };
           syncHabitToCalendar("update", id, {
@@ -222,21 +216,28 @@ export function useHabits(userId: string | undefined) {
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [habits]
+    [showError]
   );
 
   const deleteHabit = useCallback(
     async (id: string) => {
+      const previousHabits = habitsRef.current;
+      const previousCompletions = completionsRef.current;
+
+      setHabits((prev) => prev.filter((h) => h.id !== id));
+      setCompletions((prev) => prev.filter((c) => c.habit_id !== id));
+
       // Sync calendar BEFORE deleting from DB (cascade may remove sync record)
       await syncHabitToCalendar("delete", id);
       const { error } = await supabase.from("habits").delete().eq("id", id);
-      if (!error) {
-        setHabits((prev) => prev.filter((h) => h.id !== id));
-        setCompletions((prev) => prev.filter((c) => c.habit_id !== id));
+      if (error) {
+        setHabits(previousHabits);
+        setCompletions(previousCompletions);
+        showError("Habit could not be deleted");
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    []
+    [showError]
   );
 
   const toggleCompletion = useCallback(
@@ -248,14 +249,25 @@ export function useHabits(userId: string | undefined) {
       );
 
       if (existing) {
+        setCompletions((prev) => prev.filter((c) => c.id !== existing.id));
         const { error } = await supabase
           .from("habit_completions")
           .delete()
           .eq("id", existing.id);
-        if (!error) {
-          setCompletions((prev) => prev.filter((c) => c.id !== existing.id));
+        if (error) {
+          setCompletions((prev) => [...prev, existing]);
+          showError("Habit could not be updated");
         }
       } else {
+        const optimistic = {
+          id: `temp-${Math.random().toString(36).slice(2)}`,
+          habit_id: habitId,
+          user_id: userId,
+          completed_date: today,
+          created_at: new Date().toISOString(),
+        };
+        setCompletions((prev) => [...prev, optimistic]);
+
         const { data, error } = await supabase
           .from("habit_completions")
           .insert({
@@ -265,13 +277,16 @@ export function useHabits(userId: string | undefined) {
           })
           .select()
           .single();
-        if (!error && data) {
-          setCompletions((prev) => [...prev, data]);
+        if (error || !data) {
+          setCompletions((prev) => prev.filter((c) => c.id !== optimistic.id));
+          showError("Habit could not be marked as done");
+        } else {
+          setCompletions((prev) => prev.map((c) => (c.id === optimistic.id ? data : c)));
         }
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [userId, completions]
+    [userId, completions, showError]
   );
 
   const skipHabitForDate = useCallback(
@@ -298,9 +313,9 @@ export function useHabits(userId: string | undefined) {
         .select()
         .single();
       if (error) {
-        console.error("Failed to skip habit:", error);
         // Revert optimistic update
         setSkips((prev) => prev.filter((s) => s.id !== optimisticSkip.id));
+        showError("Habit could not be skipped");
       } else if (data) {
         // Replace optimistic entry with real one
         setSkips((prev) =>
@@ -309,11 +324,12 @@ export function useHabits(userId: string | undefined) {
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [userId]
+    [userId, showError]
   );
 
   const reorderHabits = useCallback(
     async (reordered: Habit[]) => {
+      const previous = habitsRef.current;
       setHabits(reordered);
       const updates = reordered.map((h, i) => ({
         id: h.id,
@@ -324,10 +340,14 @@ export function useHabits(userId: string | undefined) {
         schedule_interval: h.schedule_interval || 1,
         sort_order: i,
       }));
-      await supabase.from("habits").upsert(updates);
+      const { error } = await supabase.from("habits").upsert(updates);
+      if (error) {
+        setHabits(previous);
+        showError("New order could not be saved");
+      }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    []
+    [showError]
   );
 
   return {

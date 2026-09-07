@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { useI18n } from "./I18nProvider";
 import { Plus } from "lucide-react";
 import type { List } from "@/lib/types";
+import { DatePicker, TimePicker } from "./Pickers";
 
 interface EventInputProps {
   onAdd: (title: string, options?: { description?: string; list_id?: string | null; color?: string; due_date?: string | null; end_date?: string | null; start_time?: string | null; end_time?: string | null }) => void;
@@ -10,6 +12,7 @@ interface EventInputProps {
 }
 
 export default function EventInput({ onAdd, lists = [] }: EventInputProps) {
+  const { t } = useI18n();
   const [title, setTitle] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [startTime, setStartTime] = useState("");
@@ -31,53 +34,35 @@ export default function EventInput({ onAdd, lists = [] }: EventInputProps) {
   }
 
   return (
-    <div className="glass-card p-4">
+    <div className="surface border border-border rounded-lg p-4">
       <form onSubmit={handleSubmit}>
         <div className="flex items-center gap-3">
           <input
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="Create a new event... (e.g., Sprint Planning, Birthday Party)"
-            className="flex-1 bg-transparent text-black dark:text-white placeholder:text-gray-400 focus:outline-none text-base"
-            aria-label="New event title"
+            placeholder={t("New project... (e.g. Sprint planning, Kitchen renovation)")}
+            className="flex-1 bg-transparent text-text placeholder:text-text-faint focus:outline-none text-base"
+            aria-label={t("New project title")}
           />
-          <input
-            type="date"
-            value={dueDate}
-            onChange={(e) => setDueDate(e.target.value)}
-            className="text-xs bg-transparent border border-black/10 dark:border-white/10 rounded-lg px-2 py-1.5 text-black dark:text-white focus:outline-none cursor-pointer flex-shrink-0"
-            aria-label="Event date (optional)"
-            title="Optional start date"
-          />
+          <DatePicker value={dueDate} onChange={setDueDate} placeholder={t("Date")} />
           {dueDate && (
             <>
-              <input
-                type="time"
+              <TimePicker
                 value={startTime}
-                onChange={(e) => { setStartTime(e.target.value); if (!e.target.value) setEndTime(""); }}
-                className="text-xs bg-transparent border border-black/10 dark:border-white/10 rounded-lg px-2 py-1.5 text-black dark:text-white focus:outline-none cursor-pointer flex-shrink-0"
-                aria-label="Start time (optional)"
-                title="Optional start time"
+                onChange={(v) => { setStartTime(v); if (!v) setEndTime(""); }}
+                placeholder={t("Time")}
               />
               {startTime && (
-                <input
-                  type="time"
-                  value={endTime}
-                  onChange={(e) => setEndTime(e.target.value)}
-                  min={startTime}
-                  className="text-xs bg-transparent border border-black/10 dark:border-white/10 rounded-lg px-2 py-1.5 text-black dark:text-white focus:outline-none cursor-pointer flex-shrink-0"
-                  aria-label="End time (optional)"
-                  title="Optional end time"
-                />
+                <TimePicker value={endTime} onChange={setEndTime} placeholder={t("End")} />
               )}
             </>
           )}
           <button
             type="submit"
             disabled={!title.trim()}
-            className="w-9 h-9 rounded-xl bg-black dark:bg-white text-white dark:text-black flex items-center justify-center hover:opacity-90 active:scale-95 transition-default disabled:opacity-30 disabled:cursor-not-allowed flex-shrink-0"
-            aria-label="Create event"
+            className="icon-btn flex-none w-9 h-9 btn-primary disabled:opacity-40"
+            aria-label={t("Create project")}
           >
             <Plus size={18} />
           </button>

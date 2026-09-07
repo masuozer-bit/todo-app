@@ -1,68 +1,37 @@
 "use client";
 
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   DndContext,
-  closestCenter,
   KeyboardSensor,
   PointerSensor,
+  closestCenter,
   useSensor,
   useSensors,
   type DragEndEvent,
 } from "@dnd-kit/core";
 import {
-  arrayMove,
   SortableContext,
+  arrayMove,
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { Search, X, Filter, CheckSquare, Trash2, Maximize2, ChevronRight, ChevronDown, PanelTopClose, Repeat, Flame, Clock, Check } from "lucide-react";
-import type { Todo, Tag, Priority, List, Event, HabitWithStatus } from "@/lib/types";
-import SortableItem from "./SortableItem";
-import ManualSortWrapper from "./ManualSortWrapper";
-import TodoItem from "./TodoItem";
+import { ChevronDown, ChevronRight, Flame } from "lucide-react";
+import { useI18n } from "./I18nProvider";
+import TaskRow from "./TaskRow";
 import ConfirmDialog from "./ConfirmDialog";
 import BulkActionBar from "./BulkActionBar";
+import { getToday } from "@/lib/date-helpers";
+import { formatTime } from "@/lib/format";
+import { PRIORITY_META } from "@/lib/priority";
+import type { FilterStatus, SortBy, TaskFilters } from "@/hooks/useTaskFilters";
+import type { TodoUpdates } from "@/hooks/useTodos";
+import type { Event, HabitWithStatus, List, Priority, Tag, Todo } from "@/lib/types";
 
-type FilterStatus = "all" | "active" | "completed";
-type SortBy = "default" | "priority" | "timeline" | "alpha";
+const PRIORITY_ORDER: Record<Priority, number> = { high: 0, medium: 1, low: 2, none: 3 };
 
-const PRIORITY_ORDER: Record<Priority, number> = {
-  high: 0,
-  medium: 1,
-  low: 2,
-  none: 3,
-};
-
-const PRIORITY_DOT: Record<Priority, string> = {
-  high: "bg-red-500",
-  medium: "bg-yellow-500",
-  low: "bg-green-500",
-  none: "bg-gray-300 dark:bg-gray-600",
-};
-
-type TimelineGroup = {
-  key: string;
-  label: string;
-  todos: Todo[];
-  events: Event[];
-};
-
-function getTimelineGroup(dateStr: string | null | undefined): string {
-  if (!dateStr) return "someday";
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const due = new Date(dateStr + "T00:00:00");
-  const diffDays = Math.round(
-    (due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
-  );
-  if (diffDays < 0) return "overdue";
-  if (diffDays === 0) return "today";
-  if (diffDays === 1) return "tomorrow";
-  if (diffDays <= 7) return "this_week";
-  if (diffDays <= 30) return "upcoming";
-  return "later";
-}
+/** How many done tasks the Done group shows before it offers the rest. */
+const DONE_PREVIEW = 20;
 
 const TIMELINE_CONFIG: { key: string; label: string }[] = [
   { key: "overdue", label: "Overdue" },
@@ -74,229 +43,80 @@ const TIMELINE_CONFIG: { key: string; label: string }[] = [
   { key: "someday", label: "Someday" },
 ];
 
-function groupByTimeline(
-  todos: Todo[],
-  events: Event[],
-  eventTodosByEventId: Record<string, Todo[]>
-): TimelineGroup[] {
-  const groups: Record<string, { todos: Todo[]; events: Event[] }> = {};
-
-  // Group standalone todos — use start_date if set, else due_date
-  for (const todo of todos) {
-    const key = getTimelineGroup(todo.start_date ?? todo.due_date);
-    if (!groups[key]) groups[key] = { todos: [], events: [] };
-    groups[key].todos.push(todo);
-  }
-
-  // Group events by the earliest start_date ?? due_date among their active tasks
-  for (const event of events) {
-    const tasks = eventTodosByEventId[event.id];
-    if (!tasks?.length) continue;
-    let bestDate: string | null = null;
-    let bestScore = Infinity;
-    for (const t of tasks) {
-      const d = t.start_date ?? t.due_date ?? null;
-      const s = getUrgencyScore(t.priority, d);
-      if (s < bestScore) { bestScore = s; bestDate = d; }
-    }
-    const key = getTimelineGroup(bestDate);
-    if (!groups[key]) groups[key] = { todos: [], events: [] };
-    groups[key].events.push(event);
-  }
-
-  const naturalTitle = (a: Todo, b: Todo) =>
-    a.title.localeCompare(b.title, undefined, { numeric: true, sensitivity: "base" });
-
-  const naturalStr = (a: string, b: string) =>
-    a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
-
-  // Sort todos within each group by their effective date; someday by title
-  for (const key of Object.keys(groups)) {
-    if (key === "someday") {
-      groups[key].todos.sort(naturalTitle);
-    } else {
-      groups[key].todos.sort((a, b) => {
-        const da = a.start_date ?? a.due_date ?? null;
-        const db = b.start_date ?? b.due_date ?? null;
-        if (!da && !db) return naturalTitle(a, b);
-        if (!da) return 1;
-        if (!db) return -1;
-        const dd = da.localeCompare(db);
-        return dd !== 0 ? dd : naturalTitle(a, b);
-      });
-    }
-    // Sort events within each group A-Z
-    groups[key].events.sort((a, b) => naturalStr(a.title, b.title));
-  }
-
-  return TIMELINE_CONFIG
-    .filter((c) => (groups[c.key]?.todos?.length ?? 0) > 0 || (groups[c.key]?.events?.length ?? 0) > 0)
-    .map((c) => ({ key: c.key, label: c.label, todos: groups[c.key]?.todos ?? [], events: groups[c.key]?.events ?? [] }));
-}
-
-// Urgency score: lower = more urgent/important
-function getUrgencyScore(
-  priority: Priority | null | undefined,
-  due_date: string | null | undefined
-): number {
-  const pScore = PRIORITY_ORDER[priority ?? "none"] * 100000;
-  if (!due_date) return pScore + 50000; // no date = treat as mid-future
+function timelineKey(dateStr: string | null | undefined): string {
+  if (!dateStr) return "someday";
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const due = new Date(due_date + "T00:00:00");
-  const days = Math.round((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-  // Map days into 0-49999; overdue (negative) becomes most urgent (lowest)
-  return pScore + Math.max(0, Math.min(49999, days + 1000));
+  const due = new Date(dateStr + "T00:00:00");
+  const days = Math.round((due.getTime() - today.getTime()) / 86_400_000);
+  if (days < 0) return "overdue";
+  if (days === 0) return "today";
+  if (days === 1) return "tomorrow";
+  if (days <= 7) return "this_week";
+  if (days <= 30) return "upcoming";
+  return "later";
 }
 
-type Urgency = "overdue" | "today" | "soon" | "normal";
-const URGENCY_STYLE: Record<Urgency, React.CSSProperties> = {
-  overdue: { backgroundColor: "rgba(239,68,68,0.18)", color: "#f87171", backdropFilter: "blur(8px)", animation: "urgency-pulse 2.5s ease-in-out infinite" },
-  today:   { backgroundColor: "rgba(245,158,11,0.18)", color: "#fbbf24", backdropFilter: "blur(8px)", animation: "urgency-pulse 2.5s ease-in-out infinite" },
-  soon:    { backgroundColor: "rgba(59,130,246,0.16)", color: "#60a5fa", backdropFilter: "blur(8px)" },
-  normal:  { backgroundColor: "rgba(255,255,255,0.08)", color: "rgba(200,200,200,0.75)" },
-};
-function getEventUrgency(todos: Todo[]): Urgency {
-  const todayStr = new Date().toISOString().slice(0, 10);
-  const weekEnd = new Date();
-  weekEnd.setHours(0, 0, 0, 0);
-  weekEnd.setDate(weekEnd.getDate() + 6);
-  weekEnd.setHours(23, 59, 59, 999);
-  let best: Urgency = "normal";
-  const rank = { overdue: 3, today: 2, soon: 1, normal: 0 };
-  for (const t of todos) {
-    if (t.completed) continue;
-    if (!t.due_date) continue;
-    let u: Urgency = "normal";
-    if (t.due_date < todayStr) u = "overdue";
-    else if (t.due_date === todayStr) u = "today";
-    else { const d = new Date(t.due_date + "T00:00:00"); if (d <= weekEnd) u = "soon"; }
-    if (rank[u] > rank[best]) best = u;
-    if (best === "overdue") break; // can't get worse
-  }
-  return best;
+function naturalTitle(a: Todo, b: Todo) {
+  return a.title.localeCompare(b.title, undefined, { numeric: true, sensitivity: "base" });
 }
 
-function formatShortDate(dateStr: string): string {
-  const [y, m, d] = dateStr.split("-").map(Number);
+/** Lower is more urgent. Priority dominates, the date breaks the tie. */
+function urgencyScore(priority: Priority | null | undefined, date: string | null | undefined): number {
+  const p = PRIORITY_ORDER[priority ?? "none"] * 100_000;
+  if (!date) return p + 50_000;
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const due = new Date(y, m - 1, d);
-  const diffDays = Math.round((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-  if (diffDays < 0) return `${Math.abs(diffDays)}d overdue`;
-  if (diffDays === 0) return "Today";
-  if (diffDays === 1) return "Tomorrow";
-  return due.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  const days = Math.round((new Date(date + "T00:00:00").getTime() - today.getTime()) / 86_400_000);
+  return p + Math.max(0, Math.min(49_999, days + 1000));
 }
 
-// ── Event peek ticker (cycling animated strip) ────────────────────
-function EventPeekRow({ incompleteTodos, eventColor }: { incompleteTodos: Todo[]; eventColor: string }) {
-  const [idx, setIdx] = useState(0);
-  useEffect(() => {
-    if (incompleteTodos.length === 0) return;
-    const t = setInterval(() => setIdx((i) => i + 1), 3000);
-    return () => clearInterval(t);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [incompleteTodos.length]);
-
-  if (incompleteTodos.length === 0) return null;
-  const todayStr = new Date().toISOString().slice(0, 10);
-  const todo = incompleteTodos[idx % incompleteTodos.length];
-  let dotColor = eventColor;
-  if (todo.due_date) {
-    if (todo.due_date < todayStr) dotColor = "#ef4444";
-    else if (todo.due_date === todayStr) dotColor = "#f59e0b";
-  }
-  const label = todo.start_time
-    ? todo.start_time.slice(0, 5)
-    : todo.due_date ? formatShortDate(todo.due_date) : null;
-
-  return (
-    <div className="display-inset rounded-md px-2 py-0.5 mt-2 overflow-hidden inline-flex items-center justify-center max-w-full">
-      <div key={idx} className="peek-ticker flex items-center justify-center gap-1.5">
-        <span
-          className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-          style={{ backgroundColor: dotColor, boxShadow: `0 0 6px ${dotColor}cc, 0 0 12px ${dotColor}66` }}
-        />
-        <span className="text-[10px] text-white whitespace-nowrap leading-none tracking-wide font-semibold" style={{ textShadow: "0 1px 8px rgba(0,0,0,0.9), 0 0 16px rgba(0,0,0,0.5)" }}>
-          {todo.title}
-        </span>
-        {label && (
-          <span
-            className="text-[10px] flex-shrink-0 leading-none font-semibold tracking-wide"
-            style={{ color: dotColor, textShadow: `0 1px 4px rgba(0,0,0,0.8), 0 0 10px ${dotColor}cc` }}
-          >
-            · {label}
-          </span>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ── Skeleton loader ───────────────────────────────────────────────
-function TodoSkeleton() {
-  return (
-    <div className="glass-card-subtle py-2 px-3 animate-pulse">
-      <div className="flex items-start gap-3">
-        <div className="w-5 h-5 rounded-md bg-black/10 dark:bg-white/10 flex-shrink-0 mt-0.5" />
-        <div className="flex-1 space-y-2">
-          <div className="h-4 bg-black/10 dark:bg-white/10 rounded-lg w-3/4" />
-          <div className="flex gap-2">
-            <div className="h-3 bg-black/5 dark:bg-white/5 rounded w-14" />
-            <div className="h-3 bg-black/5 dark:bg-white/5 rounded w-20" />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-interface TodoListProps {
+export interface TodoListProps {
   todos: Todo[];
   allTags: Tag[];
   onToggle: (id: string, completed: boolean) => void;
-  onUpdate: (id: string, updates: { title?: string; due_date?: string | null; start_date?: string | null; start_time?: string | null; end_time?: string | null; priority?: Priority; notes?: string | null; list_id?: string | null; estimated_time?: number | null; time_spent?: number | null; extra_dates?: { date: string; time?: string | null; completed: boolean }[] | null }) => void;
+  onUpdate: (id: string, updates: TodoUpdates) => void;
   onDelete: (id: string) => void;
-  onTagToggle: (todoId: string, tagId: string, add: boolean) => void;
+  onTagToggle?: (todoId: string, tagId: string, add: boolean) => void;
   onReorder: (reordered: Todo[]) => void;
-  onAddSubtask: (todoId: string, title: string) => void;
-  onToggleSubtask: (todoId: string, subtaskId: string, completed: boolean) => void;
-  onDeleteSubtask: (todoId: string, subtaskId: string) => void;
+  onAddSubtask?: (todoId: string, title: string) => void;
+  onToggleSubtask?: (todoId: string, subtaskId: string, completed: boolean) => void;
+  onDeleteSubtask?: (todoId: string, subtaskId: string) => void;
+  onCreateTag?: (name: string) => Promise<Tag | undefined>;
+  onSaveAsTemplate?: (todo: Todo) => void;
+  onDuplicate?: (todo: Todo) => void;
   loading: boolean;
-  filterDate?: string | null;
+  loadError?: boolean;
+  onRetry?: () => void;
+
+  onBulkComplete?: (ids: string[]) => void;
+  onBulkDelete?: (ids: string[]) => void;
+  onBulkUpdate?: (ids: string[], updates: { list_id?: string | null; due_date?: string | null; priority?: Priority }) => void;
+
   lists?: List[];
   activeListId?: string | null;
   events?: Event[];
-  onAssignEvent?: (todoId: string, eventId: string | null) => void;
-  onDeleteEvent?: (eventId: string) => void;
   onOpenEventDetail?: (eventId: string) => void;
-  /** Initial sort mode. Falls back to "default" if not provided. */
+
+  /** Search, filter, sort and bulk select. Without it the list just shows. */
+  filters?: TaskFilters;
   defaultSortBy?: SortBy;
-  /** Key used to persist manual sort order in localStorage (e.g. "list:uuid", "allTasks"). */
+  /** Namespaces the collapsed-group memory and the manual order. */
   viewKey?: string;
-  /** Focus mode: hide search bar, filters, and non-essential UI */
+  /** Focus mode trims the list down to rows. */
   focusMode?: boolean;
-  /** Whether the progress/search bar section is visible (controlled externally) */
-  showBar?: boolean;
-  /** Callback to toggle showBar from outside */
-  onToggleBar?: () => void;
-  /** Hide the timeline group header whose key matches this value (e.g. "today", "overdue") */
+  /** Hide this timeline group's head; the view title already says it. */
   suppressGroupKey?: string;
-  /** Today's habits to show inline alongside tasks */
+
   habits?: HabitWithStatus[];
-  /** Whether to show habit rows in this task view */
   showHabits?: boolean;
-  /** Callback to toggle a habit's completion */
   onToggleHabit?: (habitId: string) => void;
-  /** ID of a todo to highlight (from timeline click) */
+
   highlightedTodoId?: string | null;
-  /** When true (calendar hidden), use 4-column grid instead of 2 */
-  wideMode?: boolean;
-  /** Start live task timer */
-  onStartLiveTask?: (todoId: string) => void;
-  /** Currently active live task ID */
+  selectedTodoId?: string | null;
+  onSelectTodo?: (id: string) => void;
   liveTaskId?: string | null;
+  onStartLiveTask?: (todoId: string) => void;
 }
 
 export default function TodoList({
@@ -305,935 +125,476 @@ export default function TodoList({
   onToggle,
   onUpdate,
   onDelete,
-  onTagToggle,
   onReorder,
-  onAddSubtask,
-  onToggleSubtask,
-  onDeleteSubtask,
+  onDuplicate,
   loading,
-  filterDate,
+  loadError = false,
+  onRetry,
+  onBulkComplete,
+  onBulkDelete,
+  onBulkUpdate,
   lists = [],
   activeListId,
   events = [],
-  onAssignEvent,
-  onDeleteEvent,
   onOpenEventDetail,
+  filters,
   defaultSortBy = "default",
   viewKey = "default",
   focusMode = false,
-  showBar = true,
-  onToggleBar,
   suppressGroupKey,
   habits = [],
   showHabits = false,
   onToggleHabit,
   highlightedTodoId,
-  wideMode,
-  onStartLiveTask,
+  selectedTodoId,
+  onSelectTodo,
   liveTaskId,
+  onStartLiveTask,
 }: TodoListProps) {
-  const gridCols = wideMode ? "grid grid-cols-1 md:grid-cols-3 gap-2" : "grid grid-cols-1 md:grid-cols-2 gap-2";
-  const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [search, setSearch] = useState("");
-  const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
-  const [filterTagId, setFilterTagId] = useState<string | null>(null);
-  const [sortBy, setSortBy] = useState<SortBy>(defaultSortBy);
-  const [showSomeday, setShowSomeday] = useState(false);
-  const [showDone, setShowDone] = useState(false);
-  const [showFilters, setShowFilters] = useState(false);
+  const { t } = useI18n();
 
-  // M key → toggle filter/sort panel; Escape → close it
+  const search = filters?.search ?? "";
+  const status: FilterStatus = filters?.status ?? "all";
+  const tagId = filters?.tagId ?? null;
+  const sortBy: SortBy = filters?.sortBy ?? defaultSortBy;
+  const selectMode = filters?.selectMode ?? false;
+  const selectedIds = filters?.selectedIds ?? EMPTY_SET;
+
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [showAllDone, setShowAllDone] = useState(false);
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
+
   useEffect(() => {
-    function handleKey(e: KeyboardEvent) {
-      const target = e.target as HTMLElement;
-      const isTyping = target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable;
-      if (e.key === "m" && !isTyping && !e.metaKey && !e.ctrlKey) {
-        e.preventDefault();
-        setShowFilters((prev) => !prev);
-      }
-      if (e.key === "Escape") {
-        setShowFilters(false);
-      }
-    }
-    window.addEventListener("keydown", handleKey);
-    return () => window.removeEventListener("keydown", handleKey);
-  }, []);
+    try {
+      const raw = localStorage.getItem(`collapsedGroups:${viewKey}`);
+      setCollapsed(raw ? new Set(JSON.parse(raw) as string[]) : new Set());
+    } catch { setCollapsed(new Set()); }
+    setShowAllDone(false);
+  }, [viewKey]);
 
-  // ── Manual sort order (mixed events + todos), persisted per view ──────────
-  const lsKey = `manualOrder:${viewKey}`;
-  const [manualOrder, setManualOrder] = useState<string[]>(() => {
-    if (typeof window === "undefined") return [];
-    try { return JSON.parse(localStorage.getItem(lsKey) ?? "[]"); } catch { return []; }
-  });
-
-  function saveManualOrder(order: string[]) {
-    setManualOrder(order);
-    try { localStorage.setItem(lsKey, JSON.stringify(order)); } catch { /* ignore */ }
-  }
-
-  // Collapsed state for event containers (default: collapsed = true when not set)
-  const [collapsedEvents, setCollapsedEvents] = useState<Record<string, boolean>>({});
-  const isCollapsed = (id: string) => collapsedEvents[id] !== false;
-  const toggleCollapse = (id: string) =>
-    setCollapsedEvents((prev) => ({ ...prev, [id]: prev[id] !== false ? false : true }));
-
-  // Bulk select state
-  const [selectMode, setSelectMode] = useState(false);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-
-  const deleteTitle =
-    todos.find((t) => t.id === deleteId)?.title ?? "this task";
-
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: { distance: 8 },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  );
-
-  // Progress bar
-  const totalCount = todos.length;
-  const completedCount = todos.filter((t) => t.completed).length;
-  const progressPct = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
-
-  // Filtered + sorted todos
-  const filtered = useMemo(() => {
-    let result = todos;
-
-    if (filterDate) {
-      result = result.filter((t) => t.due_date === filterDate);
-    }
-
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      result = result.filter(
-        (t) =>
-          t.title.toLowerCase().includes(q) ||
-          (t.notes ?? "").toLowerCase().includes(q) ||
-          (t.tags ?? []).some((tag) => tag.name.toLowerCase().includes(q))
-      );
-    }
-
-    if (filterStatus === "active") result = result.filter((t) => !t.completed);
-    if (filterStatus === "completed") result = result.filter((t) => t.completed);
-
-    if (filterTagId) {
-      result = result.filter((t) =>
-        (t.tags ?? []).some((tag) => tag.id === filterTagId)
-      );
-    }
-
-    const naturalTitle = (a: Todo, b: Todo) =>
-      a.title.localeCompare(b.title, undefined, { numeric: true, sensitivity: "base" });
-
-    if (sortBy === "alpha") {
-      result = [...result].sort(naturalTitle);
-    } else if (sortBy === "priority") {
-      result = [...result].sort((a, b) => {
-        const pd = PRIORITY_ORDER[a.priority ?? "none"] - PRIORITY_ORDER[b.priority ?? "none"];
-        return pd !== 0 ? pd : naturalTitle(a, b);
-      });
-    } else if (sortBy === "timeline") {
-      result = [...result].sort((a, b) => {
-        const orderMap: Record<string, number> = {
-          overdue: 0, today: 1, tomorrow: 2, this_week: 3, upcoming: 4, later: 5, someday: 6,
-        };
-        const ga = orderMap[getTimelineGroup(a.due_date)] ?? 6;
-        const gb = orderMap[getTimelineGroup(b.due_date)] ?? 6;
-        if (ga !== gb) return ga - gb;
-        if (!a.due_date && !b.due_date) return naturalTitle(a, b);
-        if (!a.due_date) return 1;
-        if (!b.due_date) return -1;
-        const dd = a.due_date.localeCompare(b.due_date);
-        return dd !== 0 ? dd : naturalTitle(a, b);
-      });
-    }
-
-    return result;
-  }, [todos, search, filterStatus, filterTagId, filterDate, sortBy]);
-
-  const activeTodos = filtered.filter((t) => !t.completed);
-  const completedTodos = filtered.filter((t) => t.completed);
-  const hasFilters =
-    !!search || filterStatus !== "all" || !!filterTagId || sortBy !== "default";
-
-  // Separate event-based todos from standalone todos
-  const eventTodosByEventId = useMemo(() => {
-    const grouped: Record<string, Todo[]> = {};
-    for (const todo of activeTodos) {
-      if (todo.event_id) {
-        if (!grouped[todo.event_id]) grouped[todo.event_id] = [];
-        grouped[todo.event_id].push(todo);
-      }
-    }
-    return grouped;
-  }, [activeTodos]);
-
-  const standaloneActiveTodos = activeTodos.filter((t) => !t.event_id);
-  const standaloneCompletedTodos = completedTodos.filter((t) => !t.event_id);
-
-  // Merged list of events + standalone active todos, ordered by urgency
-  type MergedItem =
-    | { kind: "event"; event: Event; score: number }
-    | { kind: "todo"; todo: Todo; score: number };
-
-  const mergedItems = useMemo((): MergedItem[] => {
-    if (sortBy === "timeline") return [];
-
-    const items: MergedItem[] = [];
-
-    for (const event of events) {
-      const tasks = eventTodosByEventId[event.id];
-      if (!tasks?.length) continue;
-      // Use start_date ?? due_date for event urgency score
-      const score = Math.min(
-        ...tasks.map((t) => getUrgencyScore(t.priority, t.start_date ?? t.due_date))
-      );
-      items.push({ kind: "event", event, score });
-    }
-
-    for (const todo of standaloneActiveTodos) {
-      items.push({
-        kind: "todo",
-        todo,
-        score: getUrgencyScore(todo.priority, todo.start_date ?? todo.due_date),
-      });
-    }
-
-    const itemTitle = (item: MergedItem) =>
-      item.kind === "todo" ? item.todo.title : item.event.title;
-    const naturalItem = (a: MergedItem, b: MergedItem) =>
-      itemTitle(a).localeCompare(itemTitle(b), undefined, { numeric: true, sensitivity: "base" });
-
-    // For default sort: order comes from manualOrder (applied below); skip sorting here
-    if (sortBy === "alpha") {
-      items.sort(naturalItem);
-    } else if (sortBy === "priority") {
-      // Get the priority rank for an item (events: use best task priority)
-      const prioRank = (item: MergedItem): number => {
-        if (item.kind === "todo") return PRIORITY_ORDER[item.todo.priority ?? "none"];
-        const tasks = eventTodosByEventId[item.event.id] ?? [];
-        return tasks.length
-          ? Math.min(...tasks.map((t) => PRIORITY_ORDER[t.priority ?? "none"]))
-          : PRIORITY_ORDER["none"];
-      };
-      items.sort((a, b) => {
-        const pd = prioRank(a) - prioRank(b);
-        return pd !== 0 ? pd : naturalItem(a, b);
-      });
-    } else if (sortBy !== "default") {
-      // Urgency score sort (used for any other non-default modes)
-      items.sort((a, b) => {
-        const sd = a.score - b.score;
-        return sd !== 0 ? sd : naturalItem(a, b);
-      });
-    }
-
-    return items;
-  }, [events, eventTodosByEventId, standaloneActiveTodos, sortBy]);
-
-  const hasEventItems = mergedItems.some((i) => i.kind === "event");
-
-  // Sync new items into manualOrder (append at end, remove gone items)
-  useEffect(() => {
-    if (sortBy !== "default") return;
-    const allIds = mergedItems.map((i) => (i.kind === "event" ? i.event.id : i.todo.id));
-    const cleaned = manualOrder.filter((id) => allIds.includes(id));
-    const missing = allIds.filter((id) => !cleaned.includes(id));
-    if (missing.length > 0 || cleaned.length !== manualOrder.length) {
-      saveManualOrder([...cleaned, ...missing]);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mergedItems, sortBy]);
-
-  // Final display order for default sort: follow manualOrder
-  const sortedMergedItems = useMemo((): MergedItem[] => {
-    if (sortBy !== "default") return mergedItems;
-    return [...mergedItems].sort((a, b) => {
-      const aId = a.kind === "event" ? a.event.id : a.todo.id;
-      const bId = b.kind === "event" ? b.event.id : b.todo.id;
-      const ai = manualOrder.indexOf(aId);
-      const bi = manualOrder.indexOf(bId);
-      if (ai === -1 && bi === -1) return 0;
-      if (ai === -1) return 1;
-      if (bi === -1) return -1;
-      return ai - bi;
-    });
-  }, [mergedItems, manualOrder, sortBy]);
-
-  // Bulk actions
-  const toggleSelect = useCallback((id: string) => {
-    setSelectedIds((prev) => {
+  const toggleGroup = useCallback((key: string) => {
+    setCollapsed((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      try { localStorage.setItem(`collapsedGroups:${viewKey}`, JSON.stringify([...next])); } catch { /* ignore */ }
       return next;
     });
-  }, []);
+  }, [viewKey]);
 
-  const handleBulkComplete = useCallback(() => {
-    for (const id of selectedIds) {
-      onToggle(id, true);
-    }
-    setSelectedIds(new Set());
-    setSelectMode(false);
-  }, [selectedIds, onToggle]);
+  // A task pointed at from elsewhere must not sit inside a closed group
+  useEffect(() => {
+    if (!highlightedTodoId) return;
+    const todo = todos.find((x) => x.id === highlightedTodoId);
+    if (!todo) return;
+    const key = todo.completed ? "done" : timelineKey(todo.start_date ?? todo.due_date);
+    setCollapsed((prev) => {
+      if (!prev.has(key)) return prev;
+      const next = new Set(prev);
+      next.delete(key);
+      return next;
+    });
+  }, [highlightedTodoId, todos]);
 
-  const handleBulkDelete = useCallback(() => {
-    for (const id of selectedIds) {
-      onDelete(id);
-    }
-    setSelectedIds(new Set());
-    setSelectMode(false);
-  }, [selectedIds, onDelete]);
-
-  const handleBulkMove = useCallback(
-    (listId: string | null) => {
-      for (const id of selectedIds) {
-        onUpdate(id, { list_id: listId });
-      }
-      setSelectedIds(new Set());
-      setSelectMode(false);
-    },
-    [selectedIds, onUpdate]
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
-  const cancelSelect = useCallback(() => {
-    setSelectMode(false);
-    setSelectedIds(new Set());
+  // ── Filter ────────────────────────────────────────────────────────────
+  const filtered = useMemo(() => {
+    let result = todos;
+    const q = search.trim().toLowerCase();
+    if (q) {
+      result = result.filter(
+        (x) =>
+          x.title.toLowerCase().includes(q) ||
+          (x.notes ?? "").toLowerCase().includes(q) ||
+          (x.tags ?? []).some((tag) => tag.name.toLowerCase().includes(q))
+      );
+    }
+    if (status === "active") result = result.filter((x) => !x.completed);
+    if (status === "completed") result = result.filter((x) => x.completed);
+    if (tagId) result = result.filter((x) => (x.tags ?? []).some((tag) => tag.id === tagId));
+    return result;
+  }, [todos, search, status, tagId]);
+
+  const sortTodos = useCallback(
+    (input: Todo[]): Todo[] => {
+      const out = [...input];
+      if (sortBy === "alpha") out.sort(naturalTitle);
+      else if (sortBy === "priority") {
+        out.sort((a, b) => {
+          const d = PRIORITY_ORDER[a.priority ?? "none"] - PRIORITY_ORDER[b.priority ?? "none"];
+          return d !== 0 ? d : naturalTitle(a, b);
+        });
+      } else if (sortBy === "timeline") {
+        out.sort((a, b) => {
+          const da = a.start_date ?? a.due_date ?? null;
+          const db = b.start_date ?? b.due_date ?? null;
+          if (!da && !db) return naturalTitle(a, b);
+          if (!da) return 1;
+          if (!db) return -1;
+          const d = da.localeCompare(db);
+          return d !== 0 ? d : naturalTitle(a, b);
+        });
+      } else {
+        // Manual order lives in sort_order, which the todos already carry
+        out.sort((a, b) => {
+          const d = (a.sort_order ?? 0) - (b.sort_order ?? 0);
+          return d !== 0 ? d : urgencyScore(a.priority, a.start_date ?? a.due_date) - urgencyScore(b.priority, b.start_date ?? b.due_date);
+        });
+      }
+      return out;
+    },
+    [sortBy]
+  );
+
+  const activeTodos = useMemo(() => filtered.filter((x) => !x.completed), [filtered]);
+  const doneTodos = useMemo(() => sortTodos(filtered.filter((x) => x.completed)), [filtered, sortTodos]);
+
+  // ── Group ─────────────────────────────────────────────────────────────
+  type Group = {
+    key: string;
+    label: string;
+    todos: Todo[];
+    /** "3/8" next to a project name. */
+    progress?: string;
+    tone?: "overdue";
+    onOpen?: () => void;
+  };
+
+  const groups = useMemo((): Group[] => {
+    const standalone = activeTodos.filter((x) => !x.event_id);
+    const byProject = new Map<string, Todo[]>();
+    for (const todo of activeTodos) {
+      if (!todo.event_id) continue;
+      const bucket = byProject.get(todo.event_id) ?? [];
+      bucket.push(todo);
+      byProject.set(todo.event_id, bucket);
+    }
+
+    const out: Group[] = [];
+
+    if (sortBy === "timeline") {
+      const buckets: Record<string, Todo[]> = {};
+      for (const todo of standalone) {
+        const key = timelineKey(todo.start_date ?? todo.due_date);
+        (buckets[key] ??= []).push(todo);
+      }
+      for (const config of TIMELINE_CONFIG) {
+        const bucket = buckets[config.key];
+        if (!bucket?.length) continue;
+        out.push({
+          key: config.key,
+          label: config.label,
+          todos: sortTodos(bucket),
+          tone: config.key === "overdue" ? "overdue" : undefined,
+        });
+      }
+    } else if (standalone.length > 0) {
+      out.push({ key: "tasks", label: "Tasks", todos: sortTodos(standalone) });
+    }
+
+    // Projects keep their own head, with the count of what is done in them
+    for (const [eventId, bucket] of byProject) {
+      const event = events.find((e) => e.id === eventId);
+      if (!event) continue;
+      const total = todos.filter((x) => x.event_id === eventId).length;
+      const done = todos.filter((x) => x.event_id === eventId && x.completed).length;
+      out.push({
+        key: `project:${eventId}`,
+        label: event.title,
+        todos: sortTodos(bucket),
+        progress: `${done}/${total}`,
+        onOpen: onOpenEventDetail ? () => onOpenEventDetail(eventId) : undefined,
+      });
+    }
+
+    return out;
+  }, [activeTodos, events, todos, sortBy, sortTodos, onOpenEventDetail]);
+
+  // ── Bulk ──────────────────────────────────────────────────────────────
+  const idsSelected = useMemo(() => [...selectedIds], [selectedIds]);
+
+  const handleBulkComplete = useCallback(() => {
+    if (onBulkComplete) onBulkComplete(idsSelected);
+    else for (const id of idsSelected) onToggle(id, true);
+    filters?.clearSelection();
+  }, [idsSelected, onBulkComplete, onToggle, filters]);
+
+  const handleBulkDeleteConfirm = useCallback(() => {
+    if (onBulkDelete) onBulkDelete(idsSelected);
+    else for (const id of idsSelected) onDelete(id);
+    setConfirmBulkDelete(false);
+    filters?.clearSelection();
+  }, [idsSelected, onBulkDelete, onDelete, filters]);
+
+  const bulkUpdate = useCallback(
+    (updates: { list_id?: string | null; due_date?: string | null; priority?: Priority }) => {
+      if (onBulkUpdate) onBulkUpdate(idsSelected, updates);
+      else for (const id of idsSelected) onUpdate(id, updates);
+      filters?.clearSelection();
+    },
+    [idsSelected, onBulkUpdate, onUpdate, filters]
+  );
+
+  // ── Drag ──────────────────────────────────────────────────────────────
+  const dragEnabled = sortBy === "default" && !selectMode && !focusMode;
+
+  const handleDragEnd = useCallback(
+    (event: DragEndEvent) => {
+      const { active, over } = event;
+      if (!over || active.id === over.id) return;
+      const from = todos.findIndex((x) => x.id === String(active.id));
+      const to = todos.findIndex((x) => x.id === String(over.id));
+      if (from === -1 || to === -1) return;
+      onReorder(arrayMove(todos, from, to));
+    },
+    [todos, onReorder]
+  );
+
+  // ── Keyboard walk ─────────────────────────────────────────────────────
+  const move = useCallback((direction: -1 | 1) => {
+    const rows = Array.from(document.querySelectorAll<HTMLElement>("[data-task-row]"));
+    const index = rows.indexOf(document.activeElement as HTMLElement);
+    const next = rows[index + direction];
+    next?.focus();
   }, []);
 
-  function handleDragEnd(event: DragEndEvent) {
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
+  const rowProps = {
+    lists,
+    hideList: !!activeListId,
+    liveTaskId,
+    selectMode,
+    sortable: dragEnabled,
+    onToggle,
+    onRename: (id: string, title: string) => onUpdate(id, { title }),
+    onDelete,
+    onDuplicate,
+    onSetPriority: (id: string, priority: Priority) => onUpdate(id, { priority }),
+    onSetList: (id: string, listId: string | null) => onUpdate(id, { list_id: listId }),
+    onStartTimer: onStartLiveTask,
+    onToggleChecked: filters?.toggleSelected,
+    onKeyNav: move,
+    onSelect: (id: string) => onSelectTodo?.(id),
+  };
 
-    if (hasEventItems) {
-      // Mixed mode: update manualOrder
-      const ids = sortedMergedItems.map((i) => (i.kind === "event" ? i.event.id : i.todo.id));
-      const oldIndex = ids.indexOf(active.id as string);
-      const newIndex = ids.indexOf(over.id as string);
-      if (oldIndex !== -1 && newIndex !== -1) {
-        saveManualOrder(arrayMove(ids, oldIndex, newIndex));
-      }
-    } else {
-      // Standalone-only mode: persist via sort_order to DB
-      const oldIndex = todos.findIndex((t) => t.id === active.id);
-      const newIndex = todos.findIndex((t) => t.id === over.id);
-      const reordered = arrayMove(todos, oldIndex, newIndex);
-      onReorder(reordered);
-    }
-  }
+  if (loading) return <ListSkeleton />;
 
-  function handleDeleteRequest(id: string) {
-    setDeleteId(id);
-  }
-
-  function handleDeleteConfirm() {
-    if (deleteId) {
-      onDelete(deleteId);
-      setDeleteId(null);
-    }
-  }
-
-  // Render a compact inline habit row
-  function renderHabitRow(habit: HabitWithStatus) {
-    const list = lists?.find((l) => l.id === habit.list_id);
-    const listColor = list?.color ?? null;
-    const time12 = habit.time
-      ? (() => {
-          const [h, m] = habit.time!.split(":").map(Number);
-          const ampm = h >= 12 ? "PM" : "AM";
-          return `${h % 12 || 12}:${String(m).padStart(2, "0")} ${ampm}`;
-        })()
-      : null;
-    const scheduleLabel = habit.schedule_type === "weekly"
-      ? habit.schedule_days.map((d) => ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][d]).join(", ")
-      : habit.schedule_interval === 1 ? "Daily" : `Every ${habit.schedule_interval}d`;
-
+  if (loadError) {
     return (
-      <div
-        key={habit.id}
-        className={`group relative glass-card overflow-hidden transition-default ${habit.completedToday ? "opacity-60" : ""}`}
-        style={listColor ? { "--list-color": listColor } as React.CSSProperties : undefined}
-      >
-        {listColor && <div className="list-strip" aria-hidden="true" />}
-        <div className="flex items-center gap-2 px-3 py-2">
-          {/* Circular check button */}
-          <button
-            onClick={() => onToggleHabit?.(habit.id)}
-            className={`w-4 h-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-default ${
-              habit.completedToday
-                ? "bg-green-500/80 border-green-500/80"
-                : "border-black/25 dark:border-white/25 hover:border-green-500/60"
-            }`}
-            aria-label={`${habit.completedToday ? "Uncheck" : "Complete"} habit: ${habit.title}`}
-          >
-            {habit.completedToday && <Check size={9} strokeWidth={3} className="text-white" />}
-          </button>
-          {/* Title */}
-          <span className={`flex-1 text-sm min-w-0 truncate transition-default ${
-            habit.completedToday ? "line-through text-black/40 dark:text-gray-500" : "text-black dark:text-white"
-          }`}>
-            {habit.title}
-          </span>
-          {/* Badges */}
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <span className="flex items-center gap-1 text-[10px] text-black/40 dark:text-gray-500">
-              <Repeat size={9} />{scheduleLabel}
-            </span>
-            {time12 && (
-              <span className="flex items-center gap-1 text-[10px] text-black/40 dark:text-gray-500">
-                <Clock size={9} />{time12}
-              </span>
-            )}
-            {habit.streak > 0 && (
-              <span className="flex items-center gap-0.5 text-[10px] text-orange-500 dark:text-orange-400">
-                <Flame size={9} />{habit.streak}
-              </span>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Render an event container — collapsed by default
-  function renderEventContainer(event: Event) {
-    const eventTodos = eventTodosByEventId[event.id] || [];
-    if (eventTodos.length === 0) return null;
-
-    const collapsed = isCollapsed(event.id);
-    const activeCount = eventTodos.filter((t) => !t.completed).length;
-    const doneCount = eventTodos.filter((t) => t.completed).length;
-    const listName = event.list_id
-      ? lists.find((l) => l.id === event.list_id)?.name
-      : null;
-    return (
-      <div key={event.id} className="glass-card-subtle overflow-hidden">
-        {/* Color accent bar */}
-        <div className="h-1.5 rounded-t-[1rem]" style={{ backgroundColor: event.color ?? "#6366f1" }} />
-
-        {/* Header */}
-        <div className="py-2 px-3">
-          <div className="flex items-start gap-2 group">
-            {/* Expand/collapse toggle */}
-            <button
-              onClick={() => toggleCollapse(event.id)}
-              className="mt-0.5 text-gray-400 hover:text-black dark:hover:text-white transition-default flex-shrink-0"
-              aria-label={collapsed ? "Expand event" : "Collapse event"}
-            >
-              {collapsed ? <ChevronRight size={15} /> : <ChevronDown size={15} />}
-            </button>
-
-            <div className="flex-1 min-w-0">
-              {/* Title row */}
-              <div className="flex items-center gap-2 flex-wrap">
-                <p className="text-sm font-medium text-black dark:text-white">
-                  {event.title}
-                </p>
-                {/* Active task count badge — color-coded by due-date urgency */}
-                {activeCount > 0 && (
-                  <span className="flex-shrink-0 min-w-[18px] h-[18px] rounded-full text-[10px] font-semibold flex items-center justify-center px-1 tabular-nums leading-none" style={URGENCY_STYLE[getEventUrgency(eventTodos)]}>
-                    {activeCount}
-                  </span>
-                )}
-                {listName && (
-                  <span className="text-[11px] text-gray-300 dark:text-gray-600">
-                    {listName}
-                  </span>
-                )}
-              </div>
-
-              {/* Peek ticker — cycles incomplete tasks when collapsed */}
-              {collapsed && (
-                <EventPeekRow
-                  incompleteTodos={eventTodos.filter((t) => !t.completed)}
-                  eventColor={event.color ?? "#6366f1"}
-                />
-              )}
-
-              {/* Progress bar */}
-              {!collapsed && eventTodos.length > 0 && (
-                <div className="mt-2 flex items-center gap-2">
-                  <div className="flex-1 h-0.5 bg-black/5 dark:bg-white/10 rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full transition-all duration-500"
-                      style={{
-                        width: `${(doneCount / eventTodos.length) * 100}%`,
-                        backgroundColor: event.color ?? "#6366f1",
-                      }}
-                    />
-                  </div>
-                  <span className="text-[10px] text-gray-400 flex-shrink-0">
-                    {doneCount}/{eventTodos.length}
-                  </span>
-                </div>
-              )}
-            </div>
-
-            {/* Actions (visible on hover) */}
-            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-default flex-shrink-0 mt-0.5">
-              {onOpenEventDetail && (
-                <button
-                  onClick={() => onOpenEventDetail(event.id)}
-                  className="text-gray-400 hover:text-black dark:hover:text-white transition-default p-1"
-                  aria-label="Open event detail"
-                  title="Open detail view"
-                >
-                  <Maximize2 size={13} />
-                </button>
-              )}
-              {onDeleteEvent && (
-                <button
-                  onClick={() => onDeleteEvent(event.id)}
-                  className="text-gray-400 hover:text-red-500 transition-default p-1"
-                  aria-label="Delete event"
-                  title="Delete event"
-                >
-                  <Trash2 size={14} />
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Expanded: full task list */}
-        {!collapsed && (
-          <div className="border-t border-black/5 dark:border-white/5 divide-y divide-black/5 dark:divide-white/5">
-            {eventTodos.map((todo) => (
-              <TodoItem
-                key={todo.id}
-                todo={todo}
-                allTags={allTags}
-                onToggle={onToggle}
-                onUpdate={onUpdate}
-                onDelete={handleDeleteRequest}
-                onTagToggle={onTagToggle}
-                onAddSubtask={onAddSubtask}
-                onToggleSubtask={onToggleSubtask}
-                onDeleteSubtask={onDeleteSubtask}
-                lists={lists}
-                activeListId={activeListId}
-                events={events}
-                onAssignEvent={onAssignEvent}
-                onStartLiveTask={onStartLiveTask}
-                isLiveTask={liveTaskId === todo.id}
-              />
-            ))}
-          </div>
+      <div className="py-16 text-center">
+        <p className="text-sm text-text-muted">{t("Tasks could not be loaded")}</p>
+        {onRetry && (
+          <button onClick={onRetry} className="btn btn-secondary mt-3">{t("Try again")}</button>
         )}
       </div>
     );
   }
 
-  // Render a todo item with optional bulk select checkbox
-  function renderTodo(todo: Todo, sortable: boolean) {
-    const item = sortable ? (
-      <SortableItem
-        key={todo.id}
-        todo={todo}
-        allTags={allTags}
-        onToggle={onToggle}
-        onUpdate={onUpdate}
-        onDelete={handleDeleteRequest}
-        onTagToggle={onTagToggle}
-        onAddSubtask={onAddSubtask}
-        onToggleSubtask={onToggleSubtask}
-        onDeleteSubtask={onDeleteSubtask}
-        lists={lists}
-        activeListId={activeListId}
-        events={events}
-        onAssignEvent={onAssignEvent}
-      />
-    ) : (
-      <TodoItem
-        key={todo.id}
-        todo={todo}
-        allTags={allTags}
-        onToggle={onToggle}
-        onUpdate={onUpdate}
-        onDelete={handleDeleteRequest}
-        onTagToggle={onTagToggle}
-        onAddSubtask={onAddSubtask}
-        onToggleSubtask={onToggleSubtask}
-        onDeleteSubtask={onDeleteSubtask}
-        lists={lists}
-        activeListId={activeListId}
-        events={events}
-        onAssignEvent={onAssignEvent}
-        highlighted={highlightedTodoId === todo.id}
-        onStartLiveTask={onStartLiveTask}
-        isLiveTask={liveTaskId === todo.id}
-      />
-    );
-
-    if (!selectMode) return item;
-
-    return (
-      <div key={todo.id} className="flex items-start gap-2">
-        <input
-          type="checkbox"
-          checked={selectedIds.has(todo.id)}
-          onChange={() => toggleSelect(todo.id)}
-          className="custom-checkbox mt-3 md:mt-4 flex-shrink-0"
-          aria-label={`Select "${todo.title}"`}
-        />
-        <div className="flex-1 min-w-0">{item}</div>
-      </div>
-    );
-  }
-
-  // Loading skeleton
-  if (loading) {
-    return (
-      <div className="space-y-2">
-        {[...Array(5)].map((_, i) => (
-          <TodoSkeleton key={i} />
-        ))}
-      </div>
-    );
-  }
+  const nothingAtAll = todos.length === 0;
+  const nothingMatches = !nothingAtAll && filtered.length === 0;
+  const visibleHabits = showHabits ? habits : [];
 
   return (
     <>
-
-      {/* Filter panel — independent of showBar */}
-      {!focusMode && showFilters && (
-        <div className="mb-4 glass-card-subtle p-3 space-y-3">
-          <div>
-            <p className="text-xs text-black/60 dark:text-gray-400 mb-1.5 font-medium">Status</p>
-            <div className="flex gap-2">
-              {(["all", "active", "completed"] as FilterStatus[]).map((s) => (
-                <button
-                  key={s}
-                  onClick={() => setFilterStatus(s)}
-                  className={`text-xs px-2.5 py-1 rounded-lg border capitalize transition-default ${
-                    filterStatus === s
-                      ? "border-black/30 dark:border-white/30 bg-black/5 dark:bg-white/10 text-black dark:text-white font-medium"
-                      : "border-black/10 dark:border-white/10 text-black/55 dark:text-gray-400 hover:border-black/20 dark:hover:border-white/20"
-                  }`}
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <p className="text-xs text-black/60 dark:text-gray-400 mb-1.5 font-medium">Sort by</p>
-            <div className="flex gap-2">
-              {(
-                [
-                  ["default", "Manual"],
-                  ["alpha", "A–Z"],
-                  ["priority", "Priority"],
-                  ["timeline", "Timeline"],
-                ] as [SortBy, string][]
-              ).map(([val, label]) => (
-                <button
-                  key={val}
-                  onClick={() => setSortBy(val)}
-                  className={`text-xs px-2.5 py-1 rounded-lg border transition-default ${
-                    sortBy === val
-                      ? "border-black/30 dark:border-white/30 bg-black/5 dark:bg-white/10 text-black dark:text-white font-medium"
-                      : "border-black/10 dark:border-white/10 text-black/55 dark:text-gray-400 hover:border-black/20 dark:hover:border-white/20"
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {allTags.length > 0 && (
-            <div>
-              <p className="text-xs text-black/60 dark:text-gray-400 mb-1.5 font-medium">Tag</p>
-              <div className="flex gap-2 flex-wrap">
-                <button
-                  onClick={() => setFilterTagId(null)}
-                  className={`text-xs px-2.5 py-1 rounded-lg border transition-default ${
-                    !filterTagId
-                      ? "border-black/30 dark:border-white/30 bg-black/5 dark:bg-white/10 text-black dark:text-white font-medium"
-                      : "border-black/10 dark:border-white/10 text-black/55 dark:text-gray-400 hover:border-black/20 dark:hover:border-white/20"
-                  }`}
-                >
-                  All
-                </button>
-                {allTags.map((tag) => (
-                  <button
-                    key={tag.id}
-                    onClick={() => setFilterTagId(filterTagId === tag.id ? null : tag.id)}
-                    className={`text-xs px-2.5 py-1 rounded-lg border transition-default ${
-                      filterTagId === tag.id
-                        ? "border-black/30 dark:border-white/30 bg-black/5 dark:bg-white/10 text-black dark:text-white font-medium"
-                        : "border-black/10 dark:border-white/10 text-black/55 dark:text-gray-400 hover:border-black/20 dark:hover:border-white/20"
-                    }`}
-                  >
-                    {tag.name}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {hasFilters && (
-            <button
-              onClick={() => { setSearch(""); setFilterStatus("all"); setFilterTagId(null); setSortBy("default"); }}
-              className="text-xs text-gray-400 hover:text-black dark:hover:text-white transition-default"
-            >
-              Clear all filters
-            </button>
-          )}
+      {nothingAtAll ? (
+        <div className="py-16 text-center">
+          <p className="text-sm text-text-muted">{t("No tasks yet")}</p>
+          <p className="text-[13px] text-text-faint mt-1">{t("Add one above to get started")}</p>
         </div>
-      )}
-
-      {/* Search bar — always visible in focus mode; shown when showBar in PC mode */}
-      {focusMode ? (
-        <div className="mb-4 flex items-center gap-2 glass-card-subtle px-3 py-2">
-          <Search size={14} className="text-gray-400 flex-shrink-0" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search tasks..."
-            className="flex-1 bg-transparent text-sm text-black dark:text-white placeholder:text-gray-400 focus:outline-none"
-            aria-label="Search tasks"
-          />
-          {search && (
-            <button onClick={() => setSearch("")} className="text-gray-400 hover:text-black dark:hover:text-white transition-default">
-              <X size={14} />
-            </button>
-          )}
-        </div>
-      ) : showBar && (
-        <div className="mb-4 flex items-center gap-2">
-          <div className="flex-1 flex items-center gap-2 glass-card-subtle px-3 py-2">
-            <Search size={14} className="text-gray-400 flex-shrink-0" />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search tasks..."
-              className="flex-1 bg-transparent text-sm text-black dark:text-white placeholder:text-gray-400 focus:outline-none"
-              aria-label="Search tasks"
-            />
-            {search && (
-              <button onClick={() => setSearch("")} className="text-gray-400 hover:text-black dark:hover:text-white transition-default">
-                <X size={14} />
-              </button>
-            )}
-          </div>
-
-          {/* Bulk select toggle */}
-          {totalCount > 0 && (
-            <button
-              onClick={() => { if (selectMode) cancelSelect(); else setSelectMode(true); }}
-              className={`glass-card-subtle p-2 transition-default ${
-                selectMode ? "text-black dark:text-white bg-black/5 dark:bg-white/10" : "text-gray-400 hover:text-black dark:hover:text-white"
-              }`}
-              aria-label={selectMode ? "Cancel selection" : "Select multiple"}
-              title={selectMode ? "Cancel selection" : "Select multiple"}
-            >
-              <CheckSquare size={14} />
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* Habit pills — shown as regular task pills */}
-      {showHabits && habits.length > 0 && (
-        <div className="space-y-1.5 mb-1.5">
-          {habits.map((habit) => renderHabitRow(habit))}
-        </div>
-      )}
-
-      {/* Todo items */}
-      {todos.length === 0 ? (
-        <div className="text-center py-16">
-          <p className="text-gray-400 text-base">No tasks yet</p>
-          <p className="text-gray-400/60 text-sm mt-1">
-            Add one above to get started
-          </p>
-        </div>
-      ) : filtered.length === 0 ? (
-        <div className="text-center py-12">
-          <p className="text-gray-400 text-base">No tasks match your search</p>
-          <button
-            onClick={() => {
-              setSearch("");
-              setFilterStatus("all");
-              setFilterTagId(null);
-            }}
-            className="text-sm text-gray-400 hover:text-black dark:hover:text-white mt-2 transition-default"
-          >
-            Clear filters
-          </button>
-        </div>
-      ) : sortBy === "timeline" ? (
-        /* ── Timeline view: events interleaved with tasks by start_date/due_date ── */
-        <div className="space-y-5">
-          {groupByTimeline(standaloneActiveTodos, events, eventTodosByEventId).map((group) => {
-            const isSomeday = group.key === "someday";
-            const isSuppressed = group.key === suppressGroupKey;
-            const count = group.todos.length + group.events.length;
-            const isOpen = !isSomeday || showSomeday;
-            return (
-            <div key={group.key}>
-              {!isSuppressed && (
-                <button
-                  onClick={() => { if (isSomeday) setShowSomeday((v) => !v); }}
-                  className={`flex items-center gap-2 w-full text-left mb-3 transition-default ${
-                    isSomeday ? "cursor-pointer" : "cursor-default"
-                  }`}
-                >
-                  {isSomeday && (
-                    <ChevronRight
-                      size={10}
-                      className={`flex-shrink-0 text-black/40 dark:text-gray-400 transition-transform duration-200 ${showSomeday ? "rotate-90" : ""}`}
-                    />
-                  )}
-                  <span className={`text-[10px] font-bold uppercase tracking-widest whitespace-nowrap ${
-                    group.key === "overdue"
-                      ? "text-red-500 dark:text-red-400"
-                      : group.key === "today"
-                      ? "text-black dark:text-white"
-                      : "text-black/50 dark:text-gray-500"
-                  }`}>
-                    {group.label}
-                  </span>
-                  <span className="text-[10px] text-black/35 dark:text-gray-600 font-normal tabular-nums whitespace-nowrap">
-                    {count}
-                  </span>
-                  <div className={`flex-1 h-px ${
-                    group.key === "overdue"
-                      ? "bg-red-400/35 dark:bg-red-400/20"
-                      : group.key === "today"
-                      ? "bg-black/20 dark:bg-white/15"
-                      : "bg-black/10 dark:bg-white/[0.07]"
-                  }`} />
-                </button>
-              )}
-              {isOpen && (
-                <div className={gridCols}>
-                  {group.events.map((event) => renderEventContainer(event))}
-                  {group.todos.map((todo) => renderTodo(todo, false))}
-                </div>
-              )}
-            </div>
-            );
-          })}
-
-          {standaloneCompletedTodos.length > 0 && (
-            <div className="pt-1">
-              <button
-                onClick={() => setShowDone((v) => !v)}
-                className="flex items-center gap-2 w-full text-left mb-3 cursor-pointer transition-default"
-              >
-                <ChevronRight size={10} className={`flex-shrink-0 text-black/40 dark:text-gray-400 transition-transform duration-200 ${showDone ? "rotate-90" : ""}`} />
-                <span className="text-[10px] font-bold uppercase tracking-widest text-black/50 dark:text-gray-500 whitespace-nowrap">
-                  Done
-                </span>
-                <span className="text-[10px] text-black/35 dark:text-gray-600 font-normal tabular-nums whitespace-nowrap">
-                  {standaloneCompletedTodos.length}
-                </span>
-                <div className="flex-1 h-px bg-black/10 dark:bg-white/[0.07]" />
-              </button>
-              {showDone && (
-                <div className={gridCols}>
-                  {standaloneCompletedTodos.map((todo) => renderTodo(todo, false))}
-                </div>
-              )}
-            </div>
+      ) : nothingMatches ? (
+        <div className="py-16 text-center">
+          <p className="text-sm text-text-muted">{t("No tasks match your search")}</p>
+          {filters && (
+            <button onClick={filters.clear} className="btn btn-ghost mt-2">{t("Clear all filters")}</button>
           )}
         </div>
       ) : (
-        /* ── Default / Priority view: events + tasks interleaved ── */
-        <div className="space-y-2">
-          {sortedMergedItems.length > 0 && (
-            sortBy === "default" && !selectMode ? (
-              /* Manual sort: full DnD for both events and standalone tasks */
-              <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragEnd={handleDragEnd}
-              >
-                <SortableContext
-                  items={sortedMergedItems.map((i) =>
-                    i.kind === "event" ? i.event.id : i.todo.id
-                  )}
-                  strategy={verticalListSortingStrategy}
-                >
-                  <div className={gridCols}>
-                    {sortedMergedItems.map((item) =>
-                      item.kind === "event" ? (
-                        <ManualSortWrapper key={item.event.id} id={item.event.id}>
-                          {renderEventContainer(item.event)}
-                        </ManualSortWrapper>
-                      ) : (
-                        <ManualSortWrapper key={item.todo.id} id={item.todo.id}>
-                          {renderTodo(item.todo, false)}
-                        </ManualSortWrapper>
-                      )
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext items={todos.map((x) => x.id)} strategy={verticalListSortingStrategy}>
+            <div role="listbox" aria-label={t("Tasks")}>
+              {groups.map((group) => {
+                const single = group.key === "tasks";
+                const isOpen = !collapsed.has(group.key);
+                return (
+                  <div key={group.key}>
+                    {!single && group.key !== suppressGroupKey && (
+                      <GroupHead
+                        label={group.key.startsWith("project:") ? group.label : t(group.label)}
+                        count={group.todos.length}
+                        progress={group.progress}
+                        tone={group.tone}
+                        open={isOpen}
+                        onToggle={() => toggleGroup(group.key)}
+                        onOpen={group.onOpen}
+                      />
                     )}
+                    {(single || isOpen) &&
+                      group.todos.map((todo) => (
+                        <TaskRow
+                          key={todo.id}
+                          {...rowProps}
+                          todo={todo}
+                          selected={selectedTodoId === todo.id}
+                          checked={selectedIds.has(todo.id)}
+                          highlighted={highlightedTodoId === todo.id}
+                        />
+                      ))}
                   </div>
-                </SortableContext>
-              </DndContext>
-            ) : (
-              /* Priority sort: urgency order, no DnD */
-              <div className={gridCols}>
-                {sortedMergedItems.map((item) =>
-                  item.kind === "event"
-                    ? renderEventContainer(item.event)
-                    : renderTodo(item.todo, false)
-                )}
-              </div>
-            )
-          )}
+                );
+              })}
 
-          {standaloneCompletedTodos.length > 0 && (
-            <div className="pt-2">
-              <button
-                onClick={() => setShowDone((v) => !v)}
-                className="flex items-center gap-2 w-full text-left mb-3 cursor-pointer transition-default"
-              >
-                <ChevronRight size={10} className={`flex-shrink-0 text-black/40 dark:text-gray-400 transition-transform duration-200 ${showDone ? "rotate-90" : ""}`} />
-                <span className="text-[10px] font-bold uppercase tracking-widest text-black/50 dark:text-gray-500 whitespace-nowrap">
-                  Done
-                </span>
-                <span className="text-[10px] text-black/35 dark:text-gray-600 font-normal tabular-nums whitespace-nowrap">
-                  {standaloneCompletedTodos.length}
-                </span>
-                <div className="flex-1 h-px bg-black/10 dark:bg-white/[0.07]" />
-              </button>
-              {showDone && (
-                <div className={gridCols}>
-                  {standaloneCompletedTodos.map((todo) => renderTodo(todo, false))}
+              {visibleHabits.length > 0 && (
+                <div>
+                  <GroupHead
+                    label={t("Habits")}
+                    count={visibleHabits.length}
+                    open={!collapsed.has("habits")}
+                    onToggle={() => toggleGroup("habits")}
+                  />
+                  {!collapsed.has("habits") &&
+                    visibleHabits.map((habit) => (
+                      <HabitRow key={habit.id} habit={habit} onToggle={onToggleHabit} />
+                    ))}
+                </div>
+              )}
+
+              {doneTodos.length > 0 && (
+                <div>
+                  <GroupHead
+                    label={t("Done")}
+                    count={doneTodos.length}
+                    open={!collapsed.has("done")}
+                    onToggle={() => toggleGroup("done")}
+                  />
+                  {!collapsed.has("done") && (
+                    <>
+                      {(showAllDone ? doneTodos : doneTodos.slice(0, DONE_PREVIEW)).map((todo) => (
+                        <TaskRow
+                          key={todo.id}
+                          {...rowProps}
+                          todo={todo}
+                          selected={selectedTodoId === todo.id}
+                          checked={selectedIds.has(todo.id)}
+                          highlighted={highlightedTodoId === todo.id}
+                        />
+                      ))}
+                      {!showAllDone && doneTodos.length > DONE_PREVIEW && (
+                        <button onClick={() => setShowAllDone(true)} className="btn btn-ghost w-full justify-start h-8 px-3">
+                          {t("Show all {n}", { n: doneTodos.length })}
+                        </button>
+                      )}
+                    </>
+                  )}
                 </div>
               )}
             </div>
-          )}
-        </div>
+          </SortableContext>
+        </DndContext>
       )}
 
-      {/* Bulk action floating bar */}
       <BulkActionBar
         selectedCount={selectedIds.size}
+        visible={selectMode}
         onComplete={handleBulkComplete}
-        onDelete={handleBulkDelete}
-        onMoveToList={lists.length > 0 ? handleBulkMove : undefined}
-        onCancel={cancelSelect}
+        onDelete={() => { if (selectedIds.size > 0) setConfirmBulkDelete(true); }}
+        onMoveToList={lists.length > 0 ? (listId) => bulkUpdate({ list_id: listId }) : undefined}
+        onSetDueDate={(date) => bulkUpdate({ due_date: date })}
+        onSetPriority={(priority) => bulkUpdate({ priority })}
+        onCancel={() => filters?.clearSelection()}
         lists={lists}
       />
 
       <ConfirmDialog
-        open={deleteId !== null}
-        title="Delete task"
-        message={`Are you sure you want to delete "${deleteTitle}"? This action cannot be undone.`}
-        onConfirm={handleDeleteConfirm}
-        onCancel={() => setDeleteId(null)}
+        open={confirmBulkDelete}
+        title={t("Delete tasks")}
+        message={t("Delete {n} selected tasks? This cannot be undone.", { n: selectedIds.size })}
+        confirmLabel={t("Delete")}
+        onConfirm={handleBulkDeleteConfirm}
+        onCancel={() => setConfirmBulkDelete(false)}
       />
     </>
+  );
+}
+
+const EMPTY_SET: Set<string> = new Set();
+
+/* ─────────────────────────────────────────────────────────────── */
+
+function GroupHead({
+  label,
+  count,
+  progress,
+  tone,
+  open,
+  onToggle,
+  onOpen,
+}: {
+  label: string;
+  count: number;
+  progress?: string;
+  tone?: "overdue";
+  open: boolean;
+  onToggle: () => void;
+  onOpen?: () => void;
+}) {
+  return (
+    <div className={`group-head ${tone === "overdue" ? "is-overdue" : ""}`}>
+      <button onClick={onToggle} className="flex items-center gap-1.5 min-w-0" aria-expanded={open}>
+        {open ? <ChevronDown size={14} className="flex-none" /> : <ChevronRight size={14} className="flex-none" />}
+        <span className="truncate">{label}</span>
+      </button>
+      {onOpen && (
+        <button onClick={onOpen} className="text-xs normal-case tracking-normal text-text-faint hover:text-text-muted">
+          ↗
+        </button>
+      )}
+      <span className="group-head-count">{progress ?? count}</span>
+    </div>
+  );
+}
+
+function HabitRow({ habit, onToggle }: { habit: HabitWithStatus; onToggle?: (id: string) => void }) {
+  const { t } = useI18n();
+  const time = habit.time ? formatTime(habit.time) : null;
+  return (
+    <div className={`task-row ${habit.completedToday ? "is-done" : ""}`}>
+      <button
+        onClick={() => onToggle?.(habit.id)}
+        className="task-circle"
+        aria-label={habit.completedToday ? t("Mark as not done") : t("Mark as done")}
+        aria-pressed={habit.completedToday}
+      >
+        {habit.completedToday && (
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M20 6 9 17l-5-5" />
+          </svg>
+        )}
+      </button>
+      <span className="task-row-title">{habit.title}</span>
+      <span className="task-row-meta">
+        {habit.streak > 0 && (
+          <span className="task-meta-item">
+            <Flame size={14} />
+            <span className="tabular-nums">{habit.streak}</span>
+          </span>
+        )}
+        {time && <span className="tabular-nums">{time}</span>}
+      </span>
+    </div>
+  );
+}
+
+function ListSkeleton() {
+  return (
+    <div aria-hidden="true">
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div key={i} className="task-row animate-pulse">
+          <span className="task-circle" style={{ borderColor: "var(--border)" }} />
+          <span className="h-3 rounded surface-2" style={{ width: `${40 + (i % 3) * 15}%` }} />
+        </div>
+      ))}
+    </div>
   );
 }

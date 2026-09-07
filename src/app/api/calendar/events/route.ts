@@ -5,6 +5,32 @@ import {
   listCalendarEvents,
 } from "@/lib/google-calendar";
 
+/* Date and clock time of an instant in a given timezone */
+function zonedParts(instant: Date, timeZone: string): { date: string; time: string } {
+  try {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }).formatToParts(instant);
+    const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "00";
+    const hour = String(Number(get("hour")) % 24).padStart(2, "0");
+    return {
+      date: `${get("year")}-${get("month")}-${get("day")}`,
+      time: `${hour}:${get("minute")}`,
+    };
+  } catch {
+    return {
+      date: instant.toISOString().slice(0, 10),
+      time: instant.toISOString().slice(11, 16),
+    };
+  }
+}
+
 export async function GET(request: NextRequest) {
   const supabase = await createClient();
   const {
@@ -18,6 +44,8 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const timeMin = searchParams.get("timeMin");
   const timeMax = searchParams.get("timeMax");
+  // The server runs in UTC; the browser tells us which clock to read by
+  const timeZone = searchParams.get("tz") || "UTC";
 
   if (!timeMin || !timeMax) {
     return NextResponse.json(
@@ -130,12 +158,11 @@ export async function GET(request: NextRequest) {
         if (isAllDay) {
           date = event.start.date!;
         } else {
-          const dt = new Date(event.start.dateTime!);
-          date = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
-          startTime = `${String(dt.getHours()).padStart(2, "0")}:${String(dt.getMinutes()).padStart(2, "0")}`;
+          const start = zonedParts(new Date(event.start.dateTime!), timeZone);
+          date = start.date;
+          startTime = start.time;
           if (event.end?.dateTime) {
-            const endDt = new Date(event.end.dateTime);
-            endTime = `${String(endDt.getHours()).padStart(2, "0")}:${String(endDt.getMinutes()).padStart(2, "0")}`;
+            endTime = zonedParts(new Date(event.end.dateTime), timeZone).time;
           }
         }
 
@@ -168,7 +195,9 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Import external Google Calendar events as todos
+    // Import external Google Calendar events as todos — batched, so a month
+    // of events costs two requests instead of two per event
+    let importedCount = 0;
     if (externalEvents.length > 0) {
       // Get already-imported google event IDs from todos table
       const { data: existingImports } = await supabase
@@ -181,11 +210,13 @@ export async function GET(request: NextRequest) {
         (existingImports || []).map((t) => [t.google_event_id, t])
       );
 
+      const newRows: Record<string, unknown>[] = [];
+      const changed: typeof externalEvents = [];
+
       for (const ext of externalEvents) {
         const existing = existingMap.get(ext.google_event_id);
         if (!existing) {
-          // New — insert as todo
-          const { error: insertError } = await supabase.from("todos").insert({
+          newRows.push({
             user_id: user.id,
             title: ext.title,
             completed: false,
@@ -197,20 +228,42 @@ export async function GET(request: NextRequest) {
             priority: "none",
             google_event_id: ext.google_event_id,
           });
-          if (insertError && insertError.code !== "23505") {
-            console.error("[calendar-import] Insert todo error:", JSON.stringify(insertError));
-          }
-        } else {
-          // Update if changed
-          const needsUpdate =
-            existing.title !== ext.title ||
-            existing.due_date !== ext.date ||
-            existing.start_time !== (ext.startTime ?? null) ||
-            existing.end_time !== (ext.endTime ?? null) ||
-            existing.notes !== (ext.description ?? null);
+          continue;
+        }
 
-          if (needsUpdate) {
-            await supabase
+        const needsUpdate =
+          existing.title !== ext.title ||
+          existing.due_date !== ext.date ||
+          existing.start_time !== (ext.startTime ?? null) ||
+          existing.end_time !== (ext.endTime ?? null) ||
+          existing.notes !== (ext.description ?? null);
+
+        if (needsUpdate) changed.push(ext);
+      }
+
+      if (newRows.length > 0) {
+        const { error: insertError } = await supabase.from("todos").insert(newRows);
+        if (!insertError) {
+          importedCount += newRows.length;
+        } else {
+          // A parallel import may have written one of these rows already —
+          // retry row by row so one duplicate does not drop the whole batch
+          const results = await Promise.all(
+            newRows.map((row) => supabase.from("todos").insert(row))
+          );
+          for (const result of results) {
+            if (!result.error) importedCount++;
+            else if (result.error.code !== "23505") {
+              console.error("[calendar-import] Insert todo error:", JSON.stringify(result.error));
+            }
+          }
+        }
+      }
+
+      if (changed.length > 0) {
+        const results = await Promise.all(
+          changed.map((ext) =>
+            supabase
               .from("todos")
               .update({
                 title: ext.title,
@@ -220,9 +273,10 @@ export async function GET(request: NextRequest) {
                 notes: ext.description ?? null,
               })
               .eq("user_id", user.id)
-              .eq("google_event_id", ext.google_event_id);
-          }
-        }
+              .eq("google_event_id", ext.google_event_id)
+          )
+        );
+        importedCount += results.filter((r) => !r.error).length;
       }
     }
 
@@ -235,7 +289,7 @@ export async function GET(request: NextRequest) {
       return 0;
     });
 
-    return NextResponse.json({ events, imported: true });
+    return NextResponse.json({ events, imported: importedCount });
   } catch (err) {
     console.error("Fetch calendar events error:", err);
     return NextResponse.json({ events: [] });

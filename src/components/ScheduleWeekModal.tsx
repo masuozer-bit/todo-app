@@ -1,6 +1,9 @@
 "use client";
 
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
+import { toDateStr } from "@/lib/date-helpers";
+import { isScheduledForDate } from "@/lib/habit-schedule";
+import { useI18n } from "./I18nProvider";
 import { createPortal } from "react-dom";
 import { X, ChevronLeft, ChevronRight, Repeat, ChevronDown, CalendarDays } from "lucide-react";
 import {
@@ -12,6 +15,7 @@ import {
   useDraggable,
   useDroppable,
 } from "@dnd-kit/core";
+import { PRIORITY_META } from "@/lib/priority";
 import type { DragStartEvent, DragEndEvent, DragMoveEvent } from "@dnd-kit/core";
 import type { Todo, HabitWithStatus, List, Event } from "@/lib/types";
 
@@ -30,9 +34,6 @@ const MONTH_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct"
 
 /* ───────────────────────── Helpers ──────────────────────────── */
 
-function toDateStr(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
-}
 
 function parseTime(t: string): number {
   const [h, m] = t.split(":").map(Number);
@@ -73,17 +74,6 @@ function getWeekStart(d: Date): Date {
   return out;
 }
 
-function isScheduledForDate(habit: HabitWithStatus, date: Date): boolean {
-  if (habit.schedule_type === "weekly") return habit.schedule_days.includes(date.getDay());
-  const interval = habit.schedule_interval || 1;
-  if (interval === 1) return true;
-  const start = new Date(habit.created_at);
-  start.setHours(0,0,0,0);
-  const check = new Date(date);
-  check.setHours(0,0,0,0);
-  const diffDays = Math.round((check.getTime() - start.getTime()) / 86_400_000);
-  return diffDays >= 0 && diffDays % interval === 0;
-}
 
 function priorityBg(p?: string): string {
   if (p === "high")   return "bg-red-500 border-red-600/40";
@@ -141,7 +131,7 @@ function UnscheduledPill({ todo, listName, eventName }: { todo: Todo; listName?:
   });
 
   const priorityLabel = todo.priority === "high" ? "High" : todo.priority === "medium" ? "Med" : todo.priority === "low" ? "Low" : null;
-  const priorityColor = todo.priority === "high" ? "text-red-400" : todo.priority === "medium" ? "text-orange-400" : todo.priority === "low" ? "text-sky-400" : "";
+  const priorityColor = todo.priority && todo.priority !== "none" ? PRIORITY_META[todo.priority].text : "";
 
   return (
     <div
@@ -159,20 +149,20 @@ function UnscheduledPill({ todo, listName, eventName }: { todo: Todo; listName?:
           </span>
           <div className="flex items-center gap-1.5 mt-1 flex-wrap">
             {priorityLabel && (
-              <span className={`text-[10px] font-semibold ${priorityColor}`}>{priorityLabel}</span>
+              <span className={`text-xs font-semibold ${priorityColor}`}>{priorityLabel}</span>
             )}
             {todo.due_date && (
-              <span className="text-[10px] text-gray-500 tabular-nums">
+              <span className="text-xs text-text-muted tabular-nums">
                 {formatRelDate(todo.due_date)}
               </span>
             )}
             {listName && (
-              <span className="text-[10px] text-gray-600 truncate max-w-[100px]">
+              <span className="text-xs text-gray-600 truncate max-w-[100px]">
                 {listName}
               </span>
             )}
             {eventName && (
-              <span className="text-[10px] text-emerald-400/70 truncate max-w-[120px] italic">
+              <span className="text-xs text-emerald-400/70 truncate max-w-[120px] italic">
                 {eventName}
               </span>
             )}
@@ -316,10 +306,10 @@ function ScheduledBlock({
         <div className="px-2 py-1 h-full flex flex-col justify-center">
           <span className="flex items-center gap-1 leading-tight">
             <CalendarDays size={9} className="flex-shrink-0 text-emerald-400/80" />
-            <span className="text-[11px] font-medium text-white truncate">{item.title}</span>
+            <span className="text-xs font-medium text-white truncate">{item.title}</span>
           </span>
           {displayHeight > 34 && (
-            <span className="text-[9px] text-white/40 mt-0.5 pl-[18px]">{item.extra}</span>
+            <span className="text-xs text-text-faint mt-0.5 pl-[18px]">{item.extra}</span>
           )}
         </div>
       </div>
@@ -337,10 +327,10 @@ function ScheduledBlock({
         <div className="px-2 py-1 h-full flex flex-col justify-center">
           <span className={`flex items-center gap-1 leading-tight ${item.completed ? "line-through" : ""}`}>
             <Repeat size={9} className="flex-shrink-0 text-violet-300/80" />
-            <span className="text-[11px] font-medium text-white truncate">{item.title}</span>
+            <span className="text-xs font-medium text-white truncate">{item.title}</span>
           </span>
           {displayHeight > 34 && (
-            <span className="text-[9px] text-white/40 mt-0.5 pl-[18px]">{item.extra}</span>
+            <span className="text-xs text-text-faint mt-0.5 pl-[18px]">{item.extra}</span>
           )}
         </div>
       </div>
@@ -369,7 +359,7 @@ function ScheduledBlock({
       )}
       {resizingTop && topTimeLabel && (
         <div className="absolute -top-5 left-1/2 -translate-x-1/2 z-50 pointer-events-none">
-          <span className="px-1.5 py-0.5 rounded bg-black/80 text-white text-[9px] font-bold tabular-nums whitespace-nowrap shadow-lg">
+          <span className="px-1.5 py-0.5 rounded bg-black/80 text-white text-xs font-bold tabular-nums whitespace-nowrap shadow-lg">
             {topTimeLabel}
           </span>
         </div>
@@ -386,12 +376,12 @@ function ScheduledBlock({
           onClose();
         }}
       >
-        <span className="text-[11px] font-medium text-white truncate leading-tight">{item.title}</span>
+        <span className="text-xs font-medium text-white truncate leading-tight">{item.title}</span>
         {displayHeight > 32 && (
-          <span className="text-[9px] text-white/40 mt-0.5">{item.extra}</span>
+          <span className="text-xs text-text-faint mt-0.5">{item.extra}</span>
         )}
         {displayHeight > 46 && item.listName && (
-          <span className="text-[8px] text-white/30 truncate">{item.listName}</span>
+          <span className="text-xs text-text-faint truncate">{item.listName}</span>
         )}
       </div>
 
@@ -409,7 +399,7 @@ function ScheduledBlock({
       )}
       {resizingBottom && bottomTimeLabel && (
         <div className="absolute -bottom-5 left-1/2 -translate-x-1/2 z-50 pointer-events-none">
-          <span className="px-1.5 py-0.5 rounded bg-black/80 text-white text-[9px] font-bold tabular-nums whitespace-nowrap shadow-lg">
+          <span className="px-1.5 py-0.5 rounded bg-black/80 text-white text-xs font-bold tabular-nums whitespace-nowrap shadow-lg">
             {bottomTimeLabel}
           </span>
         </div>
@@ -471,7 +461,7 @@ function DayColumn({
         <>
           <div className="absolute left-0 right-0 z-30 pointer-events-none" style={{ top: snapPreview.y, height: 2, backgroundColor: "rgba(99,102,241,0.7)" }} />
           <div className="absolute z-40 pointer-events-none" style={{ top: snapPreview.y - 8, left: 2 }}>
-            <span className="px-1 py-0.5 rounded bg-indigo-500 text-white text-[8px] font-bold tabular-nums shadow-lg">
+            <span className="px-1 py-0.5 rounded bg-indigo-500 text-white text-xs font-bold tabular-nums shadow-lg">
               {snapPreview.timeLabel}
             </span>
           </div>
@@ -503,6 +493,7 @@ function UnscheduledPanel({
   listMap: Map<string, string>;
   eventMap: Map<string, string>;
 }) {
+  const { t } = useI18n();
   const { setNodeRef, isOver } = useDroppable({
     id: "unscheduled-pool",
     data: { type: "unscheduled-pool" },
@@ -521,7 +512,7 @@ function UnscheduledPanel({
       { id: "overdue", label: "Overdue", color: "text-red-400", todos: [] },
       { id: "today", label: "Today", color: "text-amber-400", todos: [] },
       { id: "this-week", label: "This Week", color: "text-blue-400", todos: [] },
-      { id: "upcoming", label: "Upcoming", color: "text-gray-400", todos: [] },
+      { id: "upcoming", label: "Upcoming", color: "text-text-faint", todos: [] },
       { id: "someday", label: "Someday", color: "text-gray-600", todos: [] },
     ];
 
@@ -587,27 +578,23 @@ function UnscheduledPanel({
       style={{ width: UNSCHEDULED_W }}
     >
       <div className="px-4 py-3 border-b border-white/[0.05]">
-        <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400">
-          Unscheduled
-        </span>
-        <span className="ml-2 text-[11px] text-gray-600 tabular-nums">
+        <span className="text-xs font-bold uppercase tracking-wider text-text-faint">{t("Unscheduled")}</span>
+        <span className="ml-2 text-xs text-gray-600 tabular-nums">
           {todos.length}
         </span>
       </div>
       <div className="flex-1 overflow-y-auto px-2 py-2">
         {todos.length === 0 && (
-          <p className="text-[11px] text-gray-600 text-center py-8 select-none">
-            All tasks scheduled
-          </p>
+          <p className="text-xs text-gray-600 text-center py-8 select-none">{t("All tasks scheduled")}</p>
         )}
         {groups.map(section => (
           <div key={section.id} className="mb-3">
             {/* Urgency header */}
             <div className="flex items-center gap-2 px-2 pt-2 pb-1">
-              <span className={`text-[10px] font-bold uppercase tracking-wider ${section.color}`}>
+              <span className={`text-xs font-bold uppercase tracking-wider ${section.color}`}>
                 {section.label}
               </span>
-              <span className="text-[10px] text-gray-600 tabular-nums">
+              <span className="text-xs text-gray-600 tabular-nums">
                 {section.subGroups.reduce((sum, g) => sum + g.todos.length, 0)}
               </span>
               <div className="flex-1 h-px bg-white/[0.06]" />
@@ -623,10 +610,10 @@ function UnscheduledPanel({
                     size={9}
                     className={`text-gray-600 flex-shrink-0 transition-transform ${collapsed.has(group.id) ? "-rotate-90" : ""}`}
                   />
-                  <span className="text-[10px] font-medium text-gray-500 truncate">
+                  <span className="text-xs font-medium text-text-muted truncate">
                     {group.name}
                   </span>
-                  <span className="text-[10px] text-gray-600 tabular-nums ml-auto flex-shrink-0">
+                  <span className="text-xs text-gray-600 tabular-nums ml-auto flex-shrink-0">
                     {group.todos.length}
                   </span>
                 </button>
@@ -651,6 +638,7 @@ function UnscheduledPanel({
 export default function ScheduleWeekModal({
   todos, habits, lists, events, onTodoClick, onHabitClick, onUpdateTodo, onClose,
 }: ScheduleWeekModalProps) {
+  const { t } = useI18n();
 
   const now      = useMemo(() => new Date(), []);
   const today    = useMemo(() => { const d = new Date(now); d.setHours(0,0,0,0); return d; }, [now]);
@@ -905,9 +893,9 @@ export default function ScheduleWeekModal({
         className="rounded-lg px-2.5 py-1.5 text-white shadow-lg pointer-events-none"
         style={{ width: 140, height: blockH, opacity: 0.9, background: "rgba(0,0,0,0.75)" }}
       >
-        <span className="text-[11px] font-medium truncate block">{todo.title}</span>
+        <span className="text-xs font-medium truncate block">{todo.title}</span>
         {timeRange && (
-          <span className="text-[9px] text-white/50 block tabular-nums mt-0.5">{timeRange}</span>
+          <span className="text-xs text-text-faint block tabular-nums mt-0.5">{timeRange}</span>
         )}
       </div>
     );
@@ -933,21 +921,19 @@ export default function ScheduleWeekModal({
         >
           {/* Header */}
           <div className="flex items-center gap-4 px-6 py-4 border-b border-white/[0.06] flex-shrink-0">
-            <button onClick={prevWeek} className="w-8 h-8 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] flex items-center justify-center text-gray-400 hover:text-white transition-default">
+            <button onClick={prevWeek} className="w-8 h-8 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] flex items-center justify-center text-text-faint hover:text-white transition-default">
               <ChevronLeft size={16} />
             </button>
             <div className="flex items-center gap-3 flex-1 justify-center">
               <span className="text-base font-bold text-white tabular-nums">{weekLabel}</span>
               {!isCurrentWeek && (
-                <button onClick={() => setWeekStart(getWeekStart(today))} className="text-[11px] px-2.5 py-1 rounded-lg bg-white/[0.08] text-gray-400 hover:text-white hover:bg-white/[0.12] transition-default">
-                  Today
-                </button>
+                <button onClick={() => setWeekStart(getWeekStart(today))} className="text-xs px-2.5 py-1 rounded-lg bg-white/[0.08] text-text-faint hover:text-white hover:bg-white/[0.12] transition-default">{t("Today")}</button>
               )}
             </div>
-            <button onClick={nextWeek} className="w-8 h-8 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] flex items-center justify-center text-gray-400 hover:text-white transition-default">
+            <button onClick={nextWeek} className="w-8 h-8 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] flex items-center justify-center text-text-faint hover:text-white transition-default">
               <ChevronRight size={16} />
             </button>
-            <button onClick={onClose} className="w-8 h-8 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] flex items-center justify-center text-gray-500 hover:text-white transition-default">
+            <button onClick={onClose} className="w-8 h-8 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] flex items-center justify-center text-text-muted hover:text-white transition-default">
               <X size={16} />
             </button>
           </div>
@@ -956,7 +942,7 @@ export default function ScheduleWeekModal({
           <div className="flex border-b border-white/[0.06] flex-shrink-0" style={{ paddingLeft: UNSCHEDULED_W + 48 }}>
             {dayColumns.map(({ day, isToday: isTodayCol }) => (
               <div key={toDateStr(day)} className="flex-1 flex flex-col items-center py-3 gap-1">
-                <span className={`text-[11px] uppercase tracking-wider font-medium ${isTodayCol ? "text-white" : "text-gray-500"}`}>
+                <span className={`text-xs uppercase tracking-wider font-medium ${isTodayCol ? "text-white" : "text-text-muted"}`}>
                   {DAY_SHORT[day.getDay()]}
                 </span>
                 <span className={`text-sm font-bold tabular-nums leading-none ${
@@ -979,7 +965,7 @@ export default function ScheduleWeekModal({
                 <div className="flex-shrink-0 relative" style={{ width: 48 }}>
                   {hourSlots.map(h => h < 24 && (
                     <div key={h} className="absolute right-0 pr-2" style={{ top: h * HOUR_PX - 7 }}>
-                      <span className="text-[10px] text-gray-600 tabular-nums leading-none">{hourLabel(h)}</span>
+                      <span className="text-xs text-gray-600 tabular-nums leading-none">{hourLabel(h)}</span>
                     </div>
                   ))}
                 </div>

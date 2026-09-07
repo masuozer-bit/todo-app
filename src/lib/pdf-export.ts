@@ -1,4 +1,5 @@
 import type { Todo, Priority } from "@/lib/types";
+import { toDateStr } from "@/lib/date-helpers";
 
 interface ExportOptions {
   title?: string;
@@ -30,9 +31,6 @@ function fmtTime(t: string): string {
   return `${d}:${m} ${ap}`;
 }
 
-function toDateStr(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
 
 const PRIO_COLOR: Record<Priority, string> = { high: "#e74c3c", medium: "#f39c12", low: "#3498db", none: "#95a5a6" };
 const PRIO_BG: Record<Priority, string> = { high: "#fdecea", medium: "#fef5e7", low: "#ebf5fb", none: "#f4f6f7" };

@@ -1,8 +1,7 @@
 "use client";
 
-import { Flame } from "lucide-react";
 import { useI18n } from "./I18nProvider";
-import { StatStrip, formatRate } from "./HabitStats";
+import { HabitProgress, HabitTrail, StatStrip, StreakLabel, formatRate } from "./HabitStats";
 import ProgressRing from "./ui/ProgressRing";
 import { formatTime, weekdayLabels } from "@/lib/format";
 import { sumTallies } from "@/lib/habit-stats";
@@ -64,7 +63,11 @@ export default function HabitListView({
 
       <div role="listbox" aria-label={t("Habits")}>
         {today.length > 0 && (
-          <Group label={t("Today")} count={`${doneToday}/${due.length}`}>
+          <Group
+            label={t("Today")}
+            count={`${doneToday}/${due.length}`}
+            extra={<HabitProgress done={doneToday} total={due.length} />}
+          >
             {today.map((habit) => (
               <HabitRow
                 key={habit.id}
@@ -97,11 +100,22 @@ export default function HabitListView({
   );
 }
 
-function Group({ label, count, children }: { label: string; count: string; children: React.ReactNode }) {
+function Group({
+  label,
+  count,
+  extra,
+  children,
+}: {
+  label: string;
+  count: string;
+  extra?: React.ReactNode;
+  children: React.ReactNode;
+}) {
   return (
-    <div>
+    <div className="habit-block">
       <div className="group-head">
         <span className="truncate">{label}</span>
+        {extra}
         <span className="group-head-count">{count}</span>
       </div>
       {children}
@@ -145,11 +159,11 @@ function HabitRow({
         if (e.key === "Enter") { e.preventDefault(); onSelect(habit.id); }
         if (e.key === " ") { e.preventDefault(); onToggle(habit.id); }
       }}
-      className={`task-row ${selected ? "is-selected" : ""} ${habit.completedToday ? "is-done" : ""}`}
+      className={`task-row ${selected ? "is-selected" : ""} ${habit.completedToday ? "is-kept" : ""}`}
     >
       <button
         onClick={(e) => { e.stopPropagation(); onToggle(habit.id); }}
-        className="task-circle"
+        className="task-circle is-habit"
         aria-label={habit.completedToday ? t("Mark as not done") : t("Mark as done")}
         aria-pressed={habit.completedToday}
       >
@@ -171,13 +185,9 @@ function HabitRow({
             {list.name}
           </span>
         )}
-        {habit.streak > 0 && (
-          <span className="task-meta-item" title={t("{n} day streak", { n: habit.streak })}>
-            <Flame size={14} aria-hidden="true" />
-            <span className="tabular-nums">{habit.streak}</span>
-          </span>
-        )}
         {time && <span className="tabular-nums">{time}</span>}
+        <StreakLabel streak={habit.streak} />
+        <HabitTrail trail={habit.trail} />
       </span>
     </div>
   );

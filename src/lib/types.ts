@@ -126,6 +126,16 @@ export interface HabitSkip {
   created_at: string;
 }
 
+/**
+ * What one day looks like for one habit.
+ * - done: ticked, whatever the schedule says
+ * - missed: due, not ticked, and the day is over
+ * - skipped: due, and deliberately left out
+ * - open: today, due, not ticked yet
+ * - rest: not due, before the habit existed, or still to come
+ */
+export type DayState = "done" | "missed" | "skipped" | "open" | "rest";
+
 /** Scheduled days in a window, and how many of them were done. */
 export interface HabitTally {
   done: number;
@@ -142,6 +152,8 @@ export interface HabitWithStatus extends Habit {
   bestStreak: number;
   last7: HabitTally;
   last30: HabitTally;
+  /** The last seven days, oldest first, today last. */
+  trail: DayState[];
 }
 
 /**

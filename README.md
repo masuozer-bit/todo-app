@@ -44,7 +44,12 @@ sie liest.
    der Aufgaben: erster Eintrag in der Navigation und in der Leiste am
    Telefon, eigener Block mit eigenem Fortschritt ganz oben in jeder
    Aufgabenansicht. Über mehrere Tage ist jede Gewohnheit eine Zeile mit
-   den Tagen nebeneinander, nicht eine Zeile je Tag. Eine Gewohnheit
+   den Tagen nebeneinander, nicht eine Zeile je Tag. Gewohnheiten haben
+   eine eigene Bildsprache, damit sie nie wie Aufgaben aussehen: ein
+   gerahmter Block auf `--surface`, ein kräftigerer Ring, der beim Abhaken
+   gefüllt und nicht durchgestrichen wird, eine Spur der letzten sieben
+   Tage je Zeile und der Fortschritt von heute als Segmente. Keine Emojis
+   und keine Flammen, die Serie steht in Worten. Eine Gewohnheit
    öffnet sich im Detailpanel wie eine Aufgabe und zeigt dort Serie, beste
    Serie, Quote und Verlauf. Ein übersprungener Tag ist eine Pause und
    bricht keine Serie.
@@ -117,8 +122,9 @@ Kopfzeile und einen eigenen Scrollbereich; die Seite selbst scrollt nie.
 `.props`, `.prop-button`, `.quick-input`, `.btn` mit den Varianten
 `primary`, `secondary`, `ghost`, `danger` und `text-danger`, `.icon-btn`,
 `.input`, `.chip`, `.popover`, `.dialog`, `.toast-stack`, `.section-title`,
-`.stat-strip` für Kennzahlen in Zellen mit Linien statt Karten und
-`.history` für das Tagesraster einer Gewohnheit.
+`.stat-strip` für Kennzahlen in Zellen mit Linien statt Karten,
+`.history` für das Tagesraster einer Gewohnheit, `.habit-block`,
+`.habit-trail`, `.habit-progress` und `.task-circle.is-habit`.
 
 Popover, Dialog, Datumsauswahl und die Auswahllisten liegen als
 Komponenten unter `src/components/ui/`. Wer ein neues Feld baut, nimmt sie

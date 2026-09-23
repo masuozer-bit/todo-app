@@ -1,21 +1,13 @@
 import { toDateStr } from "./date-helpers";
 import { isScheduledForDate } from "./habit-schedule";
-import type { Habit, HabitTally } from "./types";
+import type { DayState, Habit, HabitTally } from "./types";
+
+export type { DayState };
 
 /** How far back streaks, rates and the history reach. The hook loads this much. */
 export const HISTORY_DAYS = 365;
 
 type Schedulable = Pick<Habit, "schedule_type" | "schedule_days" | "schedule_interval" | "created_at">;
-
-/**
- * What one day looks like for one habit.
- * - done: ticked, whatever the schedule says
- * - missed: due, not ticked, and the day is over
- * - skipped: due, and deliberately left out
- * - open: today, due, not ticked yet
- * - rest: not due, before the habit existed, or still to come
- */
-export type DayState = "done" | "missed" | "skipped" | "open" | "rest";
 
 /**
  * The first day that counts. Usually the day the habit was created, earlier
@@ -58,7 +50,7 @@ export function habitStats(
   done: Set<string>,
   skipped: Set<string>,
   now: Date = new Date()
-): { streak: number; bestStreak: number; last7: HabitTally; last30: HabitTally } {
+): { streak: number; bestStreak: number; last7: HabitTally; last30: HabitTally; trail: DayState[] } {
   const todayDate = new Date(now);
   todayDate.setHours(0, 0, 0, 0);
   const today = toDateStr(todayDate);
@@ -66,9 +58,12 @@ export function habitStats(
 
   // Oldest day first, so a run can grow and the best one is kept
   const states: DayState[] = [];
+  // The trail shows every tick as it was, a bonus day included
+  const trail: DayState[] = [];
   for (let i = HISTORY_DAYS - 1; i >= 0; i--) {
     const date = addDays(todayDate, -i);
     const state = dayState(habit, date, today, start, done, skipped);
+    if (i < 7) trail.push(state);
     // Ticked on a day that was not due is a bonus, not part of a run
     states.push(state === "done" && !isScheduledForDate(habit, date) ? "rest" : state);
   }
@@ -93,7 +88,7 @@ export function habitStats(
     return out;
   };
 
-  return { streak: run, bestStreak, last7: tally(7), last30: tally(30) };
+  return { streak: run, bestStreak, last7: tally(7), last30: tally(30), trail };
 }
 
 /** Several tallies as one, for a summary over all habits. */

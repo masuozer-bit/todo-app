@@ -122,3 +122,67 @@ export function HabitHistory({
     </div>
   );
 }
+
+/**
+ * The last seven days as seven small marks, today on the right: the same
+ * language as the history grid, small enough to sit in a row.
+ */
+export function HabitTrail({ trail }: { trail: DayState[] }) {
+  const { t } = useI18n();
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const done = trail.filter((s) => s === "done").length;
+  const due = trail.filter((s) => s === "done" || s === "missed").length;
+  return (
+    <span
+      className="habit-trail"
+      role="img"
+      aria-label={t("Last 7 days: {done} of {due} done", { done, due })}
+    >
+      {trail.map((state, i) => {
+        const date = new Date(today);
+        date.setDate(today.getDate() - (trail.length - 1 - i));
+        return (
+          <span
+            key={i}
+            className={`history-cell is-${state}`}
+            title={`${formatDateWithWeekday(toDateStr(date))}: ${t(STATE_LABEL[state])}`}
+          />
+        );
+      })}
+    </span>
+  );
+}
+
+/**
+ * How much of today is done, as segments rather than a fraction: one per
+ * habit while they fit, a single bar beyond that.
+ */
+export function HabitProgress({ done, total }: { done: number; total: number }) {
+  if (total === 0) return null;
+  const segments = total <= 12;
+  return (
+    <span className="habit-progress" aria-hidden="true">
+      {segments ? (
+        Array.from({ length: total }, (_, i) => (
+          <span key={i} className={i < done ? "is-done" : ""} />
+        ))
+      ) : (
+        <span className="is-bar">
+          <span style={{ width: `${(done / total) * 100}%` }} />
+        </span>
+      )}
+    </span>
+  );
+}
+
+/** "12 in a row", in words, from two on. One day is not a run yet. */
+export function StreakLabel({ streak }: { streak: number }) {
+  const { t } = useI18n();
+  if (streak < 2) return null;
+  return (
+    <span className="habit-streak" title={t("{n} day streak", { n: streak })}>
+      <span className="tabular-nums">{streak}</span> {t("in a row")}
+    </span>
+  );
+}

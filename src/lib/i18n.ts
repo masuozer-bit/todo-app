@@ -275,6 +275,8 @@ export const de: Record<string, string> = {
   "Due today": "Heute fällig",
   "Skipped today": "Heute übersprungen",
   "Next: {date}": "Nächstes Mal: {date}",
+  "in a row": "in Folge",
+  "Last 7 days: {done} of {due} done": "Letzte 7 Tage: {done} von {due} erledigt",
   "Done on {done} of {due} due days in the last {weeks} weeks":
     "An {done} von {due} fälligen Tagen erledigt, in den letzten {weeks} Wochen",
 

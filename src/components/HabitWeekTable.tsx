@@ -5,8 +5,8 @@ import { Check, ChevronLeft, ChevronRight } from "lucide-react";
 import { useI18n } from "./I18nProvider";
 import { toDateStr } from "@/lib/date-helpers";
 import { isScheduledForDate } from "@/lib/habit-schedule";
-import { weekdayLabels } from "@/lib/format";
-import type { HabitCompletion, HabitWithStatus } from "@/lib/types";
+import { formatDateWithWeekday, weekdayLabels } from "@/lib/format";
+import type { HabitCompletion, HabitSkip, HabitWithStatus } from "@/lib/types";
 
 function weekStartOf(date: Date): Date {
   const d = new Date(date);
@@ -18,14 +18,24 @@ function weekStartOf(date: Date): Date {
 /**
  * The week as a table, seven columns, in the content column. One row per
  * habit: a filled mark on the days it was done, an empty one on the days it
- * was due, nothing where it was not scheduled.
+ * was due, a dashed one where it was skipped, nothing where it was not
+ * scheduled. Every day up to today can be ticked here, so a forgotten
+ * evening does not cost the streak.
  */
 export default function HabitWeekTable({
   habits,
   completions,
+  skips = [],
+  selectedId = null,
+  onToggle,
+  onSelect,
 }: {
   habits: HabitWithStatus[];
   completions: HabitCompletion[];
+  skips?: HabitSkip[];
+  selectedId?: string | null;
+  onToggle?: (habitId: string, date: string) => void;
+  onSelect?: (habitId: string) => void;
 }) {
   const { t } = useI18n();
   const today = new Date();
@@ -47,6 +57,7 @@ export default function HabitWeekTable({
     set.add(completion.completed_date);
     doneByHabit.set(completion.habit_id, set);
   }
+  const skipped = new Set(skips.map((s) => `${s.habit_id}:${s.skip_date}`));
 
   function step(weeks: number) {
     const d = new Date(start);
@@ -98,27 +109,55 @@ export default function HabitWeekTable({
               const done = doneByHabit.get(habit.id) ?? new Set<string>();
               return (
                 <tr key={habit.id} className="border-t border-border">
-                  <td className="py-1.5 pr-3 text-[13px] text-text truncate max-w-[220px]">{habit.title}</td>
+                  <td className="py-1 pr-3 max-w-[220px]">
+                    <button
+                      onClick={() => onSelect?.(habit.id)}
+                      className={`block w-full text-left text-[13px] truncate ${
+                        selectedId === habit.id ? "text-accent" : "text-text hover:text-accent"
+                      }`}
+                      aria-current={selectedId === habit.id ? "true" : undefined}
+                    >
+                      {habit.title}
+                    </button>
+                  </td>
                   {days.map((day) => {
                     const ymd = toDateStr(day);
-                    const scheduled = isScheduledForDate(habit, day);
                     const isDone = done.has(ymd);
+                    const scheduled = isScheduledForDate(habit, day) || isDone;
+                    const isSkipped = !isDone && skipped.has(`${habit.id}:${ymd}`);
+                    const editable = scheduled && ymd <= todayStr && !!onToggle;
+                    const mark = (
+                      <span
+                        className="inline-flex items-center justify-center w-5 h-5 rounded-full"
+                        style={{
+                          background: isDone ? "var(--accent)" : "transparent",
+                          border: isDone
+                            ? "none"
+                            : `1px ${isSkipped ? "dashed" : "solid"} ${ymd > todayStr ? "var(--border)" : "var(--border-strong)"}`,
+                          color: "var(--accent-contrast)",
+                        }}
+                      >
+                        {isDone && <Check size={11} strokeWidth={3} />}
+                      </span>
+                    );
+                    const state = isDone ? t("Done") : isSkipped ? t("Skipped") : t("Open");
                     return (
-                      <td key={ymd} className="py-1.5 text-center">
-                        {scheduled ? (
-                          <span
-                            className="inline-flex items-center justify-center w-5 h-5 rounded-full"
-                            style={{
-                              background: isDone ? "var(--accent)" : "transparent",
-                              border: isDone ? "none" : "1px solid var(--border-strong)",
-                              color: "var(--accent-contrast)",
-                            }}
-                            aria-label={isDone ? t("Done") : t("Open")}
-                          >
-                            {isDone && <Check size={11} strokeWidth={3} />}
-                          </span>
-                        ) : (
+                      <td key={ymd} className="py-1 text-center">
+                        {!scheduled ? (
                           <span className="text-text-faint" aria-hidden="true">·</span>
+                        ) : editable ? (
+                          <button
+                            onClick={() => onToggle?.(habit.id, ymd)}
+                            className="inline-flex items-center justify-center w-8 h-8 rounded-full hover:bg-surface-2"
+                            aria-pressed={isDone}
+                            aria-label={`${habit.title}, ${formatDateWithWeekday(ymd)}: ${state}`}
+                          >
+                            {mark}
+                          </button>
+                        ) : (
+                          <span className="inline-flex items-center justify-center w-8 h-8" aria-label={state}>
+                            {mark}
+                          </span>
                         )}
                       </td>
                     );

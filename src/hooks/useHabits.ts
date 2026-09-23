@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { toDateStr } from "@/lib/date-helpers";
 import { isScheduledForDate } from "@/lib/habit-schedule";
+import { HISTORY_DAYS, habitStats } from "@/lib/habit-stats";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/Toast";
 import type {
@@ -24,35 +25,21 @@ function getTodayStr(): string {
 }
 
 
+/* PostgREST hands out at most this many rows per request */
+const PAGE = 1000;
 
-function calculateStreak(
-  habit: Habit,
-  completionSet: Set<string>,
-  todayStr: string
-): number {
-  const completedToday = completionSet.has(`${habit.id}:${todayStr}`);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const checkDate = new Date(today);
-
-  if (!completedToday) {
-    if (isScheduledForDate(habit, checkDate)) return 0;
-    checkDate.setDate(checkDate.getDate() - 1);
+/** Every row of a query, page by page, so a long history is not cut off. */
+async function fetchAllPages<T>(
+  page: (from: number, to: number) => PromiseLike<{ data: unknown[] | null; error: unknown }>
+): Promise<T[] | null> {
+  const rows: T[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await page(from, from + PAGE - 1);
+    // A failed first page keeps what is on screen; a later one keeps what came
+    if (error || !data) return from === 0 ? null : rows;
+    rows.push(...(data as T[]));
+    if (data.length < PAGE) return rows;
   }
-
-  let streak = 0;
-  for (let i = 0; i < 365; i++) {
-    const dateStr = toDateStr(checkDate);
-    if (isScheduledForDate(habit, checkDate)) {
-      if (completionSet.has(`${habit.id}:${dateStr}`)) {
-        streak++;
-      } else {
-        break;
-      }
-    }
-    checkDate.setDate(checkDate.getDate() - 1);
-  }
-  return streak;
 }
 
 export function useHabits(userId: string | undefined) {
@@ -70,33 +57,45 @@ export function useHabits(userId: string | undefined) {
   const fetchHabits = useCallback(async () => {
     if (!userId) return;
 
-    // Last 30 days of completions are enough for the streak calculation
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    const todayStr = getTodayStr();
+    // A year of history: enough for the streaks, the rates and the history
+    // grid in the panel. Skips are loaded as far back, because a skipped day
+    // is a rest and must not read as a missed one.
+    const since = new Date();
+    since.setDate(since.getDate() - (HISTORY_DAYS - 1));
+    const sinceStr = toDateStr(since);
 
-    // All three in parallel — they do not depend on each other
-    const [habitsRes, completionsRes, skipsRes] = await Promise.all([
+    // All three in parallel, they do not depend on each other
+    const [habitsRes, completionRows, skipRows] = await Promise.all([
       supabase
         .from("habits")
         .select("*")
         .eq("user_id", userId)
         .order("sort_order", { ascending: true }),
-      supabase
-        .from("habit_completions")
-        .select("id, habit_id, completed_date")
-        .eq("user_id", userId)
-        .gte("completed_date", toDateStr(thirtyDaysAgo)),
-      supabase
-        .from("habit_skips")
-        .select("*")
-        .eq("user_id", userId)
-        .eq("skip_date", todayStr),
+      fetchAllPages<HabitCompletion>((from, to) =>
+        supabase
+          .from("habit_completions")
+          .select("id, habit_id, completed_date")
+          .eq("user_id", userId)
+          .gte("completed_date", sinceStr)
+          .order("completed_date", { ascending: false })
+          .order("id")
+          .range(from, to)
+      ),
+      fetchAllPages<HabitSkip>((from, to) =>
+        supabase
+          .from("habit_skips")
+          .select("*")
+          .eq("user_id", userId)
+          .gte("skip_date", sinceStr)
+          .order("skip_date", { ascending: false })
+          .order("id")
+          .range(from, to)
+      ),
     ]);
 
     if (habitsRes.data) setHabits(habitsRes.data);
-    if (completionsRes.data) setCompletions(completionsRes.data as HabitCompletion[]);
-    if (skipsRes.data) setSkips(skipsRes.data);
+    if (completionRows) setCompletions(completionRows);
+    if (skipRows) setSkips(skipRows);
     setLoading(false);
   }, [userId]);
 
@@ -104,24 +103,47 @@ export function useHabits(userId: string | undefined) {
     fetchHabits();
   }, [fetchHabits]);
 
-  // Build a fast lookup set: "habitId:YYYY-MM-DD"
-  const completionSet = new Set(
-    completions.map((c) => `${c.habit_id}:${c.completed_date}`)
-  );
   const todayStr = getTodayStr();
 
-  const habitsWithStatus: HabitWithStatus[] = habits.map((habit) => ({
-    ...habit,
-    completedToday: completionSet.has(`${habit.id}:${todayStr}`),
-    streak: calculateStreak(habit, completionSet, todayStr),
-  }));
+  // Fast lookups: "habitId:YYYY-MM-DD", and every habit's days as a set
+  const { completionSet, doneByHabit, skippedByHabit } = useMemo(() => {
+    const completionSet = new Set<string>();
+    const doneByHabit = new Map<string, Set<string>>();
+    for (const c of completions) {
+      completionSet.add(`${c.habit_id}:${c.completed_date}`);
+      let set = doneByHabit.get(c.habit_id);
+      if (!set) doneByHabit.set(c.habit_id, (set = new Set()));
+      set.add(c.completed_date);
+    }
+    const skippedByHabit = new Map<string, Set<string>>();
+    for (const s of skips) {
+      let set = skippedByHabit.get(s.habit_id);
+      if (!set) skippedByHabit.set(s.habit_id, (set = new Set()));
+      set.add(s.skip_date);
+    }
+    return { completionSet, doneByHabit, skippedByHabit };
+  }, [completions, skips]);
 
-  const skippedTodaySet = new Set(
-    skips.filter((s) => s.skip_date === todayStr).map((s) => s.habit_id)
-  );
+  const habitsWithStatus: HabitWithStatus[] = useMemo(() => {
+    const now = new Date(`${todayStr}T00:00:00`);
+    const none = new Set<string>();
+    return habits.map((habit) => {
+      const done = doneByHabit.get(habit.id) ?? none;
+      const skipped = skippedByHabit.get(habit.id) ?? none;
+      const skippedToday = skipped.has(todayStr);
+      return {
+        ...habit,
+        completedToday: done.has(todayStr),
+        dueToday: isScheduledForDate(habit, now) && !skippedToday,
+        skippedToday,
+        ...habitStats(habit, done, skipped, now),
+      };
+    });
+  }, [habits, doneByHabit, skippedByHabit, todayStr]);
 
-  const todaysHabits: HabitWithStatus[] = habitsWithStatus.filter(
-    (h) => isScheduledForDate(h, new Date()) && !skippedTodaySet.has(h.id)
+  const todaysHabits: HabitWithStatus[] = useMemo(
+    () => habitsWithStatus.filter((h) => h.dueToday),
+    [habitsWithStatus]
   );
 
   /**
@@ -130,14 +152,13 @@ export function useHabits(userId: string | undefined) {
    */
   const habitsForDates = useCallback(
     (dates: string[]): HabitOccurrence[] => {
-      const skipped = new Set(skips.map((s) => `${s.habit_id}:${s.skip_date}`));
       const out: HabitOccurrence[] = [];
       for (const date of dates) {
         const day = new Date(`${date}T00:00:00`);
         if (Number.isNaN(day.getTime())) continue;
         for (const habit of habitsWithStatus) {
           if (!isScheduledForDate(habit, day)) continue;
-          if (skipped.has(`${habit.id}:${date}`)) continue;
+          if (skippedByHabit.get(habit.id)?.has(date)) continue;
           out.push({
             ...habit,
             date,
@@ -147,10 +168,7 @@ export function useHabits(userId: string | undefined) {
       }
       return out;
     },
-    // completionSet and habitsWithStatus are rebuilt on every render from
-    // these two, so depending on the sources keeps the identity honest
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [habits, completions, skips]
+    [habitsWithStatus, skippedByHabit, completionSet]
   );
 
   const addHabit = useCallback(
@@ -386,6 +404,7 @@ export function useHabits(userId: string | undefined) {
     todaysHabits,
     habitsForDates,
     completions,
+    skips,
     loading,
     addHabit,
     updateHabit,

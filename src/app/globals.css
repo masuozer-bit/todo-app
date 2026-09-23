@@ -663,6 +663,140 @@
 }
 
 /* ============================================================
+   Habit numbers and history. Numbers sit in cells split by
+   1 px lines, not in cards. The history is a grid of days:
+   filled where done, outlined where missed, dashed where
+   skipped, a quiet fill where nothing was due.
+   ============================================================ */
+@layer components {
+  .stat-strip {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+  .stat-cell {
+    min-width: 0;
+    padding: 12px;
+  }
+  .stat-cell + .stat-cell { border-left: 1px solid var(--border); }
+  .stat-value {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 24px;
+    margin-top: 4px;
+    font-size: 20px;
+    font-weight: 500;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+  }
+  .stat-value.is-empty {
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--text-faint);
+  }
+
+  .history {
+    display: flex;
+    gap: 6px;
+  }
+  .history-days {
+    display: grid;
+    grid-template-rows: repeat(7, minmax(0, 1fr));
+    gap: 3px;
+    font-size: 12px;
+    line-height: 1;
+    color: var(--text-faint);
+  }
+  .history-days > span {
+    display: flex;
+    align-items: center;
+  }
+  .history-grid {
+    flex: 1;
+    min-width: 0;
+    display: grid;
+    grid-template-rows: repeat(7, auto);
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    gap: 3px;
+  }
+  .history-cell {
+    display: block;
+    aspect-ratio: 1;
+    border-radius: 3px;
+    background-color: var(--surface-2);
+  }
+  .history-cell.is-done { background-color: var(--accent); }
+  .history-cell.is-missed {
+    background-color: transparent;
+    box-shadow: inset 0 0 0 1px var(--border-strong);
+  }
+  .history-cell.is-open {
+    background-color: transparent;
+    box-shadow: inset 0 0 0 1px var(--accent);
+  }
+  .history-cell.is-skipped {
+    background-color: transparent;
+    border: 1px dashed var(--border-strong);
+  }
+  .history-cell.is-future { visibility: hidden; }
+
+  .history-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--text-faint);
+  }
+  .history-legend > span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .history-legend .history-cell { width: 10px; }
+}
+
+/* ============================================================
+   A habit across several days: one row, the days side by side
+   under a row of weekday heads, each day a circle of its own.
+   ============================================================ */
+@layer components {
+  .habit-days-head {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+    padding: 6px 12px;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--text-faint);
+  }
+  .habit-day {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    flex: none;
+    text-align: center;
+  }
+  .habit-day.is-today { color: var(--accent); }
+  .habit-days-streak {
+    margin-right: 8px;
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+  .task-circle.is-ahead { border-color: var(--border); }
+  @media (max-width: 767px) {
+    .habit-day { width: 28px; }
+    .habit-days-streak { display: none; }
+  }
+}
+
+/* ============================================================
    Detail panel. Two columns: a 120 px label and a value that is
    itself the click target for its popover.
    ============================================================ */

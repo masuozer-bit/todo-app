@@ -6,7 +6,8 @@ import type { ViewKind } from "@/hooks/useDashboardView";
 
 /**
  * The phone keeps its navigation at the bottom: four places and the one
- * button that adds something. Everything else lives behind "More".
+ * button that adds something. Everything else lives behind "More". Habits
+ * come first, as they do in the side navigation.
  */
 export default function BottomNav({
   view,
@@ -22,11 +23,11 @@ export default function BottomNav({
   const { t } = useI18n();
 
   const items: { kind: ViewKind; label: string; icon: React.ElementType }[] = [
+    { kind: "habits", label: "Habits", icon: Repeat },
     { kind: "today", label: "Today", icon: Sun },
-    { kind: "week", label: "This Week", icon: CalendarDays },
   ];
   const right: { kind: ViewKind; label: string; icon: React.ElementType }[] = [
-    { kind: "habits", label: "Habits", icon: Repeat },
+    { kind: "week", label: "This Week", icon: CalendarDays },
   ];
 
   return (

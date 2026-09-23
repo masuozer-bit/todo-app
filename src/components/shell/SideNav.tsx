@@ -57,6 +57,10 @@ import type { ViewKind } from "@/hooks/useDashboardView";
 import type { Folder as FolderType, List as ListType } from "@/lib/types";
 
 export interface NavCounts {
+  /** Habits due today and not done yet. */
+  habits: number;
+  /** Habits due today at all, so the row can say when every one is done. */
+  habitsDue: number;
   today: number;
   week: number;
   all: number;
@@ -99,7 +103,9 @@ interface SideNavProps {
   onEnterFocusMode?: () => void;
 }
 
+/* Habits lead: they are what the rest of the day stands on */
 const VIEW_ROWS: { kind: ViewKind; label: string; icon: React.ElementType; count: keyof NavCounts }[] = [
+  { kind: "habits", label: "Habits", icon: Repeat, count: "habits" },
   { kind: "today", label: "Today", icon: Sun, count: "today" },
   { kind: "week", label: "This Week", icon: CalendarDays, count: "week" },
   { kind: "all", label: "All Tasks", icon: Inbox, count: "all" },
@@ -109,7 +115,6 @@ const VIEW_ROWS: { kind: ViewKind; label: string; icon: React.ElementType; count
 
 const MORE_ROWS: { kind: ViewKind; label: string; icon: React.ElementType }[] = [
   { kind: "events", label: "Projects", icon: CalendarRange },
-  { kind: "habits", label: "Habits", icon: Repeat },
   { kind: "journal", label: "Journal", icon: BookOpen },
   { kind: "templates", label: "Templates", icon: LayoutTemplate },
   { kind: "rules", label: "Principles", icon: Shield },
@@ -247,6 +252,7 @@ export default function SideNav({
               icon={<Icon size={18} />}
               label={t(label)}
               count={n}
+              complete={kind === "habits" && n === 0 && counts.habitsDue > 0}
               active={view === kind && !activeListId && !activeFolderId}
               iconsOnly={iconsOnly}
               onClick={() => go(() => onSelectView(kind))}
@@ -476,6 +482,7 @@ function NavRow({
   icon,
   label,
   count,
+  complete = false,
   shortcut,
   active = false,
   iconsOnly = false,
@@ -489,6 +496,8 @@ function NavRow({
   icon: React.ReactNode;
   label: string;
   count?: number;
+  /** Everything behind this row is done for today: a check instead of a zero. */
+  complete?: boolean;
   shortcut?: string;
   active?: boolean;
   iconsOnly?: boolean;
@@ -499,6 +508,7 @@ function NavRow({
   rowStyle?: React.CSSProperties;
   dragProps?: Record<string, unknown>;
 }) {
+  const { t } = useI18n();
   return (
     <div ref={rowRef} style={rowStyle} className="group relative flex items-center">
       <button
@@ -515,6 +525,12 @@ function NavRow({
         {!iconsOnly && shortcut && <span className="text-xs text-text-faint">{shortcut}</span>}
         {!iconsOnly && count !== undefined && count > 0 && (
           <span className="text-[13px] text-text-faint tabular-nums">{count}</span>
+        )}
+        {!iconsOnly && complete && (
+          <>
+            <Check size={14} className="flex-none text-accent" aria-hidden="true" />
+            <span className="sr-only">{t("All done for today")}</span>
+          </>
         )}
       </button>
       {!iconsOnly && trailing}

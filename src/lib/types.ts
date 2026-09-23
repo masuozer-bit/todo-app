@@ -126,9 +126,22 @@ export interface HabitSkip {
   created_at: string;
 }
 
+/** Scheduled days in a window, and how many of them were done. */
+export interface HabitTally {
+  done: number;
+  due: number;
+}
+
 export interface HabitWithStatus extends Habit {
   completedToday: boolean;
+  /** Scheduled for today and not skipped. */
+  dueToday: boolean;
+  skippedToday: boolean;
   streak: number;
+  /** The longest run within the loaded history. */
+  bestStreak: number;
+  last7: HabitTally;
+  last30: HabitTally;
 }
 
 /**

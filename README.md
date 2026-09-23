@@ -40,6 +40,13 @@ sie liest.
    Fokus. `prefers-reduced-motion` wird respektiert.
 7. Alles erreichbar. Jede Aktion hat einen Weg mit Maus, Tastatur und
    Finger. Hover ist eine Abkürzung, nie der einzige Zugang.
+8. Gewohnheiten zuerst. Sie sind das Fundament des Tages, nicht ein Anhang
+   der Aufgaben: erster Eintrag in der Navigation und in der Leiste am
+   Telefon, eigener Block mit eigenem Fortschritt ganz oben in "Heute", und
+   in mehrtägigen Ansichten vor den Aufgaben von heute. Eine Gewohnheit
+   öffnet sich im Detailpanel wie eine Aufgabe und zeigt dort Serie, beste
+   Serie, Quote und Verlauf. Ein übersprungener Tag ist eine Pause und
+   bricht keine Serie.
 
 ### Farben
 
@@ -108,7 +115,9 @@ Kopfzeile und einen eigenen Scrollbereich; die Seite selbst scrollt nie.
 `.app-col-body`, `.nav-row`, `.task-row`, `.task-circle`, `.group-head`,
 `.props`, `.prop-button`, `.quick-input`, `.btn` mit den Varianten
 `primary`, `secondary`, `ghost`, `danger` und `text-danger`, `.icon-btn`,
-`.input`, `.chip`, `.popover`, `.dialog`, `.toast-stack`, `.section-title`.
+`.input`, `.chip`, `.popover`, `.dialog`, `.toast-stack`, `.section-title`,
+`.stat-strip` für Kennzahlen in Zellen mit Linien statt Karten und
+`.history` für das Tagesraster einer Gewohnheit.
 
 Popover, Dialog, Datumsauswahl und die Auswahllisten liegen als
 Komponenten unter `src/components/ui/`. Wer ein neues Feld baut, nimmt sie

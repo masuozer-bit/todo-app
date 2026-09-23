@@ -22,6 +22,7 @@ import RuleList from "@/components/RuleList";
 import TimerBar from "@/components/TimerBar";
 import TimeStats from "@/components/TimeStats";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import ProgressRing from "@/components/ui/ProgressRing";
 import AppShell from "@/components/shell/AppShell";
 import SideNav from "@/components/shell/SideNav";
 import ContentHeader from "@/components/shell/ContentHeader";
@@ -75,7 +76,6 @@ export default function DashboardClient({
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [highlightedTodoId, setHighlightedTodoId] = useState<string | null>(null);
-  const [highlightedHabitId, setHighlightedHabitId] = useState<string | null>(null);
   const [showRuleInput, setShowRuleInput] = useState(false);
   // The running timer survives a reload
   const [liveTaskId, setLiveTaskId] = useState<string | null>(() => {
@@ -158,6 +158,7 @@ export default function DashboardClient({
     habits,
     todaysHabits,
     completions: habitCompletions,
+    skips: habitSkips,
     loading: habitsLoading,
     addHabit,
     updateHabit,
@@ -611,11 +612,11 @@ export default function DashboardClient({
     revealTodo(todoId);
   }, [revealTodo]);
 
-  const handleTimelineHabitClick = useCallback((habitId: string) => {
-    navigate({ kind: "habits" });
-    setHighlightedHabitId(habitId);
-    setTimeout(() => setHighlightedHabitId(null), 2200);
-  }, [navigate]);
+  // A habit clicked in the timeline or the planner opens in its own view
+  const handleTimelineHabitClick = useCallback(
+    (habitId: string) => navigate({ kind: "habits", selId: habitId, taskId: null }),
+    [navigate]
+  );
 
   // The task the panel shows. A stale id (deleted elsewhere, filtered away)
   // simply leaves the panel in its empty state.
@@ -710,8 +711,9 @@ export default function DashboardClient({
       }
       if (isRunning(todo, todayStr, liveTaskId)) running++;
     }
-    return { today, week, all, overdue, running, lists: listCounts };
-  }, [todos, todayStr, liveTaskId]);
+    const habits = todaysHabits.filter((h) => !h.completedToday).length;
+    return { habits, habitsDue: todaysHabits.length, today, week, all, overdue, running, lists: listCounts };
+  }, [todos, todayStr, liveTaskId, todaysHabits]);
 
   const handleSignOut = useCallback(async () => {
     const supabase = createClient();
@@ -823,7 +825,10 @@ export default function DashboardClient({
   const activeTodoCount = visibleTodos.filter((t) => !t.completed).length;
   const completedTodoCount = visibleTodos.filter((t) => t.completed).length;
   const totalTodoCount = activeTodoCount + completedTodoCount;
-  const progressPct = totalTodoCount > 0 ? (completedTodoCount / totalTodoCount) * 100 : 0;
+  // The day's ring counts the habits too: they are part of the day, not an extra
+  const habitsDoneCount = visibleHabits.filter((h) => h.done).length;
+  const dayTotal = totalTodoCount + visibleHabits.length;
+  const progressPct = dayTotal > 0 ? ((completedTodoCount + habitsDoneCount) / dayTotal) * 100 : 0;
 
   // One key per view — resets per-view UI state (sort, search, manual order)
   const viewKeyForList = activeListId
@@ -854,6 +859,11 @@ export default function DashboardClient({
     [templates, view.selId]
   );
   const selectRow = useCallback((id: string) => navigate({ selId: id }), [navigate]);
+  /* In the task views a habit opens in the same panel a task does. The two
+     share the panel, so opening one closes the other. */
+  const openHabit = useCallback((id: string) => navigate({ selId: id, taskId: null }), [navigate]);
+  const selectTodoInList = useCallback((id: string) => navigate({ taskId: id, selId: null }), [navigate]);
+  const habitInPanel = habitsView || (isTaskView && !selectedTodoId && selectedHabit !== null);
   const [journalDay, setJournalDay] = useState<string>(() => getToday());
 
   /* What the content head says. One place, so the title, the count and the
@@ -1004,14 +1014,17 @@ export default function DashboardClient({
                 />
               </div>
             </>
-          ) : habitsView ? (
+          ) : habitInPanel ? (
             <HabitDetail
               habit={selectedHabit}
               lists={lists}
+              completions={habitCompletions}
+              skips={habitSkips}
               onClose={closeDetail}
               onUpdate={updateHabit}
               onDelete={(id) => { deleteHabit(id); closeDetail(); }}
               onSkip={skipHabitForDate}
+              onToggleToday={(id) => toggleCompletion(id)}
             />
           ) : eventsView ? (
             <ProjectDetail
@@ -1081,7 +1094,7 @@ export default function DashboardClient({
               ) : undefined
             }
             titleAfter={
-              quickFilter === "today" && totalTodoCount > 0 ? (
+              quickFilter === "today" && dayTotal > 0 ? (
                 <ProgressRing percent={progressPct} />
               ) : undefined
             }
@@ -1177,20 +1190,26 @@ export default function DashboardClient({
             <>
               <HabitListView
                 habits={habits}
-                todayHabitIds={todaysHabits.map((h) => h.id)}
                 lists={lists}
                 selectedId={view.selId}
                 onSelect={selectRow}
                 onToggle={toggleCompletion}
                 loading={habitsLoading}
               />
-              <HabitWeekTable habits={habits} completions={habitCompletions} />
+              <HabitWeekTable
+                habits={habits}
+                completions={habitCompletions}
+                skips={habitSkips}
+                selectedId={view.selId}
+                onToggle={toggleCompletion}
+                onSelect={selectRow}
+              />
             </>
           ) : (
 
             <TodoList
               selectedTodoId={selectedTodoId}
-              onSelectTodo={selectTodo}
+              onSelectTodo={selectTodoInList}
               key={viewKeyForList}
               todos={visibleTodos}
               allTags={tags}
@@ -1231,6 +1250,9 @@ export default function DashboardClient({
               habits={visibleHabits}
               showHabits={visibleHabits.length > 0}
               onToggleHabit={toggleCompletion}
+              onOpenHabit={openHabit}
+              selectedHabitId={habitInPanel ? view.selId : null}
+              onShowHabits={switchToHabits}
               highlightedTodoId={highlightedTodoId}
               onStartLiveTask={handleStartLiveTask}
               liveTaskId={liveTaskId}
@@ -1294,20 +1316,3 @@ export default function DashboardClient({
   );
 }
 
-/** A 16 px ring instead of a progress bar: it says the same thing quietly. */
-function ProgressRing({ percent }: { percent: number }) {
-  const r = 6;
-  const c = 2 * Math.PI * r;
-  const filled = Math.max(0, Math.min(100, percent)) / 100;
-  return (
-    <svg width="16" height="16" viewBox="0 0 16 16" className="flex-none" aria-hidden="true">
-      <circle cx="8" cy="8" r={r} fill="none" stroke="var(--border-strong)" strokeWidth="2" />
-      <circle
-        cx="8" cy="8" r={r} fill="none"
-        stroke="var(--accent)" strokeWidth="2" strokeLinecap="round"
-        strokeDasharray={`${c * filled} ${c}`}
-        transform="rotate(-90 8 8)"
-      />
-    </svg>
-  );
-}

@@ -16,7 +16,7 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { ChevronDown, ChevronRight, Flame } from "lucide-react";
+import { ChevronDown, ChevronRight, Flame, Repeat } from "lucide-react";
 import { useI18n } from "./I18nProvider";
 import TaskRow from "./TaskRow";
 import ConfirmDialog from "./ConfirmDialog";
@@ -111,6 +111,11 @@ export interface TodoListProps {
   habits?: HabitOccurrence[];
   showHabits?: boolean;
   onToggleHabit?: (habitId: string, date: string) => void;
+  /** Opens a habit in the panel, the way a click on a task opens the task. */
+  onOpenHabit?: (habitId: string) => void;
+  selectedHabitId?: string | null;
+  /** The arrow on the habits head: over to the Habits view. */
+  onShowHabits?: () => void;
 
   highlightedTodoId?: string | null;
   selectedTodoId?: string | null;
@@ -145,6 +150,9 @@ export default function TodoList({
   habits = [],
   showHabits = false,
   onToggleHabit,
+  onOpenHabit,
+  selectedHabitId = null,
+  onShowHabits,
   highlightedTodoId,
   selectedTodoId,
   onSelectTodo,
@@ -258,13 +266,20 @@ export default function TodoList({
     () => new Set(visibleHabits.map((h) => h.date)).size,
     [visibleHabits]
   );
+  /* Habits come before anything else. With one day in view, or without day
+     groups, they get a block of their own at the top with its own progress.
+     Across several days they stay with their day: they open today's group
+     and the days behind it, where they can still be done, and follow the
+     tasks on the days ahead, where they are only a preview. */
+  const habitsLead = sortBy !== "timeline" || habitDays <= 1;
+  const habitsDone = useMemo(() => visibleHabits.filter((h) => h.done).length, [visibleHabits]);
 
   // ── Group ─────────────────────────────────────────────────────────────
   type Group = {
     key: string;
     label: string;
     todos: Todo[];
-    /** Habits due on this group's day, listed after its tasks. */
+    /** Habits due on this group's days: before the tasks today and earlier, after them later on. */
     habits: HabitOccurrence[];
     /** "3/8" next to a project name. */
     progress?: string;
@@ -285,15 +300,13 @@ export default function TodoList({
     const out: Group[] = [];
 
     if (sortBy === "timeline") {
-      // A habit due today belongs under Today, next to the tasks due today,
-      // not in a bucket of its own at the bottom of the list.
       const buckets: Record<string, Todo[]> = {};
       for (const todo of standalone) {
         const key = timelineKey(todo.start_date ?? todo.due_date);
         (buckets[key] ??= []).push(todo);
       }
       const habitBuckets: Record<string, HabitOccurrence[]> = {};
-      for (const habit of visibleHabits) {
+      for (const habit of habitsLead ? [] : visibleHabits) {
         (habitBuckets[timelineKey(habit.date)] ??= []).push(habit);
       }
       for (const config of TIMELINE_CONFIG) {
@@ -309,7 +322,6 @@ export default function TodoList({
         });
       }
     } else if (standalone.length > 0) {
-      // Without day groups the habits keep a section of their own
       out.push({ key: "tasks", label: "Tasks", todos: sortTodos(standalone), habits: [] });
     }
 
@@ -330,7 +342,7 @@ export default function TodoList({
     }
 
     return out;
-  }, [activeTodos, events, todos, sortBy, sortTodos, onOpenEventDetail, visibleHabits]);
+  }, [activeTodos, events, todos, sortBy, sortTodos, onOpenEventDetail, visibleHabits, habitsLead]);
 
   // ── Bulk ──────────────────────────────────────────────────────────────
   const idsSelected = useMemo(() => [...selectedIds], [selectedIds]);
@@ -434,6 +446,32 @@ export default function TodoList({
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <SortableContext items={todos.map((x) => x.id)} strategy={verticalListSortingStrategy}>
             <div role="listbox" aria-label={t("Tasks")}>
+              {habitsLead && visibleHabits.length > 0 && (
+                <div>
+                  <GroupHead
+                    label={t("Habits")}
+                    count={visibleHabits.length}
+                    progress={`${habitsDone}/${visibleHabits.length}`}
+                    open={!collapsed.has("habits")}
+                    onToggle={() => toggleGroup("habits")}
+                    onOpen={onShowHabits}
+                    openLabel={t("Open habits")}
+                  />
+                  {!collapsed.has("habits") &&
+                    visibleHabits.map((habit) => (
+                      <HabitRow
+                        key={`${habit.id}:${habit.date}`}
+                        habit={habit}
+                        showDate={habitDays > 1}
+                        selected={selectedHabitId === habit.id}
+                        onToggle={onToggleHabit}
+                        onOpen={onOpenHabit}
+                        onKeyNav={move}
+                      />
+                    ))}
+                </div>
+              )}
+
               {groups.map((group) => {
                 const single = group.key === "tasks";
                 const isOpen = !collapsed.has(group.key);
@@ -441,6 +479,19 @@ export default function TodoList({
                 // which one. Under "Today" the date would only repeat the head.
                 const spansDays =
                   new Set(group.habits.map((h) => h.date)).size > 1;
+                const habitsFirst = group.key === "today" || group.key === "overdue";
+                const habitRows = group.habits.map((habit) => (
+                  <HabitRow
+                    key={`${habit.id}:${habit.date}`}
+                    habit={habit}
+                    showDate={spansDays}
+                    marked
+                    selected={selectedHabitId === habit.id}
+                    onToggle={onToggleHabit}
+                    onOpen={onOpenHabit}
+                    onKeyNav={move}
+                  />
+                ));
                 return (
                   <div key={group.key}>
                     {!single && group.key !== suppressGroupKey && (
@@ -456,6 +507,7 @@ export default function TodoList({
                     )}
                     {(single || isOpen) && (
                       <>
+                        {habitsFirst && habitRows}
                         {group.todos.map((todo) => (
                           <TaskRow
                             key={todo.id}
@@ -466,39 +518,12 @@ export default function TodoList({
                             highlighted={highlightedTodoId === todo.id}
                           />
                         ))}
-                        {group.habits.map((habit) => (
-                          <HabitRow
-                            key={`${habit.id}:${habit.date}`}
-                            habit={habit}
-                            showDate={spansDays}
-                            onToggle={onToggleHabit}
-                          />
-                        ))}
+                        {!habitsFirst && habitRows}
                       </>
                     )}
                   </div>
                 );
               })}
-
-              {sortBy !== "timeline" && visibleHabits.length > 0 && (
-                <div>
-                  <GroupHead
-                    label={t("Habits")}
-                    count={visibleHabits.length}
-                    open={!collapsed.has("habits")}
-                    onToggle={() => toggleGroup("habits")}
-                  />
-                  {!collapsed.has("habits") &&
-                    visibleHabits.map((habit) => (
-                      <HabitRow
-                        key={`${habit.id}:${habit.date}`}
-                        habit={habit}
-                        showDate={habitDays > 1}
-                        onToggle={onToggleHabit}
-                      />
-                    ))}
-                </div>
-              )}
 
               {doneTodos.length > 0 && (
                 <div>
@@ -570,6 +595,7 @@ function GroupHead({
   open,
   onToggle,
   onOpen,
+  openLabel,
 }: {
   label: string;
   count: number;
@@ -578,6 +604,7 @@ function GroupHead({
   open: boolean;
   onToggle: () => void;
   onOpen?: () => void;
+  openLabel?: string;
 }) {
   return (
     <div className={`group-head ${tone === "overdue" ? "is-overdue" : ""}`}>
@@ -586,7 +613,12 @@ function GroupHead({
         <span className="truncate">{label}</span>
       </button>
       {onOpen && (
-        <button onClick={onOpen} className="text-xs normal-case tracking-normal text-text-faint hover:text-text-muted">
+        <button
+          onClick={onOpen}
+          aria-label={openLabel}
+          title={openLabel}
+          className="text-xs normal-case tracking-normal text-text-faint hover:text-text-muted"
+        >
           ↗
         </button>
       )}
@@ -595,22 +627,48 @@ function GroupHead({
   );
 }
 
+/**
+ * A habit on one day. The row behaves like a task row: Space ticks it, Enter
+ * and a click open it in the panel, the arrows walk on to the next row.
+ */
 function HabitRow({
   habit,
   showDate,
+  marked = false,
+  selected = false,
   onToggle,
+  onOpen,
+  onKeyNav,
 }: {
   habit: HabitOccurrence;
   /** Only worth saying when the list covers more than one day. */
   showDate: boolean;
+  /** Among tasks, with no habits head above it, the row says what it is. */
+  marked?: boolean;
+  selected?: boolean;
   onToggle?: (id: string, date: string) => void;
+  onOpen?: (id: string) => void;
+  onKeyNav?: (direction: -1 | 1) => void;
 }) {
   const { t } = useI18n();
   const time = habit.time ? formatTime(habit.time) : null;
   return (
-    <div className={`task-row ${habit.done ? "is-done" : ""}`}>
+    <div
+      role="option"
+      aria-selected={selected}
+      tabIndex={0}
+      data-task-row=""
+      onClick={() => onOpen?.(habit.id)}
+      onKeyDown={(e) => {
+        if (e.key === "ArrowDown") { e.preventDefault(); onKeyNav?.(1); }
+        if (e.key === "ArrowUp") { e.preventDefault(); onKeyNav?.(-1); }
+        if (e.key === " ") { e.preventDefault(); onToggle?.(habit.id, habit.date); }
+        if (e.key === "Enter") { e.preventDefault(); onOpen?.(habit.id); }
+      }}
+      className={`task-row ${selected ? "is-selected" : ""} ${habit.done ? "is-done" : ""}`}
+    >
       <button
-        onClick={() => onToggle?.(habit.id, habit.date)}
+        onClick={(e) => { e.stopPropagation(); onToggle?.(habit.id, habit.date); }}
         className="task-circle"
         aria-label={habit.done ? t("Mark as not done") : t("Mark as done")}
         aria-pressed={habit.done}
@@ -623,9 +681,15 @@ function HabitRow({
       </button>
       <span className="task-row-title">{habit.title}</span>
       <span className="task-row-meta">
+        {marked && (
+          <span className="task-meta-item task-meta-icon" title={t("Habit")}>
+            <Repeat size={14} aria-hidden="true" />
+            <span className="sr-only">{t("Habit")}</span>
+          </span>
+        )}
         {habit.streak > 0 && (
-          <span className="task-meta-item">
-            <Flame size={14} />
+          <span className="task-meta-item" title={t("{n} day streak", { n: habit.streak })}>
+            <Flame size={14} aria-hidden="true" />
             <span className="tabular-nums">{habit.streak}</span>
           </span>
         )}

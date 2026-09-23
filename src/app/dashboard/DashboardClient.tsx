@@ -1253,6 +1253,7 @@ export default function DashboardClient({
               onOpenHabit={openHabit}
               selectedHabitId={habitInPanel ? view.selId : null}
               onShowHabits={switchToHabits}
+              habitDates={visibleDays}
               highlightedTodoId={highlightedTodoId}
               onStartLiveTask={handleStartLiveTask}
               liveTaskId={liveTaskId}

@@ -761,6 +761,42 @@
 }
 
 /* ============================================================
+   A habit across several days: one row, the days side by side
+   under a row of weekday heads, each day a circle of its own.
+   ============================================================ */
+@layer components {
+  .habit-days-head {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+    padding: 6px 12px;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--text-faint);
+  }
+  .habit-day {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    flex: none;
+    text-align: center;
+  }
+  .habit-day.is-today { color: var(--accent); }
+  .habit-days-streak {
+    margin-right: 8px;
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+  .task-circle.is-ahead { border-color: var(--border); }
+  @media (max-width: 767px) {
+    .habit-day { width: 28px; }
+    .habit-days-streak { display: none; }
+  }
+}
+
+/* ============================================================
    Detail panel. Two columns: a 120 px label and a value that is
    itself the click target for its popover.
    ============================================================ */

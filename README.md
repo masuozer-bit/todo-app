@@ -42,8 +42,9 @@ sie liest.
    Finger. Hover ist eine Abkürzung, nie der einzige Zugang.
 8. Gewohnheiten zuerst. Sie sind das Fundament des Tages, nicht ein Anhang
    der Aufgaben: erster Eintrag in der Navigation und in der Leiste am
-   Telefon, eigener Block mit eigenem Fortschritt ganz oben in "Heute", und
-   in mehrtägigen Ansichten vor den Aufgaben von heute. Eine Gewohnheit
+   Telefon, eigener Block mit eigenem Fortschritt ganz oben in jeder
+   Aufgabenansicht. Über mehrere Tage ist jede Gewohnheit eine Zeile mit
+   den Tagen nebeneinander, nicht eine Zeile je Tag. Eine Gewohnheit
    öffnet sich im Detailpanel wie eine Aufgabe und zeigt dort Serie, beste
    Serie, Quote und Verlauf. Ein übersprungener Tag ist eine Pause und
    bricht keine Serie.

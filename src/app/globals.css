@@ -1038,11 +1038,94 @@
   }
   .habit-trail .history-cell { border-radius: 2px; }
 
+  /* Streak badge: plain, warm from a week on, full on a milestone day */
   .habit-streak {
     flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    height: 20px;
+    padding: 0 7px;
+    border-radius: var(--radius-full);
+    background-color: var(--surface-2);
     font-size: 12px;
     color: var(--text-muted);
     white-space: nowrap;
+  }
+  .habit-streak > .tabular-nums { font-weight: 600; color: var(--text); }
+  .habit-streak.is-hot { background-color: var(--accent-soft); color: var(--accent); }
+  .habit-streak.is-hot > .tabular-nums { color: var(--accent); }
+  .habit-streak.is-milestone { background-color: var(--accent); color: var(--accent-contrast); }
+  .habit-streak.is-milestone > .tabular-nums { color: var(--accent-contrast); }
+
+  /* Chips in the habits head: normal case, not the head's small caps */
+  .habit-chip {
+    display: inline-flex;
+    align-items: center;
+    height: 20px;
+    padding: 0 8px;
+    border-radius: var(--radius-full);
+    background-color: var(--surface-2);
+    font-size: 12px;
+    font-weight: 500;
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+  .habit-chip.is-complete { background-color: var(--accent); color: var(--accent-contrast); }
+  .habit-block.is-complete { border-color: var(--accent); }
+
+  /* The milestone track in the panel */
+  .milestone-track {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .milestone {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 34px;
+    height: 26px;
+    padding: 0 8px;
+    border-radius: var(--radius);
+    background-color: var(--surface-2);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-faint);
+    font-variant-numeric: tabular-nums;
+  }
+  .milestone.is-reached { background-color: var(--accent-soft); color: var(--accent); }
+  .milestone.is-next {
+    background-color: transparent;
+    box-shadow: inset 0 0 0 1px var(--accent);
+    color: var(--text);
+  }
+  .milestone-bar {
+    height: 4px;
+    margin-top: 10px;
+    border-radius: var(--radius-full);
+    background-color: var(--surface-3);
+    overflow: hidden;
+  }
+  .milestone-bar > span {
+    display: block;
+    height: 100%;
+    background-color: var(--accent);
+    transition: width var(--duration) var(--ease);
+  }
+
+  /* A short pop when a habit is ticked, and the segment fills with it */
+  .task-circle.is-habit[aria-pressed="true"] { animation: habit-pop 220ms var(--ease); }
+  @keyframes habit-pop {
+    0% { transform: scale(0.8); }
+    60% { transform: scale(1.12); }
+    100% { transform: scale(1); }
+  }
+  .habit-progress > span { transition: background-color var(--duration) var(--ease); }
+  @media (prefers-reduced-motion: reduce) {
+    .task-circle.is-habit[aria-pressed="true"] { animation: none; }
   }
 
   .habit-progress {

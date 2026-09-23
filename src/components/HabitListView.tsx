@@ -1,7 +1,7 @@
 "use client";
 
 import { useI18n } from "./I18nProvider";
-import { HabitProgress, HabitTrail, StatStrip, StreakLabel, formatRate } from "./HabitStats";
+import { DayComplete, HabitProgress, HabitTrail, StatStrip, StreakLabel, formatRate } from "./HabitStats";
 import ProgressRing from "./ui/ProgressRing";
 import { formatTime, weekdayLabels } from "@/lib/format";
 import { sumTallies } from "@/lib/habit-stats";
@@ -15,6 +15,7 @@ import type { HabitWithStatus, List as ListType } from "@/lib/types";
 export default function HabitListView({
   habits,
   lists = [],
+  fullDayRun = 0,
   selectedId,
   onSelect,
   onToggle,
@@ -22,6 +23,8 @@ export default function HabitListView({
 }: {
   habits: HabitWithStatus[];
   lists?: ListType[];
+  /** Days in a row with every habit done. */
+  fullDayRun?: number;
   selectedId: string | null;
   onSelect: (id: string) => void;
   onToggle: (habitId: string) => void;
@@ -55,7 +58,7 @@ export default function HabitListView({
               value: due.length > 0 ? `${doneToday}/${due.length}` : null,
               extra: <ProgressRing percent={(doneToday / Math.max(due.length, 1)) * 100} />,
             },
-            { label: t("7 days"), value: formatRate(sumTallies(habits.map((h) => h.last7))) },
+            { label: t("Full days"), value: String(fullDayRun) },
             { label: t("30 days"), value: formatRate(sumTallies(habits.map((h) => h.last30))) },
           ]}
         />
@@ -66,7 +69,13 @@ export default function HabitListView({
           <Group
             label={t("Today")}
             count={`${doneToday}/${due.length}`}
-            extra={<HabitProgress done={doneToday} total={due.length} />}
+            complete={due.length > 0 && doneToday === due.length}
+            extra={
+              <>
+                {due.length > 0 && doneToday === due.length && <DayComplete />}
+                <HabitProgress done={doneToday} total={due.length} />
+              </>
+            }
           >
             {today.map((habit) => (
               <HabitRow
@@ -104,15 +113,17 @@ function Group({
   label,
   count,
   extra,
+  complete = false,
   children,
 }: {
   label: string;
   count: string;
   extra?: React.ReactNode;
+  complete?: boolean;
   children: React.ReactNode;
 }) {
   return (
-    <div className="habit-block">
+    <div className={`habit-block ${complete ? "is-complete" : ""}`}>
       <div className="group-head">
         <span className="truncate">{label}</span>
         {extra}

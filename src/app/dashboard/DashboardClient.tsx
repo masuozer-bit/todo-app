@@ -157,6 +157,7 @@ export default function DashboardClient({
   const {
     habits,
     todaysHabits,
+    fullDayRun,
     completions: habitCompletions,
     skips: habitSkips,
     loading: habitsLoading,
@@ -1191,6 +1192,7 @@ export default function DashboardClient({
               <HabitListView
                 habits={habits}
                 lists={lists}
+                fullDayRun={fullDayRun}
                 selectedId={view.selId}
                 onSelect={selectRow}
                 onToggle={toggleCompletion}
@@ -1254,6 +1256,7 @@ export default function DashboardClient({
               selectedHabitId={habitInPanel ? view.selId : null}
               onShowHabits={switchToHabits}
               habitDates={visibleDays}
+              fullDayRun={fullDayRun}
               highlightedTodoId={highlightedTodoId}
               onStartLiveTask={handleStartLiveTask}
               liveTaskId={liveTaskId}

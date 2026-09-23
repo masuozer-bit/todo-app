@@ -95,3 +95,51 @@ export function habitStats(
 export function sumTallies(tallies: HabitTally[]): HabitTally {
   return tallies.reduce((sum, t) => ({ done: sum.done + t.done, due: sum.due + t.due }), { done: 0, due: 0 });
 }
+
+/**
+ * The marks a streak climbs through. 66 is roughly how long a habit takes
+ * to become automatic; the rest are the usual round steps on the way.
+ */
+export const MILESTONES = [3, 7, 14, 21, 30, 66, 100, 180, 365];
+
+/** The next mark above this streak, and the one it has already passed. */
+export function nextMilestone(streak: number): { next: number | null; previous: number } {
+  const next = MILESTONES.find((m) => m > streak) ?? null;
+  const previous = [...MILESTONES].reverse().find((m) => m <= streak) ?? 0;
+  return { next, previous };
+}
+
+/**
+ * Days in a row on which every habit that was due got done. A day with
+ * nothing due is a rest, today counts once it is complete, the first day
+ * with something left undone ends the run.
+ */
+export function fullDays(
+  habits: Schedulable[],
+  doneOf: (index: number) => Set<string>,
+  skippedOf: (index: number) => Set<string>,
+  now: Date = new Date()
+): number {
+  const todayDate = new Date(now);
+  todayDate.setHours(0, 0, 0, 0);
+  const today = toDateStr(todayDate);
+  const starts = habits.map((h, i) => habitStart(h, doneOf(i)));
+
+  let run = 0;
+  for (let i = 0; i < HISTORY_DAYS; i++) {
+    const date = addDays(todayDate, -i);
+    let due = 0;
+    let done = 0;
+    habits.forEach((habit, h) => {
+      const state = dayState(habit, date, today, starts[h], doneOf(h), skippedOf(h));
+      if (state === "rest" || state === "skipped") return;
+      due++;
+      if (state === "done") done++;
+    });
+    if (due === 0) continue;
+    if (done === due) run++;
+    else if (i === 0) continue; // today is not over yet
+    else break;
+  }
+  return run;
+}

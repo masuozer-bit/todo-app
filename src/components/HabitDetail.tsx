@@ -5,7 +5,7 @@ import { Inbox, SkipForward, Trash2, X } from "lucide-react";
 import { useI18n } from "./I18nProvider";
 import { ListPopover } from "./ui/ChoicePopovers";
 import { TimePicker } from "./Pickers";
-import { HabitHistory, StatStrip, formatRate } from "./HabitStats";
+import { HabitHistory, MilestoneTrack, StatStrip, formatRate } from "./HabitStats";
 import { toDateStr } from "@/lib/date-helpers";
 import { formatRowDate, weekdayLabels } from "@/lib/format";
 import { isScheduledForDate } from "@/lib/habit-schedule";
@@ -121,6 +121,9 @@ export default function HabitDetail({
             { label: t("30 days"), value: formatRate(habit.last30) },
           ]}
         />
+
+        <p className="section-title mt-6 mb-2">{t("Milestones")}</p>
+        <MilestoneTrack streak={habit.streak} best={habit.bestStreak} />
 
         <p className="section-title mt-6 mb-2">{t("History")}</p>
         <HabitHistory habit={habit} done={done} skipped={skipped} />

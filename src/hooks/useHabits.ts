@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { toDateStr } from "@/lib/date-helpers";
 import { isScheduledForDate } from "@/lib/habit-schedule";
-import { HISTORY_DAYS, habitStats } from "@/lib/habit-stats";
+import { HISTORY_DAYS, fullDays, habitStats } from "@/lib/habit-stats";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/Toast";
 import type {
@@ -139,6 +139,17 @@ export function useHabits(userId: string | undefined) {
         ...habitStats(habit, done, skipped, now),
       };
     });
+  }, [habits, doneByHabit, skippedByHabit, todayStr]);
+
+  // Days in a row with every due habit done, over all habits together
+  const fullDayRun = useMemo(() => {
+    const none = new Set<string>();
+    return fullDays(
+      habits,
+      (i) => doneByHabit.get(habits[i].id) ?? none,
+      (i) => skippedByHabit.get(habits[i].id) ?? none,
+      new Date(`${todayStr}T00:00:00`)
+    );
   }, [habits, doneByHabit, skippedByHabit, todayStr]);
 
   const todaysHabits: HabitWithStatus[] = useMemo(
@@ -402,6 +413,7 @@ export function useHabits(userId: string | undefined) {
   return {
     habits: habitsWithStatus,
     todaysHabits,
+    fullDayRun,
     habitsForDates,
     completions,
     skips,

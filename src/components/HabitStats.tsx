@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { useI18n } from "./I18nProvider";
 import { toDateStr } from "@/lib/date-helpers";
 import { formatDateWithWeekday, formatLocale, weekdayLabels } from "@/lib/format";
-import { dayState, habitStart, type DayState } from "@/lib/habit-stats";
+import { MILESTONES, dayState, habitStart, nextMilestone, type DayState } from "@/lib/habit-stats";
 import type { Habit, HabitTally } from "@/lib/types";
 
 /** "86 %" in German, "86%" in English. Nothing when nothing was due. */
@@ -176,13 +176,74 @@ export function HabitProgress({ done, total }: { done: number; total: number }) 
   );
 }
 
-/** "12 in a row", in words, from two on. One day is not a run yet. */
+/**
+ * The streak as a small badge, in words, from two on. It warms up at a week
+ * and fills completely on the day a milestone is reached, like a level up.
+ */
 export function StreakLabel({ streak }: { streak: number }) {
   const { t } = useI18n();
   if (streak < 2) return null;
+  const { next } = nextMilestone(streak);
+  const tier = MILESTONES.includes(streak) ? "is-milestone" : streak >= 7 ? "is-hot" : "";
   return (
-    <span className="habit-streak" title={t("{n} day streak", { n: streak })}>
+    <span
+      className={`habit-streak ${tier}`}
+      title={next ? t("{n} to go until {m}", { n: next - streak, m: next }) : t("{n} day streak", { n: streak })}
+    >
       <span className="tabular-nums">{streak}</span> {t("in a row")}
+    </span>
+  );
+}
+
+/**
+ * The marks on the way, as a track: the ones this habit has ever reached
+ * are filled, the next one for the current run is outlined, with a bar that
+ * shows how far there is left to go.
+ */
+export function MilestoneTrack({ streak, best }: { streak: number; best: number }) {
+  const { t } = useI18n();
+  const { next, previous } = nextMilestone(streak);
+  // Show the marks up to the next goal, and at least up to 30
+  const shown = MILESTONES.filter((m) => m <= Math.max(next ?? 0, best, 30));
+  const pct = next ? ((streak - previous) / (next - previous)) * 100 : 100;
+  return (
+    <div>
+      <div className="milestone-track">
+        {shown.map((m) => (
+          <span
+            key={m}
+            className={`milestone ${best >= m ? "is-reached" : ""} ${m === next ? "is-next" : ""}`}
+            title={best >= m ? t("Reached") : m === next ? t("{n} to go until {m}", { n: m - streak, m }) : undefined}
+          >
+            {m}
+          </span>
+        ))}
+      </div>
+      <div className="milestone-bar" aria-hidden="true">
+        <span style={{ width: `${pct}%` }} />
+      </div>
+      <p className="text-xs text-text-faint mt-2">
+        {next
+          ? t("Next milestone: {m} in a row, {n} to go", { m: next, n: next - streak })
+          : t("Every milestone reached")}
+      </p>
+    </div>
+  );
+}
+
+/** Shown in the habits head once every habit due today is done. */
+export function DayComplete() {
+  const { t } = useI18n();
+  return <span className="habit-chip is-complete">{t("Day complete")}</span>;
+}
+
+/** The run of days on which every habit got done, from two on. */
+export function FullDayChip({ run }: { run: number }) {
+  const { t } = useI18n();
+  if (run < 2) return null;
+  return (
+    <span className="habit-chip" title={t("Days in a row with every habit done")}>
+      {t("{n} full days", { n: run })}
     </span>
   );
 }

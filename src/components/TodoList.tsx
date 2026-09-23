@@ -16,9 +16,10 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { ChevronDown, ChevronRight, Flame } from "lucide-react";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { useI18n } from "./I18nProvider";
 import TaskRow from "./TaskRow";
+import { HabitProgress, HabitTrail, StreakLabel } from "./HabitStats";
 import ConfirmDialog from "./ConfirmDialog";
 import BulkActionBar from "./BulkActionBar";
 import { getToday } from "@/lib/date-helpers";
@@ -278,7 +279,11 @@ export default function TodoList({
     // Only what can already be done counts; days ahead are a preview
     const due = visibleHabits.filter((h) => h.date <= todayStr);
     const done = due.filter((h) => h.done).length;
-    return due.length > 0 ? `${done}/${due.length}` : String(new Set(visibleHabits.map((h) => h.id)).size);
+    return {
+      done,
+      due: due.length,
+      label: due.length > 0 ? `${done}/${due.length}` : String(new Set(visibleHabits.map((h) => h.id)).size),
+    };
   }, [visibleHabits, todayStr]);
 
   // ── Group ─────────────────────────────────────────────────────────────
@@ -445,11 +450,12 @@ export default function TodoList({
           <SortableContext items={todos.map((x) => x.id)} strategy={verticalListSortingStrategy}>
             <div role="listbox" aria-label={t("Tasks")}>
               {visibleHabits.length > 0 && (
-                <div>
+                <div className="habit-block">
                   <GroupHead
                     label={t("Habits")}
                     count={visibleHabits.length}
-                    progress={habitProgress}
+                    progress={habitProgress.label}
+                    extra={<HabitProgress done={habitProgress.done} total={habitProgress.due} />}
                     open={!collapsed.has("habits")}
                     onToggle={() => toggleGroup("habits")}
                     onOpen={onShowHabits}
@@ -586,6 +592,7 @@ function GroupHead({
   onToggle,
   onOpen,
   openLabel,
+  extra,
 }: {
   label: string;
   count: number;
@@ -595,6 +602,8 @@ function GroupHead({
   onToggle: () => void;
   onOpen?: () => void;
   openLabel?: string;
+  /** Drawn right before the count, such as the habits' progress segments. */
+  extra?: React.ReactNode;
 }) {
   return (
     <div className={`group-head ${tone === "overdue" ? "is-overdue" : ""}`}>
@@ -612,6 +621,7 @@ function GroupHead({
           ↗
         </button>
       )}
+      {extra}
       <span className="group-head-count">{progress ?? count}</span>
     </div>
   );
@@ -665,11 +675,11 @@ function HabitRow({
         rowKeys(e, habit.id, onOpen, onKeyNav);
         if (e.key === " ") { e.preventDefault(); onToggle?.(habit.id, habit.date); }
       }}
-      className={`task-row ${selected ? "is-selected" : ""} ${habit.done ? "is-done" : ""}`}
+      className={`task-row ${selected ? "is-selected" : ""} ${habit.done ? "is-kept" : ""}`}
     >
       <button
         onClick={(e) => { e.stopPropagation(); onToggle?.(habit.id, habit.date); }}
-        className="task-circle"
+        className="task-circle is-habit"
         aria-label={habit.done ? t("Mark as not done") : t("Mark as done")}
         aria-pressed={habit.done}
       >
@@ -677,13 +687,9 @@ function HabitRow({
       </button>
       <span className="task-row-title">{habit.title}</span>
       <span className="task-row-meta">
-        {habit.streak > 0 && (
-          <span className="task-meta-item" title={t("{n} day streak", { n: habit.streak })}>
-            <Flame size={14} aria-hidden="true" />
-            <span className="tabular-nums">{habit.streak}</span>
-          </span>
-        )}
         {time && <span className="tabular-nums">{time}</span>}
+        <StreakLabel streak={habit.streak} />
+        <HabitTrail trail={habit.trail} />
       </span>
     </div>
   );
@@ -761,12 +767,9 @@ function HabitDays({
             className={`task-row ${selectedHabitId === habit.id ? "is-selected" : ""}`}
           >
             <span className="task-row-title">{habit.title}</span>
-            {habit.streak > 0 && (
-              <span className="task-meta-item habit-days-streak" title={t("{n} day streak", { n: habit.streak })}>
-                <Flame size={14} aria-hidden="true" />
-                <span className="tabular-nums">{habit.streak}</span>
-              </span>
-            )}
+            <span className="habit-days-streak">
+              <StreakLabel streak={habit.streak} />
+            </span>
             {days.map((ymd) => {
               const occurrence = byDate.get(ymd);
               if (!occurrence) {
@@ -778,7 +781,7 @@ function HabitDays({
               if (ymd > today) {
                 return (
                   <span key={ymd} className="habit-day">
-                    <span className="task-circle is-ahead" role="img" aria-label={`${label}: ${t("Open")}`} />
+                    <span className="task-circle is-habit is-ahead" role="img" aria-label={`${label}: ${t("Open")}`} />
                   </span>
                 );
               }
@@ -786,7 +789,7 @@ function HabitDays({
                 <span key={ymd} className="habit-day">
                   <button
                     onClick={(e) => { e.stopPropagation(); onToggle?.(habit.id, ymd); }}
-                    className="task-circle"
+                    className="task-circle is-habit"
                     aria-label={label}
                     aria-pressed={occurrence.done}
                   >

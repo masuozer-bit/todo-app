@@ -19,7 +19,7 @@ import {
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { useI18n } from "./I18nProvider";
 import TaskRow from "./TaskRow";
-import { HabitProgress, HabitTrail, StreakLabel } from "./HabitStats";
+import { DayComplete, FullDayChip, HabitProgress, HabitTrail, StreakLabel } from "./HabitStats";
 import ConfirmDialog from "./ConfirmDialog";
 import BulkActionBar from "./BulkActionBar";
 import { getToday } from "@/lib/date-helpers";
@@ -119,6 +119,8 @@ export interface TodoListProps {
   onShowHabits?: () => void;
   /** The days the view covers, so a day without a habit still gets its column. */
   habitDates?: string[];
+  /** Days in a row with every habit done, for the chip in the habits head. */
+  fullDayRun?: number;
 
   highlightedTodoId?: string | null;
   selectedTodoId?: string | null;
@@ -157,6 +159,7 @@ export default function TodoList({
   selectedHabitId = null,
   onShowHabits,
   habitDates,
+  fullDayRun = 0,
   highlightedTodoId,
   selectedTodoId,
   onSelectTodo,
@@ -285,6 +288,9 @@ export default function TodoList({
       label: due.length > 0 ? `${done}/${due.length}` : String(new Set(visibleHabits.map((h) => h.id)).size),
     };
   }, [visibleHabits, todayStr]);
+  // Every habit due today done: the block says so, once
+  const todaysOnes = visibleHabits.filter((h) => h.date === todayStr);
+  const dayComplete = todaysOnes.length > 0 && todaysOnes.every((h) => h.done);
 
   // ── Group ─────────────────────────────────────────────────────────────
   type Group = {
@@ -450,12 +456,17 @@ export default function TodoList({
           <SortableContext items={todos.map((x) => x.id)} strategy={verticalListSortingStrategy}>
             <div role="listbox" aria-label={t("Tasks")}>
               {visibleHabits.length > 0 && (
-                <div className="habit-block">
+                <div className={`habit-block ${dayComplete ? "is-complete" : ""}`}>
                   <GroupHead
                     label={t("Habits")}
                     count={visibleHabits.length}
                     progress={habitProgress.label}
-                    extra={<HabitProgress done={habitProgress.done} total={habitProgress.due} />}
+                    extra={
+                      <>
+                        {dayComplete ? <DayComplete /> : <FullDayChip run={fullDayRun} />}
+                        <HabitProgress done={habitProgress.done} total={habitProgress.due} />
+                      </>
+                    }
                     open={!collapsed.has("habits")}
                     onToggle={() => toggleGroup("habits")}
                     onOpen={onShowHabits}

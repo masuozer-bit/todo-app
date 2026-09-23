@@ -49,7 +49,14 @@ sie liest.
    gerahmter Block auf `--surface`, ein kräftigerer Ring, der beim Abhaken
    gefüllt und nicht durchgestrichen wird, eine Spur der letzten sieben
    Tage je Zeile und der Fortschritt von heute als Segmente. Keine Emojis
-   und keine Flammen, die Serie steht in Worten. Eine Gewohnheit
+   und keine Flammen, die Serie steht in Worten. Spielerisch, aber ruhig:
+   die Serie ist ein Abzeichen, das ab einer Woche warm wird und am Tag
+   einer Marke (3, 7, 14, 21, 30, 66, 100, 180, 365) ganz gefüllt ist; im
+   Panel zeigt eine Markenleiste, was erreicht ist und wie weit die
+   nächste Marke ist. "Volle Tage" zählt die Tage in Folge, an denen jede
+   Gewohnheit erledigt war. Ist heute alles erledigt, trägt der Block
+   einen Akzentrand und "Tag geschafft". Einzige Bewegung: ein kurzer
+   Impuls beim Abhaken, bei reduzierter Bewegung keiner. Eine Gewohnheit
    öffnet sich im Detailpanel wie eine Aufgabe und zeigt dort Serie, beste
    Serie, Quote und Verlauf. Ein übersprungener Tag ist eine Pause und
    bricht keine Serie.
